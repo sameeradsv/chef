@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "node scripts/generate-pwa-icons.mjs && next build",
+    "build:pages": "node scripts/generate-pwa-icons.mjs && next build",
     "start": "next start",
     "lint": "next lint",
     "generate-pwa-icons": "node scripts/generate-pwa-icons.mjs"

@@ -1,0 +1,16 @@
+# Connect this repo at https://dashboard.render.com → New → Blueprint
+# Free tier: SQLite data resets on redeploy; pantry is re-seeded on startup.
+services:
+  - type: web
+    name: chef-api
+    runtime: python
+    rootDir: backend
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.11.11"
+      - key: CORS_ORIGINS
+        value: https://sameeradsv.github.io,http://localhost:3000,http://127.0.0.1:3000

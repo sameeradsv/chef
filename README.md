@@ -145,3 +145,20 @@ chef/
 ```bash
 curl http://localhost:8000/health
 ```
+
+## Deploy (GitHub Pages + Render)
+
+GitHub Pages only serves static files, so the UI is exported from Next.js and the API runs on [Render](https://render.com) (free tier).
+
+### One-time setup
+
+1. **GitHub Pages:** Repo **Settings → Pages → Build and deployment → Source:** set to **GitHub Actions** (not “Deploy from branch”).
+2. **Render backend:** [dashboard.render.com](https://dashboard.render.com) → **New → Blueprint** → connect this repo → apply `render.yaml`. Note the service URL (e.g. `https://chef-api.onrender.com`).
+3. **GitHub variable:** **Settings → Secrets and variables → Actions → Variables** → add `CHEF_API_URL` = your Render API URL (no trailing slash).
+4. **(Optional)** Render **Deploy Hook** URL → GitHub **Secrets** as `RENDER_DEPLOY_HOOK` so each push redeploys the API.
+
+Push to `main`. The workflow builds the backend, exports the frontend to `https://sameeradsv.github.io/chef/`, and deploys Pages.
+
+### Mobile / PWA
+
+Use the GitHub Pages URL on your phone (install from the browser menu). No `npm run dev` required. The API must be reachable at `CHEF_API_URL` (Render free tier may sleep after inactivity; first request can take ~30s).
