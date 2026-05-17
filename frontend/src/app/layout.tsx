@@ -1,10 +1,25 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Layout } from "@/components/Layout";
 import "./globals.css";
 
 export const metadata: Metadata = {
   title: "Chef — Kitchen Decisions",
   description: "Cook vs order vs eat out — with honest tradeoffs",
+  applicationName: "Chef",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "Chef",
+  },
+  formatDetection: {
+    telephone: false,
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#e8a54b",
+  width: "device-width",
+  initialScale: 1,
 };
 
 export default function RootLayout({
