@@ -1,0 +1,35 @@
+[
+  {
+    "id": "rest-south-kitchen",
+    "platform": "Swiggy",
+    "restaurant_name": "South Spice Kitchen",
+    "estimated_delivery_minutes": 35,
+    "total_cost": 320,
+    "delivery_fee": 45,
+    "rating": 4.2,
+    "cuisine": "South Indian",
+    "discount_available": true
+  },
+  {
+    "id": "rest-north-dhaba",
+    "platform": "Zomato",
+    "restaurant_name": "North Dhaba Express",
+    "estimated_delivery_minutes": 42,
+    "total_cost": 280,
+    "delivery_fee": 40,
+    "rating": 4.0,
+    "cuisine": "North Indian",
+    "discount_available": false
+  },
+  {
+    "id": "rest-biryani-house",
+    "platform": "Swiggy",
+    "restaurant_name": "Biryani House",
+    "estimated_delivery_minutes": 50,
+    "total_cost": 380,
+    "delivery_fee": 50,
+    "rating": 4.5,
+    "cuisine": "Indian",
+    "discount_available": true
+  }
+]

@@ -1,0 +1,25 @@
+# Optional PostgreSQL for production-like local dev.
+# MVP defaults to SQLite (see README) — no compose required to run.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: chef
+      POSTGRES_PASSWORD: chef
+      POSTGRES_DB: chef
+    ports:
+      - "5432:5432"
+    volumes:
+      - chef_pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U chef"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # pgvector extension — optional for semantic search (Phase 1 stub)
+  # After postgres is up: CREATE EXTENSION vector;
+
+volumes:
+  chef_pg_data:

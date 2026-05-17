@@ -1,0 +1,125 @@
+[
+  {
+    "id": "r-paneer-bhurji",
+    "name": "Paneer Bhurji",
+    "ingredients": [
+      {"normalized_name": "paneer", "quantity": 200, "unit": "grams"},
+      {"normalized_name": "onion", "quantity": 1, "unit": "piece"},
+      {"normalized_name": "tomato", "quantity": 2, "unit": "piece"},
+      {"normalized_name": "turmeric", "quantity": 1, "unit": "tsp"},
+      {"normalized_name": "cumin", "quantity": 1, "unit": "tsp"}
+    ],
+    "prep_time_minutes": 10,
+    "cook_time_minutes": 15,
+    "difficulty": 2,
+    "cleanup_effort": 2,
+    "nutrition_score": 7,
+    "comfort_score": 9,
+    "estimated_cost": 80,
+    "requires_attention": true,
+    "cuisine": "Indian",
+    "instructions": [
+      "Crumble paneer and set aside.",
+      "Sauté onions until golden, add tomatoes and spices.",
+      "Add paneer, cook 5 minutes, garnish with coriander."
+    ]
+  },
+  {
+    "id": "r-dal-tadka",
+    "name": "Dal Tadka",
+    "ingredients": [
+      {"normalized_name": "lentil", "quantity": 150, "unit": "grams"},
+      {"normalized_name": "onion", "quantity": 1, "unit": "piece"},
+      {"normalized_name": "tomato", "quantity": 1, "unit": "piece"},
+      {"normalized_name": "garlic", "quantity": 4, "unit": "cloves"},
+      {"normalized_name": "cumin", "quantity": 1, "unit": "tsp"}
+    ],
+    "prep_time_minutes": 5,
+    "cook_time_minutes": 25,
+    "difficulty": 2,
+    "cleanup_effort": 3,
+    "nutrition_score": 8,
+    "comfort_score": 8,
+    "estimated_cost": 45,
+    "requires_attention": false,
+    "cuisine": "Indian",
+    "instructions": [
+      "Pressure cook lentils until soft.",
+      "Prepare tadka with cumin, garlic, onion, and tomato.",
+      "Mix tadka into dal and simmer 5 minutes."
+    ]
+  },
+  {
+    "id": "r-spinach-egg",
+    "name": "Spinach Egg Scramble",
+    "ingredients": [
+      {"normalized_name": "spinach", "quantity": 200, "unit": "grams"},
+      {"normalized_name": "egg", "quantity": 3, "unit": "piece"},
+      {"normalized_name": "onion", "quantity": 0.5, "unit": "piece"},
+      {"normalized_name": "garlic", "quantity": 2, "unit": "cloves"}
+    ],
+    "prep_time_minutes": 8,
+    "cook_time_minutes": 10,
+    "difficulty": 1,
+    "cleanup_effort": 2,
+    "nutrition_score": 8,
+    "comfort_score": 7,
+    "estimated_cost": 55,
+    "requires_attention": true,
+    "cuisine": "Continental",
+    "instructions": [
+      "Wilt spinach with garlic and onion.",
+      "Add beaten eggs, scramble until set.",
+      "Season with salt and pepper."
+    ]
+  },
+  {
+    "id": "r-fried-rice",
+    "name": "Vegetable Fried Rice",
+    "ingredients": [
+      {"normalized_name": "rice", "quantity": 200, "unit": "grams"},
+      {"normalized_name": "egg", "quantity": 1, "unit": "piece"},
+      {"normalized_name": "bell_pepper", "quantity": 1, "unit": "piece"},
+      {"normalized_name": "onion", "quantity": 0.5, "unit": "piece"},
+      {"normalized_name": "soy_sauce", "quantity": 2, "unit": "tbsp"}
+    ],
+    "prep_time_minutes": 10,
+    "cook_time_minutes": 12,
+    "difficulty": 2,
+    "cleanup_effort": 3,
+    "nutrition_score": 5,
+    "comfort_score": 7,
+    "estimated_cost": 60,
+    "requires_attention": true,
+    "cuisine": "Asian",
+    "instructions": [
+      "Use day-old rice for best texture.",
+      "Stir-fry vegetables, push aside, scramble egg.",
+      "Add rice and soy sauce, toss on high heat."
+    ]
+  },
+  {
+    "id": "r-yogurt-curry",
+    "name": "Quick Yogurt Curry",
+    "ingredients": [
+      {"normalized_name": "yogurt", "quantity": 200, "unit": "grams"},
+      {"normalized_name": "onion", "quantity": 1, "unit": "piece"},
+      {"normalized_name": "turmeric", "quantity": 0.5, "unit": "tsp"},
+      {"normalized_name": "cumin", "quantity": 1, "unit": "tsp"}
+    ],
+    "prep_time_minutes": 5,
+    "cook_time_minutes": 15,
+    "difficulty": 1,
+    "cleanup_effort": 2,
+    "nutrition_score": 6,
+    "comfort_score": 6,
+    "estimated_cost": 40,
+    "requires_attention": false,
+    "cuisine": "Indian",
+    "instructions": [
+      "Whisk yogurt with turmeric.",
+      "Sauté cumin and onion, lower heat.",
+      "Stir in yogurt gently without curdling."
+    ]
+  }
+]

@@ -1,0 +1,134 @@
+from datetime import date, datetime
+from typing import Any, Dict, List, Literal, Optional
+
+from pydantic import BaseModel, Field
+
+
+class IngredientBase(BaseModel):
+    name: str
+    quantity: float = 0
+    unit: str = "grams"
+    buy_date: Optional[date] = None
+    expiry_date: Optional[date] = None
+    storage_type: str = "fridge"
+    opened: bool = False
+    cost: float = 0
+    brand: Optional[str] = None
+
+
+class IngredientCreate(IngredientBase):
+    pass
+
+
+class IngredientUpdate(BaseModel):
+    name: Optional[str] = None
+    quantity: Optional[float] = None
+    unit: Optional[str] = None
+    buy_date: Optional[date] = None
+    expiry_date: Optional[date] = None
+    storage_type: Optional[str] = None
+    opened: Optional[bool] = None
+    cost: Optional[float] = None
+    brand: Optional[str] = None
+
+
+class IngredientResponse(IngredientBase):
+    id: str
+    normalized_name: str
+    freshness_score: float
+    days_until_expiry: Optional[int] = None
+    expiry_urgency: float = 0
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class RecipeIngredient(BaseModel):
+    normalized_name: str
+    quantity: float
+    unit: str
+
+
+class RecipeResponse(BaseModel):
+    id: str
+    name: str
+    ingredients: List[RecipeIngredient]
+    prep_time_minutes: int
+    cook_time_minutes: int
+    difficulty: int
+    cleanup_effort: int
+    nutrition_score: int
+    comfort_score: int
+    estimated_cost: float
+    requires_attention: bool
+    cuisine: str
+    pantry_match_pct: float = 0
+    uses_expiring: List[str] = Field(default_factory=list)
+    instructions: List[str] = Field(default_factory=list)
+    substitutions: List[Dict[str, Any]] = Field(default_factory=list)
+
+
+class UserStatePayload(BaseModel):
+    energy_level: int = Field(5, ge=1, le=10)
+    time_available_minutes: int = Field(30, ge=5)
+    budget_today: float = Field(300, ge=0)
+    health_priority: int = Field(5, ge=1, le=10)
+    craving: str = ""
+    willingness_to_cook: int = Field(5, ge=1, le=10)
+    stress_level: int = Field(5, ge=1, le=10)
+
+
+class UserStateResponse(UserStatePayload):
+    updated_at: Optional[datetime] = None
+
+
+class UserPreferencesResponse(BaseModel):
+    favorite_cuisines: List[str] = Field(default_factory=list)
+    spice_level: int = 5
+    dietary_restrictions: List[str] = Field(default_factory=list)
+
+
+class RestaurantOption(BaseModel):
+    id: str
+    platform: str
+    restaurant_name: str
+    estimated_delivery_minutes: int
+    total_cost: float
+    delivery_fee: float
+    rating: float
+    cuisine: str
+    discount_available: bool = False
+
+
+class DecisionOption(BaseModel):
+    mode: Literal["cook", "order", "eat_out"]
+    label: str
+    score: float
+    cost: float
+    time_minutes: int
+    effort_label: str
+    effort_score: float
+    factors: Dict[str, float]
+    details: Dict[str, Any] = Field(default_factory=dict)
+
+
+class CookVsOrderRequest(BaseModel):
+    recipe_id: Optional[str] = None
+    restaurant_id: Optional[str] = None
+
+
+class CookVsOrderResponse(BaseModel):
+    recommendation: Literal["cook", "order", "eat_out"]
+    options: List[DecisionOption]
+    reasoning: List[str]
+    recommended_recipe: Optional[RecipeResponse] = None
+    recommended_restaurant: Optional[RestaurantOption] = None
+
+
+class RecommendMealResponse(BaseModel):
+    recommendation: str
+    mode: Literal["cook", "order", "eat_out"]
+    recipe: Optional[RecipeResponse] = None
+    restaurant: Optional[RestaurantOption] = None
+    reasoning: List[str]
+    savings_vs_order: float = 0
