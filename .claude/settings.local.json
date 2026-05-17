@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(Get-ChildItem -Path \"D:\\\\Downloads\\\\Personal\\\\Development\\\\chef\" -Force)",
+      "Bash(Select-Object Name, PSIsContainer)",
+      "Bash(Format-Table -AutoSize)",
+      "PowerShell(Get-ChildItem -Path \"D:\\\\Downloads\\\\Personal\\\\Development\\\\chef\\\\backend\" -Recurse -Depth 2 | Where-Object {$_.PSIsContainer -or $_.Name -match '\\\\.\\(py|txt|json|yaml|yml\\)$'} | Select-Object FullName | Sort-Object FullName)",
+      "Bash(Get-ChildItem *)",
+      "Bash(Select-Object FullName)",
+      "Bash(Sort-Object FullName)",
+      "Bash(grep -E \"\\\\.tsx?$\")",
+      "Bash(Select-Object -ExpandProperty FullName)",
+      "Bash(offline\")",
+      "Bash(Select-Object -Property FullName, PSIsContainer)"
+    ]
+  }
+}

@@ -2,7 +2,7 @@ import uuid
 from datetime import date, datetime
 from typing import Optional
 
-from sqlalchemy import Boolean, Date, DateTime, Float, Integer, String, Text
+from sqlalchemy import Boolean, Date, DateTime, Float, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database import Base
@@ -12,10 +12,22 @@ def _uuid() -> str:
     return str(uuid.uuid4())
 
 
+class UserAccountModel(Base):
+    __tablename__ = "user_accounts"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    username: Mapped[str] = mapped_column(String(100), unique=True, nullable=False, index=True)
+    hashed_passcode: Mapped[str] = mapped_column(String(200), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
 class IngredientModel(Base):
     __tablename__ = "ingredients"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    user_id: Mapped[Optional[str]] = mapped_column(
+        String(36), ForeignKey("user_accounts.id"), nullable=True, index=True
+    )
     name: Mapped[str] = mapped_column(String(200))
     normalized_name: Mapped[str] = mapped_column(String(200), index=True)
     quantity: Mapped[float] = mapped_column(Float, default=0)
@@ -33,7 +45,10 @@ class IngredientModel(Base):
 class UserStateModel(Base):
     __tablename__ = "user_state"
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, default=1)
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    user_id: Mapped[Optional[str]] = mapped_column(
+        String(36), ForeignKey("user_accounts.id"), nullable=True, unique=True, index=True
+    )
     energy_level: Mapped[int] = mapped_column(Integer, default=5)
     time_available_minutes: Mapped[int] = mapped_column(Integer, default=30)
     budget_today: Mapped[float] = mapped_column(Float, default=300)
@@ -47,7 +62,38 @@ class UserStateModel(Base):
 class UserPreferencesModel(Base):
     __tablename__ = "user_preferences"
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, default=1)
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    user_id: Mapped[Optional[str]] = mapped_column(
+        String(36), ForeignKey("user_accounts.id"), nullable=True, unique=True, index=True
+    )
     favorite_cuisines: Mapped[str] = mapped_column(Text, default="Indian,South Indian")
     spice_level: Mapped[int] = mapped_column(Integer, default=5)
     dietary_restrictions: Mapped[str] = mapped_column(Text, default="")
+
+
+class CookingHistoryModel(Base):
+    __tablename__ = "cooking_history"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    user_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("user_accounts.id"), nullable=False, index=True
+    )
+    decision: Mapped[str] = mapped_column(String(20))  # cook | order | eat_out
+    recipe_name: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
+    cuisine: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    timestamp: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    satisfaction: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)  # 1-5
+
+
+class GroceryItemModel(Base):
+    __tablename__ = "grocery_list"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    user_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("user_accounts.id"), nullable=False, index=True
+    )
+    ingredient_name: Mapped[str] = mapped_column(String(200))
+    quantity: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    unit: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    bought: Mapped[bool] = mapped_column(Boolean, default=False)
+    added_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)

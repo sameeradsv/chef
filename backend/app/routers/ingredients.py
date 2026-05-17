@@ -4,7 +4,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import IngredientModel
+from app.dependencies import get_current_user
+from app.models import IngredientModel, UserAccountModel
 from app.schemas import IngredientCreate, IngredientResponse, IngredientUpdate
 from app.services.freshness import days_until_expiry
 from app.services.ingredients import ingredient_to_response, refresh_freshness
@@ -18,8 +19,9 @@ def list_ingredients(
     storage: str | None = Query(None),
     expiring_soon: bool = Query(False),
     db: Session = Depends(get_db),
+    current_user: UserAccountModel = Depends(get_current_user),
 ):
-    q = db.query(IngredientModel)
+    q = db.query(IngredientModel).filter(IngredientModel.user_id == current_user.id)
     if storage:
         q = q.filter(IngredientModel.storage_type == storage)
     items = q.order_by(IngredientModel.expiry_date.asc().nullslast()).all()
@@ -34,8 +36,13 @@ def list_ingredients(
 
 
 @router.post("", response_model=IngredientResponse, status_code=201)
-def create_ingredient(payload: IngredientCreate, db: Session = Depends(get_db)):
+def create_ingredient(
+    payload: IngredientCreate,
+    db: Session = Depends(get_db),
+    current_user: UserAccountModel = Depends(get_current_user),
+):
     ing = IngredientModel(
+        user_id=current_user.id,
         name=payload.name,
         normalized_name=normalize_ingredient_name(payload.name),
         quantity=payload.quantity,
@@ -59,8 +66,13 @@ def update_ingredient(
     ingredient_id: str,
     payload: IngredientUpdate,
     db: Session = Depends(get_db),
+    current_user: UserAccountModel = Depends(get_current_user),
 ):
-    ing = db.query(IngredientModel).filter(IngredientModel.id == ingredient_id).first()
+    ing = (
+        db.query(IngredientModel)
+        .filter(IngredientModel.id == ingredient_id, IngredientModel.user_id == current_user.id)
+        .first()
+    )
     if not ing:
         raise HTTPException(status_code=404, detail="Ingredient not found")
     data = payload.model_dump(exclude_unset=True)
@@ -77,8 +89,16 @@ def update_ingredient(
 
 
 @router.delete("/{ingredient_id}", status_code=204)
-def delete_ingredient(ingredient_id: str, db: Session = Depends(get_db)):
-    ing = db.query(IngredientModel).filter(IngredientModel.id == ingredient_id).first()
+def delete_ingredient(
+    ingredient_id: str,
+    db: Session = Depends(get_db),
+    current_user: UserAccountModel = Depends(get_current_user),
+):
+    ing = (
+        db.query(IngredientModel)
+        .filter(IngredientModel.id == ingredient_id, IngredientModel.user_id == current_user.id)
+        .first()
+    )
     if not ing:
         raise HTTPException(status_code=404, detail="Ingredient not found")
     db.delete(ing)

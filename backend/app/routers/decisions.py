@@ -4,7 +4,8 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import IngredientModel, UserStateModel
+from app.dependencies import get_current_user
+from app.models import IngredientModel, UserAccountModel, UserStateModel
 from app.schemas import (
     CookVsOrderRequest,
     CookVsOrderResponse,
@@ -14,6 +15,8 @@ from app.schemas import (
 )
 from app.services.decision_engine import compare_options, recommend_meal
 from app.services.freshness import days_until_expiry
+from app.services.llm import generate_decision_narrative
+from app.services.personalization import get_user_profile
 from app.services.recipes import (
     best_restaurant_for_state,
     get_recipe_by_id,
@@ -24,8 +27,12 @@ from app.services.recipes import (
 router = APIRouter(prefix="/decision", tags=["decisions"])
 
 
-def _state(db: Session) -> UserStatePayload:
-    row = db.query(UserStateModel).filter(UserStateModel.id == 1).first()
+def _state(db: Session, user_id: str) -> UserStatePayload:
+    row = (
+        db.query(UserStateModel)
+        .filter(UserStateModel.user_id == user_id)
+        .first()
+    )
     if not row:
         return UserStatePayload()
     return UserStatePayload(
@@ -56,10 +63,12 @@ def _restaurant_dto(raw: dict) -> RestaurantOption:
 def cook_vs_order(
     body: CookVsOrderRequest | None = None,
     db: Session = Depends(get_db),
+    current_user: UserAccountModel = Depends(get_current_user),
 ):
     body = body or CookVsOrderRequest()
-    pantry = db.query(IngredientModel).all()
-    state = _state(db)
+    pantry = db.query(IngredientModel).filter(IngredientModel.user_id == current_user.id).all()
+    state = _state(db, current_user.id)
+    profile = get_user_profile(current_user.id, db)
 
     if body.recipe_id:
         recipe = get_recipe_by_id(body.recipe_id, pantry)
@@ -68,7 +77,6 @@ def cook_vs_order(
         recipe = recs[0] if recs else get_recipe_by_id("r-paneer-bhurji", pantry)
     if not recipe:
         from app.services.recipes import load_recipes
-
         raw = load_recipes()[0]
         recipe = get_recipe_by_id(raw["id"], pantry)
 
@@ -78,27 +86,37 @@ def cook_vs_order(
         rest_raw = best_restaurant_for_state(state)
     restaurant = _restaurant_dto(rest_raw)
 
-    return compare_options(
+    result = compare_options(
         recipe,
         restaurant,
         state,
         pantry,
         _expiring_names(pantry),
+        profile,
     )
+    result.narrative = generate_decision_narrative(result)
+    return result
 
 
 @router.post("/recommend-meal", response_model=RecommendMealResponse)
-def recommend_meal_endpoint(db: Session = Depends(get_db)):
-    pantry = db.query(IngredientModel).all()
-    state = _state(db)
+def recommend_meal_endpoint(
+    db: Session = Depends(get_db),
+    current_user: UserAccountModel = Depends(get_current_user),
+):
+    pantry = db.query(IngredientModel).filter(IngredientModel.user_id == current_user.id).all()
+    state = _state(db, current_user.id)
+    profile = get_user_profile(current_user.id, db)
     recs = recommend_recipes(pantry, state, 1)
     recipe = recs[0] if recs else get_recipe_by_id("r-paneer-bhurji", pantry)
     rest_raw = best_restaurant_for_state(state)
     restaurant = _restaurant_dto(rest_raw)
-    return recommend_meal(
+    result = recommend_meal(
         recipe,
         restaurant,
         state,
         pantry,
         _expiring_names(pantry),
+        profile,
     )
+    result.narrative = generate_decision_narrative(result)
+    return result

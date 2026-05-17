@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+from typing import Optional
+
 from app.schemas import (
     CookVsOrderResponse,
     DecisionOption,
     RecipeResponse,
     RecommendMealResponse,
     RestaurantOption,
+    UserProfileResponse,
     UserStatePayload,
 )
 from app.services.freshness import compute_expiry_urgency
@@ -202,17 +205,43 @@ def build_reasoning(
     return reasons
 
 
+def _apply_personalization(
+    cook_opt: DecisionOption,
+    order_opt: DecisionOption,
+    profile: Optional[UserProfileResponse],
+    recipe_cuisine: str,
+) -> tuple[DecisionOption, DecisionOption]:
+    if not profile:
+        return cook_opt, order_opt
+    # Habitual orderer — nudge ordering score up slightly
+    if profile.cook_rate < 0.3:
+        order_opt = order_opt.model_copy(
+            update={"score": round(order_opt.score + 0.5, 2)}
+        )
+    # Preferred cuisine match — nudge cook score up
+    recipe_cuisine_lower = recipe_cuisine.lower()
+    for pref in profile.preferred_cuisines:
+        if pref.lower() in recipe_cuisine_lower or recipe_cuisine_lower in pref.lower():
+            cook_opt = cook_opt.model_copy(
+                update={"score": round(cook_opt.score + 0.5, 2)}
+            )
+            break
+    return cook_opt, order_opt
+
+
 def compare_options(
     recipe: RecipeResponse,
     restaurant: RestaurantOption,
     state: UserStatePayload,
     pantry_ingredients: list,
     expiring_names: list[str],
+    profile: Optional[UserProfileResponse] = None,
 ) -> CookVsOrderResponse:
     pantry_urgency = pantry_expiry_urgency(pantry_ingredients)
     cook_opt = score_cook(recipe, state, pantry_urgency, restaurant.total_cost)
     order_opt = score_order(restaurant, state, state.craving)
     eat_opt = score_eat_out(restaurant, state, state.craving)
+    cook_opt, order_opt = _apply_personalization(cook_opt, order_opt, profile, recipe.cuisine)
 
     options = [cook_opt, order_opt, eat_opt]
     options.sort(key=lambda o: o.score, reverse=True)
@@ -238,8 +267,9 @@ def recommend_meal(
     state: UserStatePayload,
     pantry_ingredients: list,
     expiring_names: list[str],
+    profile: Optional[UserProfileResponse] = None,
 ) -> RecommendMealResponse:
-    comparison = compare_options(recipe, restaurant, state, pantry_ingredients, expiring_names)
+    comparison = compare_options(recipe, restaurant, state, pantry_ingredients, expiring_names, profile)
     winner = comparison.options[0]
     label = winner.label
     if winner.mode == "cook" and recipe:

@@ -122,13 +122,13 @@ def recommend_recipes(
 
 
 def search_recipes(
-    query: str = "",
+    tokens: list[str] | None = None,
     cuisine: str | None = None,
     max_time: int | None = None,
     pantry: list | None = None,
 ) -> list[RecipeResponse]:
     recipes = load_recipes()
-    q = query.lower().strip()
+    toks = [t.lower() for t in (tokens or []) if t.strip()]
     results = []
     for raw in recipes:
         if cuisine and cuisine.lower() not in raw.get("cuisine", "").lower():
@@ -136,8 +136,11 @@ def search_recipes(
         total = raw["prep_time_minutes"] + raw["cook_time_minutes"]
         if max_time and total > max_time:
             continue
-        haystack = f"{raw['name']} {raw.get('cuisine', '')} {' '.join(i['normalized_name'] for i in raw.get('ingredients', []))}".lower()
-        if q and q not in haystack:
+        haystack = (
+            f"{raw['name']} {raw.get('cuisine', '')} "
+            f"{' '.join(i['normalized_name'] for i in raw.get('ingredients', []))}"
+        ).lower()
+        if toks and not all(t in haystack for t in toks):
             continue
         results.append(_recipe_to_response(raw, pantry))
     return results

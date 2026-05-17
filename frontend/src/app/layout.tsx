@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Layout } from "@/components/Layout";
+import { AuthWrapper } from "@/components/AuthWrapper";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -30,7 +30,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="antialiased">
-        <Layout>{children}</Layout>
+        <AuthWrapper>{children}</AuthWrapper>
       </body>
     </html>
   );

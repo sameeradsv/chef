@@ -1,7 +1,7 @@
 from datetime import date, datetime
 from typing import Any, Dict, List, Literal, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class IngredientBase(BaseModel):
@@ -123,6 +123,7 @@ class CookVsOrderResponse(BaseModel):
     reasoning: List[str]
     recommended_recipe: Optional[RecipeResponse] = None
     recommended_restaurant: Optional[RestaurantOption] = None
+    narrative: str = ""
 
 
 class RecommendMealResponse(BaseModel):
@@ -132,3 +133,93 @@ class RecommendMealResponse(BaseModel):
     restaurant: Optional[RestaurantOption] = None
     reasoning: List[str]
     savings_vs_order: float = 0
+    narrative: str = ""
+
+
+# ── Auth ──────────────────────────────────────────────────────────────────────
+
+class RegisterRequest(BaseModel):
+    username: str = Field(..., min_length=2, max_length=50)
+    passcode: str = Field(..., min_length=4, max_length=100)
+
+    @field_validator("username")
+    @classmethod
+    def username_no_spaces(cls, v: str) -> str:
+        if " " in v:
+            raise ValueError("Username must not contain spaces")
+        return v.lower()
+
+
+class LoginRequest(BaseModel):
+    username: str
+    passcode: str
+
+
+class TokenResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+
+
+class UserAccountResponse(BaseModel):
+    id: str
+    username: str
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+# ── Cooking history ───────────────────────────────────────────────────────────
+
+class CookingHistoryCreate(BaseModel):
+    decision: Literal["cook", "order", "eat_out"]
+    recipe_name: Optional[str] = None
+    cuisine: Optional[str] = None
+    satisfaction: Optional[int] = Field(None, ge=1, le=5)
+
+
+class CookingHistoryResponse(BaseModel):
+    id: str
+    decision: str
+    recipe_name: Optional[str]
+    cuisine: Optional[str]
+    timestamp: datetime
+    satisfaction: Optional[int]
+
+    model_config = {"from_attributes": True}
+
+
+# ── Grocery ───────────────────────────────────────────────────────────────────
+
+class GroceryItemCreate(BaseModel):
+    ingredient_name: str = Field(..., min_length=1, max_length=200)
+    quantity: Optional[float] = None
+    unit: Optional[str] = None
+
+
+class GroceryItemUpdate(BaseModel):
+    bought: Optional[bool] = None
+    quantity: Optional[float] = None
+    unit: Optional[str] = None
+
+
+class GroceryItemResponse(BaseModel):
+    id: str
+    ingredient_name: str
+    quantity: Optional[float]
+    unit: Optional[str]
+    bought: bool
+    added_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+# ── Personalization ───────────────────────────────────────────────────────────
+
+class UserProfileResponse(BaseModel):
+    preferred_cuisines: List[str] = Field(default_factory=list)
+    cook_rate: float = 0.5
+    avg_satisfaction: Optional[float] = None
+    weekday_tendency: str = "balanced"
+    favorite_cuisines: List[str] = Field(default_factory=list)
+    spice_level: int = 5
+    dietary_restrictions: List[str] = Field(default_factory=list)

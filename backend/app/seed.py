@@ -2,14 +2,30 @@ from datetime import date, timedelta
 
 from sqlalchemy.orm import Session
 
-from app.models import IngredientModel, UserPreferencesModel, UserStateModel
+from app.models import (
+    IngredientModel,
+    UserAccountModel,
+    UserPreferencesModel,
+    UserStateModel,
+)
 from app.services.freshness import compute_freshness_score
 from app.services.normalize import normalize_ingredient_name
 
 
 def seed_database(db: Session) -> None:
-    if db.query(IngredientModel).count() > 0:
+    # Only seed on a completely fresh database (no users yet)
+    if db.query(UserAccountModel).count() > 0:
         return
+
+    from passlib.context import CryptContext
+    pwd = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+    demo = UserAccountModel(
+        username="demo",
+        hashed_passcode=pwd.hash("demo1234"),
+    )
+    db.add(demo)
+    db.flush()  # populate demo.id before using it
 
     today = date.today()
     samples = [
@@ -78,6 +94,7 @@ def seed_database(db: Session) -> None:
 
     for s in samples:
         ing = IngredientModel(
+            user_id=demo.id,
             name=s["name"],
             normalized_name=normalize_ingredient_name(s["name"]),
             quantity=s["quantity"],
@@ -94,27 +111,24 @@ def seed_database(db: Session) -> None:
         )
         db.add(ing)
 
-    if not db.query(UserStateModel).filter(UserStateModel.id == 1).first():
-        db.add(
-            UserStateModel(
-                id=1,
-                energy_level=4,
-                time_available_minutes=25,
-                budget_today=250,
-                health_priority=7,
-                craving="spicy",
-                willingness_to_cook=3,
-                stress_level=6,
-            )
+    db.add(
+        UserStateModel(
+            user_id=demo.id,
+            energy_level=4,
+            time_available_minutes=25,
+            budget_today=250,
+            health_priority=7,
+            craving="spicy",
+            willingness_to_cook=3,
+            stress_level=6,
         )
-
-    if not db.query(UserPreferencesModel).filter(UserPreferencesModel.id == 1).first():
-        db.add(
-            UserPreferencesModel(
-                id=1,
-                favorite_cuisines="Indian,South Indian",
-                spice_level=7,
-            )
+    )
+    db.add(
+        UserPreferencesModel(
+            user_id=demo.id,
+            favorite_cuisines="Indian,South Indian",
+            spice_level=7,
         )
+    )
 
     db.commit()
