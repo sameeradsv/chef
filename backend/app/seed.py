@@ -17,12 +17,11 @@ def seed_database(db: Session) -> None:
     if db.query(UserAccountModel).count() > 0:
         return
 
-    from passlib.context import CryptContext
-    pwd = CryptContext(schemes=["bcrypt"], deprecated="auto")
+    from app.auth_utils import hash_password
 
     demo = UserAccountModel(
         username="demo",
-        hashed_passcode=pwd.hash("demo1234"),
+        hashed_passcode=hash_password("demo1234"),
     )
     db.add(demo)
     db.flush()  # populate demo.id before using it

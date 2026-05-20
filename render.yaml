@@ -1,5 +1,10 @@
 # Connect this repo at https://dashboard.render.com → New → Blueprint
-# Free tier: SQLite data resets on redeploy; pantry is re-seeded on startup.
+# Free PostgreSQL: data persists across deploys (expires after 90 days on free plan)
+databases:
+  - name: chef-db
+    plan: free
+    region: oregon
+
 services:
   - type: web
     name: chef-api
@@ -10,6 +15,14 @@ services:
     startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
     healthCheckPath: /health
     envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: chef-db
+          property: connectionString
+      - key: SECRET_KEY
+        generateValue: true
+      - key: ANTHROPIC_API_KEY
+        sync: false
       - key: PYTHON_VERSION
         value: "3.11.11"
       - key: CORS_ORIGINS
