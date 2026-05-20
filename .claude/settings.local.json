@@ -11,7 +11,15 @@
       "Bash(grep -E \"\\\\.tsx?$\")",
       "Bash(Select-Object -ExpandProperty FullName)",
       "Bash(offline\")",
-      "Bash(Select-Object -Property FullName, PSIsContainer)"
+      "Bash(Select-Object -Property FullName, PSIsContainer)",
+      "Read(//d/Downloads/**)",
+      "Bash(powershell -Command \"Expand-Archive -Path 'Text streaming.zip' -DestinationPath 'text_streaming_designs' -Force\")",
+      "Bash(npm run *)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(npm install *)",
+      "Bash(git checkout *)",
+      "Bash(git push *)"
     ]
   }
 }
