@@ -17,7 +17,34 @@ function AuthGate({ children }: { children: ReactNode }) {
     }
   }, [isAuthenticated, loading, isLogin, router]);
 
-  if (loading) return null;
+  if (loading) return (
+    <div
+      className="fixed inset-0 flex items-center justify-center"
+      style={{ background: "rgb(var(--kitchen-bg))" }}
+    >
+      <div className="flex flex-col items-center gap-3">
+        <span
+          className="text-2xl font-display"
+          style={{ color: "rgb(var(--kitchen-accent))", letterSpacing: "-0.02em" }}
+        >
+          chef
+        </span>
+        <div className="flex gap-1">
+          {[0, 1, 2].map((i) => (
+            <div
+              key={i}
+              className="w-1.5 h-1.5 rounded-full animate-pulse"
+              style={{
+                background: "rgb(var(--kitchen-accent))",
+                animationDelay: `${i * 0.15}s`,
+                opacity: 0.6,
+              }}
+            />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
   if (!isAuthenticated && !isLogin) return null;
   if (isLogin) return <>{children}</>;
 
