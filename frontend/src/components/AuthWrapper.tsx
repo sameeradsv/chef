@@ -9,15 +9,17 @@ function AuthGate({ children }: { children: ReactNode }) {
   const { isAuthenticated, loading } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
+  const isLogin = pathname === "/login";
 
   useEffect(() => {
-    if (!loading && !isAuthenticated && pathname !== "/login") {
+    if (!loading && !isAuthenticated && !isLogin) {
       router.push("/login");
     }
-  }, [isAuthenticated, loading, pathname, router]);
+  }, [isAuthenticated, loading, isLogin, router]);
 
   if (loading) return null;
-  if (!isAuthenticated && pathname !== "/login") return null;
+  if (!isAuthenticated && !isLogin) return null;
+  if (isLogin) return <>{children}</>;
 
   return <Layout>{children}</Layout>;
 }

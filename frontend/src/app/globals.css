@@ -2,31 +2,120 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  --font-geist-sans: system-ui, -apple-system, sans-serif;
-  --font-display: Georgia, "Times New Roman", serif;
+/* ─── Design Tokens — three themes ──────────────────────────────────────── */
+/* Color channels as "R G B" for Tailwind opacity modifier support.          */
+/* Line/border kept as full rgba since no opacity modifier is used on them.  */
+
+:root,
+[data-theme="hearth"] {
+  --kitchen-bg:      14 12 10;
+  --kitchen-surface: 23 19 17;
+  --kitchen-card:    29 24 21;
+  --kitchen-ink:     244 236 224;
+  --kitchen-ink2:    194 178 154;
+  --kitchen-ink3:    128 113 93;
+  --kitchen-accent:  228 160 80;
+  --kitchen-accent2: 160 112 58;
+  --kitchen-line:    rgba(255, 220, 180, 0.09);
+  --kitchen-line2:   rgba(255, 220, 180, 0.18);
+  --kitchen-warn:    228 160 80;
+  --kitchen-danger:  214 69 69;
+  --kitchen-success: 107 158 107;
+
+  --chef-font-serif: var(--font-newsreader, Georgia, serif);
+  --chef-font-sans:  var(--font-space-grotesk, system-ui, sans-serif);
+  --chef-font-mono:  var(--font-jetbrains-mono, ui-monospace, monospace);
+
+  --radius-card: 14px;
+  --radius-btn:  12px;
 }
 
-body {
-  background: #0f0e0c;
-  color: #f5efe6;
+[data-theme="mise"] {
+  --kitchen-bg:      243 236 225;
+  --kitchen-surface: 235 225 207;
+  --kitchen-card:    251 246 236;
+  --kitchen-ink:     31 26 20;
+  --kitchen-ink2:    74 61 44;
+  --kitchen-ink3:    133 112 85;
+  --kitchen-accent:  184 83 58;
+  --kitchen-accent2: 127 74 42;
+  --kitchen-line:    rgba(60, 40, 20, 0.12);
+  --kitchen-line2:   rgba(60, 40, 20, 0.22);
+  --kitchen-warn:    184 83 58;
+  --kitchen-danger:  214 69 69;
+  --kitchen-success: 78 133 78;
+
+  --chef-font-serif: var(--font-instrument-serif, Georgia, serif);
+  --chef-font-sans:  var(--font-dm-sans, system-ui, sans-serif);
+  --chef-font-mono:  var(--font-jetbrains-mono, ui-monospace, monospace);
+
+  --radius-card: 18px;
+  --radius-btn:  999px;
 }
 
+[data-theme="pantry"] {
+  --kitchen-bg:      245 245 244;
+  --kitchen-surface: 236 236 234;
+  --kitchen-card:    255 255 255;
+  --kitchen-ink:     12 13 14;
+  --kitchen-ink2:    63 65 69;
+  --kitchen-ink3:    128 132 140;
+  --kitchen-accent:  42 111 219;
+  --kitchen-accent2: 36 89 184;
+  --kitchen-line:    rgba(12, 13, 14, 0.08);
+  --kitchen-line2:   rgba(12, 13, 14, 0.15);
+  --kitchen-warn:    217 119 87;
+  --kitchen-danger:  214 69 69;
+  --kitchen-success: 42 145 90;
+
+  --chef-font-serif: var(--font-inter, system-ui, sans-serif);
+  --chef-font-sans:  var(--font-inter, system-ui, sans-serif);
+  --chef-font-mono:  var(--font-jetbrains-mono, ui-monospace, monospace);
+
+  --radius-card: 10px;
+  --radius-btn:  8px;
+}
+
+/* ─── Base ───────────────────────────────────────────────────────────────── */
+@layer base {
+  html {
+    font-family: var(--chef-font-sans), system-ui, sans-serif;
+    -webkit-text-size-adjust: 100%;
+  }
+  body {
+    background-color: rgb(var(--kitchen-bg));
+    color: rgb(var(--kitchen-ink));
+    min-height: 100dvh;
+  }
+}
+
+/* ─── Animations ─────────────────────────────────────────────────────────── */
 @keyframes fade-in {
-  from {
-    opacity: 0;
-    transform: translateY(6px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.35; }
+}
+@keyframes shimmer {
+  from { background-position: 200% center; }
+  to   { background-position: -200% center; }
 }
 
 .animate-fade-in {
-  animation: fade-in 0.35s ease-out;
+  animation: fade-in 0.3s cubic-bezier(0.2, 0.7, 0.3, 1);
 }
-
-.card-hover {
-  @apply transition-all duration-200 hover:border-kitchen-accent/40 hover:shadow-lg hover:shadow-kitchen-accent/5;
+.animate-pulse-dot {
+  animation: pulse-dot 1.8s ease-in-out infinite;
+}
+.loading-shimmer {
+  background: linear-gradient(
+    90deg,
+    rgb(var(--kitchen-surface)) 25%,
+    rgb(var(--kitchen-card))    50%,
+    rgb(var(--kitchen-surface)) 75%
+  );
+  background-size: 400% 100%;
+  animation: shimmer 1.8s ease infinite;
 }

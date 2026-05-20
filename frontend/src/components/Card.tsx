@@ -9,11 +9,18 @@ export function Card({
 }) {
   return (
     <div
-      className={`rounded-xl border p-5 transition-all duration-200 card-hover ${
-        highlight
-          ? "border-kitchen-accent/50 bg-kitchen-accent/5"
-          : "border-kitchen-border bg-kitchen-card"
-      } ${className}`}
+      className={`transition-all duration-200 ${className}`}
+      style={{
+        borderRadius: "var(--radius-card)",
+        padding: "16px 20px",
+        border: highlight
+          ? "1px solid rgb(var(--kitchen-accent) / 0.45)"
+          : "1px solid var(--kitchen-line)",
+        background: highlight
+          ? "rgb(var(--kitchen-accent) / 0.06)"
+          : "rgb(var(--kitchen-card))",
+        boxShadow: highlight ? "0 0 20px rgb(var(--kitchen-accent) / 0.1)" : "none",
+      }}
     >
       {children}
     </div>
@@ -22,10 +29,9 @@ export function Card({
 
 export function LoadingCard() {
   return (
-    <div className="rounded-xl border border-kitchen-border bg-kitchen-card p-5 animate-pulse">
-      <div className="h-4 bg-kitchen-border rounded w-1/3 mb-3" />
-      <div className="h-3 bg-kitchen-border rounded w-2/3 mb-2" />
-      <div className="h-3 bg-kitchen-border rounded w-1/2" />
-    </div>
+    <div
+      className="loading-shimmer"
+      style={{ height: 80, borderRadius: "var(--radius-card)", border: "1px solid var(--kitchen-line)" }}
+    />
   );
 }

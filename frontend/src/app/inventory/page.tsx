@@ -1,11 +1,29 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Card, LoadingCard } from "@/components/Card";
 import { api, type Ingredient } from "@/lib/api";
-import { expiryBadge } from "@/lib/utils";
 
-const STORAGE_FILTERS = ["all", "fridge", "pantry", "freezer"];
+const CATEGORIES = ["All", "Produce", "Protein", "Dairy", "Grains", "Pantry"];
+
+function expiryText(days?: number | null) {
+  if (days == null) return null;
+  if (days < 0) return "expired";
+  if (days === 0) return "today";
+  if (days === 1) return "tomorrow";
+  if (days <= 7) return `${days}d`;
+  if (days <= 30) return `${Math.round(days / 7)}w`;
+  return `${Math.round(days / 30)}mo`;
+}
+
+function expiryStyle(days?: number | null): React.CSSProperties {
+  if (days == null || days > 5) return { color: "rgb(var(--kitchen-ink3))", background: "rgb(var(--kitchen-surface))" };
+  if (days <= 2) return { color: "rgb(var(--kitchen-accent))", background: "rgb(var(--kitchen-accent) / 0.12)" };
+  return { color: "rgb(var(--kitchen-warn))", background: "rgb(var(--kitchen-warn) / 0.12)" };
+}
+
+function MonoLabel({ children, className = "" }: { children: React.ReactNode; className?: string }) {
+  return <span className={`text-[10px] font-mono tracking-[0.12em] uppercase ${className}`}>{children}</span>;
+}
 
 const emptyForm = {
   name: "",
@@ -17,9 +35,106 @@ const emptyForm = {
   cost: 0,
 };
 
+/* ─── Add / Edit sheet ─────────────────────────────────────────────────── */
+function IngredientSheet({
+  editing,
+  form,
+  setForm,
+  onSubmit,
+  onClose,
+}: {
+  editing: Ingredient | null;
+  form: typeof emptyForm;
+  setForm: React.Dispatch<React.SetStateAction<typeof emptyForm>>;
+  onSubmit: (e: React.FormEvent) => void;
+  onClose: () => void;
+}) {
+  const inputCls = "w-full bg-kitchen-surface text-kitchen-text text-sm px-3 py-2.5 outline-none focus:ring-1 ring-kitchen-accent/50 placeholder:text-kitchen-muted";
+  const inputStyle: React.CSSProperties = { border: "1px solid var(--kitchen-line2)", borderRadius: "var(--radius-btn)" };
+
+  return (
+    <div
+      className="fixed inset-0 z-60 flex items-end md:items-center justify-center"
+      style={{ background: "rgba(0,0,0,0.5)", backdropFilter: "blur(4px)" }}
+      onClick={(e) => e.target === e.currentTarget && onClose()}
+    >
+      <div
+        className="w-full max-w-md max-h-[90dvh] overflow-auto animate-fade-in"
+        style={{
+          background: "rgb(var(--kitchen-bg))",
+          borderRadius: "var(--radius-card) var(--radius-card) 0 0",
+          padding: "20px 22px calc(20px + env(safe-area-inset-bottom, 0px))",
+          borderTop: "1px solid var(--kitchen-line2)",
+        }}
+      >
+        <div className="flex items-center justify-between mb-5">
+          <h2 className="font-display text-lg">{editing ? "Edit ingredient" : "Add ingredient"}</h2>
+          <button type="button" onClick={onClose} className="text-kitchen-muted hover:text-kitchen-text w-8 h-8 flex items-center justify-center text-lg">×</button>
+        </div>
+
+        <form onSubmit={onSubmit} className="space-y-4">
+          <div className="grid grid-cols-2 gap-3">
+            <div className="col-span-2">
+              <MonoLabel className="text-kitchen-muted block mb-1.5">NAME</MonoLabel>
+              <input required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="e.g. Cremini mushrooms" className={inputCls} style={inputStyle} />
+            </div>
+            <div>
+              <MonoLabel className="text-kitchen-muted block mb-1.5">QUANTITY</MonoLabel>
+              <input type="number" required value={form.quantity || ""} onChange={(e) => setForm({ ...form, quantity: Number(e.target.value) })} className={inputCls} style={inputStyle} />
+            </div>
+            <div>
+              <MonoLabel className="text-kitchen-muted block mb-1.5">UNIT</MonoLabel>
+              <input value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })} placeholder="grams" className={inputCls} style={inputStyle} />
+            </div>
+            <div>
+              <MonoLabel className="text-kitchen-muted block mb-1.5">EXPIRY DATE</MonoLabel>
+              <input type="date" value={form.expiry_date} onChange={(e) => setForm({ ...form, expiry_date: e.target.value })} className={inputCls} style={inputStyle} />
+            </div>
+            <div>
+              <MonoLabel className="text-kitchen-muted block mb-1.5">STORAGE</MonoLabel>
+              <select value={form.storage_type} onChange={(e) => setForm({ ...form, storage_type: e.target.value })} className={inputCls} style={inputStyle}>
+                <option value="fridge">Fridge</option>
+                <option value="pantry">Pantry</option>
+                <option value="freezer">Freezer</option>
+              </select>
+            </div>
+            <div>
+              <MonoLabel className="text-kitchen-muted block mb-1.5">COST (₹)</MonoLabel>
+              <input type="number" value={form.cost || ""} onChange={(e) => setForm({ ...form, cost: Number(e.target.value) })} className={inputCls} style={inputStyle} />
+            </div>
+            <div className="flex items-center gap-2.5 col-span-2">
+              <input type="checkbox" id="opened" checked={form.opened} onChange={(e) => setForm({ ...form, opened: e.target.checked })} className="accent-kitchen-accent w-4 h-4" />
+              <label htmlFor="opened" className="text-sm text-kitchen-muted">Opened / in use</label>
+            </div>
+          </div>
+
+          <div className="flex gap-2.5 pt-1">
+            <button
+              type="submit"
+              className="flex-1 py-3 text-sm font-medium transition-opacity hover:opacity-90"
+              style={{ background: "rgb(var(--kitchen-accent))", color: "rgb(26 18 10)", borderRadius: "var(--radius-btn)" }}
+            >
+              {editing ? "Save changes" : "Add to pantry"}
+            </button>
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-3 text-sm text-kitchen-muted transition-colors hover:text-kitchen-text"
+              style={{ border: "1px solid var(--kitchen-line2)", borderRadius: "var(--radius-btn)" }}
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+/* ─── Page ─────────────────────────────────────────────────────────────── */
 export default function InventoryPage() {
   const [items, setItems] = useState<Ingredient[]>([]);
-  const [filter, setFilter] = useState("all");
+  const [filter, setFilter] = useState("All");
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<Ingredient | null>(null);
@@ -28,8 +143,12 @@ export default function InventoryPage() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
+      const storageMap: Record<string, string> = {
+        Produce: "fridge", Protein: "fridge", Dairy: "fridge",
+        Grains: "pantry", Pantry: "pantry",
+      };
       const data = await api.getIngredients(
-        filter !== "all" ? { storage: filter } : undefined
+        filter !== "All" && storageMap[filter] ? { storage: storageMap[filter] } : undefined
       );
       setItems(data);
     } finally {
@@ -37,23 +156,12 @@ export default function InventoryPage() {
     }
   }, [filter]);
 
-  useEffect(() => {
-    load();
-  }, [load]);
+  useEffect(() => { load(); }, [load]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    const payload = {
-      ...form,
-      quantity: Number(form.quantity),
-      cost: Number(form.cost),
-      expiry_date: form.expiry_date || undefined,
-    };
-    if (editing) {
-      await api.updateIngredient(editing.id, payload);
-    } else {
-      await api.createIngredient(payload);
-    }
+    const payload = { ...form, quantity: Number(form.quantity), cost: Number(form.cost), expiry_date: form.expiry_date || undefined };
+    if (editing) { await api.updateIngredient(editing.id, payload); } else { await api.createIngredient(payload); }
     setShowForm(false);
     setEditing(null);
     setForm(emptyForm);
@@ -62,15 +170,7 @@ export default function InventoryPage() {
 
   function startEdit(ing: Ingredient) {
     setEditing(ing);
-    setForm({
-      name: ing.name,
-      quantity: ing.quantity,
-      unit: ing.unit,
-      expiry_date: ing.expiry_date?.slice(0, 10) || "",
-      storage_type: ing.storage_type,
-      opened: ing.opened,
-      cost: ing.cost,
-    });
+    setForm({ name: ing.name, quantity: ing.quantity, unit: ing.unit, expiry_date: ing.expiry_date?.slice(0, 10) || "", storage_type: ing.storage_type, opened: ing.opened, cost: ing.cost });
     setShowForm(true);
   }
 
@@ -80,200 +180,154 @@ export default function InventoryPage() {
     load();
   }
 
+  const fresh    = items.filter((i) => (i.days_until_expiry ?? 99) > 5).length;
+  const expiring = items.filter((i) => (i.days_until_expiry ?? 99) <= 5 && (i.days_until_expiry ?? -1) >= 0).length;
+  const staples  = items.filter((i) => i.storage_type === "pantry").length;
+
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h2 className="text-2xl font-display">Pantry</h2>
-          <p className="text-sm text-kitchen-muted">
-            Expiry and freshness computed on the server
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={() => {
-            setEditing(null);
-            setForm(emptyForm);
-            setShowForm(true);
-          }}
-          className="px-4 py-2 rounded-lg bg-kitchen-accent text-kitchen-bg font-medium text-sm hover:bg-kitchen-accentDim transition-colors"
-        >
-          + Add ingredient
-        </button>
+    <div className="space-y-5 pt-2">
+      {/* Header */}
+      <div>
+        <MonoLabel className="text-kitchen-muted">PANTRY</MonoLabel>
+        <h1 className="font-display font-normal mt-1" style={{ fontSize: 26, letterSpacing: "-0.02em" }}>
+          <span className="text-kitchen-accent">{items.length}</span> items
+        </h1>
       </div>
 
-      <div className="flex gap-2 flex-wrap">
-        {STORAGE_FILTERS.map((s) => (
-          <button
-            key={s}
-            type="button"
-            onClick={() => setFilter(s)}
-            className={`px-3 py-1.5 rounded-full text-sm capitalize transition-colors ${
-              filter === s
-                ? "bg-kitchen-accent/20 text-kitchen-accent"
-                : "bg-kitchen-card text-kitchen-muted hover:text-kitchen-text"
-            }`}
+      {/* KPI cards */}
+      <div className="grid grid-cols-3 gap-2">
+        {[
+          { label: "FRESH",    value: fresh,    color: "kitchen-success" },
+          { label: "EXPIRING", value: expiring, color: "kitchen-accent", highlight: expiring > 0 },
+          { label: "STAPLES",  value: staples,  color: "kitchen-muted" },
+        ].map(({ label, value, highlight }) => (
+          <div
+            key={label}
+            className="p-3 text-center"
+            style={{
+              border: highlight ? "1px solid rgb(var(--kitchen-accent) / 0.3)" : "1px solid var(--kitchen-line)",
+              background: highlight ? "rgb(var(--kitchen-accent) / 0.06)" : "rgb(var(--kitchen-card))",
+              borderRadius: "var(--radius-card)",
+            }}
           >
-            {s}
-          </button>
+            <p className={`text-xl font-display font-normal ${highlight ? "text-kitchen-accent" : "text-kitchen-text"}`}>{value}</p>
+            <MonoLabel className="text-kitchen-muted mt-0.5 block">{label}</MonoLabel>
+          </div>
         ))}
       </div>
 
-      {showForm && (
-        <Card>
-          <form onSubmit={handleSubmit} className="grid gap-4 sm:grid-cols-2">
-            <label className="block">
-              <span className="text-xs text-kitchen-muted">Name</span>
-              <input
-                required
-                value={form.name}
-                onChange={(e) => setForm({ ...form, name: e.target.value })}
-                className="mt-1 w-full rounded-lg bg-kitchen-bg border border-kitchen-border px-3 py-2 text-sm"
-              />
-            </label>
-            <label className="block">
-              <span className="text-xs text-kitchen-muted">Quantity</span>
-              <input
-                type="number"
-                required
-                value={form.quantity}
-                onChange={(e) =>
-                  setForm({ ...form, quantity: Number(e.target.value) })
-                }
-                className="mt-1 w-full rounded-lg bg-kitchen-bg border border-kitchen-border px-3 py-2 text-sm"
-              />
-            </label>
-            <label className="block">
-              <span className="text-xs text-kitchen-muted">Unit</span>
-              <input
-                value={form.unit}
-                onChange={(e) => setForm({ ...form, unit: e.target.value })}
-                className="mt-1 w-full rounded-lg bg-kitchen-bg border border-kitchen-border px-3 py-2 text-sm"
-              />
-            </label>
-            <label className="block">
-              <span className="text-xs text-kitchen-muted">Expiry date</span>
-              <input
-                type="date"
-                value={form.expiry_date}
-                onChange={(e) =>
-                  setForm({ ...form, expiry_date: e.target.value })
-                }
-                className="mt-1 w-full rounded-lg bg-kitchen-bg border border-kitchen-border px-3 py-2 text-sm"
-              />
-            </label>
-            <label className="block">
-              <span className="text-xs text-kitchen-muted">Storage</span>
-              <select
-                value={form.storage_type}
-                onChange={(e) =>
-                  setForm({ ...form, storage_type: e.target.value })
-                }
-                className="mt-1 w-full rounded-lg bg-kitchen-bg border border-kitchen-border px-3 py-2 text-sm"
-              >
-                <option value="fridge">Fridge</option>
-                <option value="pantry">Pantry</option>
-                <option value="freezer">Freezer</option>
-              </select>
-            </label>
-            <label className="block">
-              <span className="text-xs text-kitchen-muted">Cost (₹)</span>
-              <input
-                type="number"
-                value={form.cost}
-                onChange={(e) =>
-                  setForm({ ...form, cost: Number(e.target.value) })
-                }
-                className="mt-1 w-full rounded-lg bg-kitchen-bg border border-kitchen-border px-3 py-2 text-sm"
-              />
-            </label>
-            <label className="flex items-center gap-2 sm:col-span-2">
-              <input
-                type="checkbox"
-                checked={form.opened}
-                onChange={(e) =>
-                  setForm({ ...form, opened: e.target.checked })
-                }
-              />
-              <span className="text-sm">Opened</span>
-            </label>
-            <div className="sm:col-span-2 flex gap-2">
-              <button
-                type="submit"
-                className="px-4 py-2 rounded-lg bg-kitchen-accent text-kitchen-bg text-sm font-medium"
-              >
-                {editing ? "Save" : "Add"}
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setShowForm(false);
-                  setEditing(null);
-                }}
-                className="px-4 py-2 rounded-lg border border-kitchen-border text-sm"
-              >
-                Cancel
-              </button>
-            </div>
-          </form>
-        </Card>
-      )}
+      {/* Category filter chips */}
+      <div
+        className="flex gap-2 overflow-x-auto pb-1 -mx-[22px] px-[22px]"
+        style={{ borderBottom: "1px solid var(--kitchen-line)" }}
+      >
+        {CATEGORIES.map((cat) => (
+          <button
+            key={cat}
+            type="button"
+            onClick={() => setFilter(cat)}
+            className="flex-shrink-0 px-3 py-1.5 text-xs font-mono tracking-wide transition-colors"
+            style={{
+              borderRadius: 999,
+              border: filter === cat ? "1px solid transparent" : "1px solid var(--kitchen-line2)",
+              background: filter === cat ? "rgb(var(--kitchen-ink))" : "transparent",
+              color: filter === cat ? "rgb(var(--kitchen-accent))" : "rgb(var(--kitchen-ink3))",
+              letterSpacing: "0.08em",
+            }}
+          >
+            {cat.toUpperCase()}
+          </button>
+        ))}
+        <div className="flex-shrink-0 w-[22px]" />
+      </div>
 
+      {/* Ingredient list */}
       {loading ? (
-        <div className="space-y-3">
-          <LoadingCard />
-          <LoadingCard />
+        <div className="space-y-2">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="loading-shimmer h-16 rounded-card" />
+          ))}
         </div>
       ) : items.length === 0 ? (
-        <Card>
-          <p className="text-kitchen-muted">No ingredients yet. Add your pantry.</p>
-        </Card>
+        <div
+          className="py-12 text-center"
+          style={{ border: "1px dashed var(--kitchen-line2)", borderRadius: "var(--radius-card)" }}
+        >
+          <p className="text-kitchen-muted text-sm">No ingredients yet.</p>
+          <button
+            type="button"
+            onClick={() => { setEditing(null); setForm(emptyForm); setShowForm(true); }}
+            className="mt-3 text-kitchen-accent text-sm font-mono tracking-wide"
+          >
+            + ADD FIRST ITEM
+          </button>
+        </div>
       ) : (
-        <ul className="space-y-3">
+        <ul className="space-y-2 pb-4">
           {items.map((ing) => {
-            const badge = expiryBadge(ing.days_until_expiry);
+            const label = expiryText(ing.days_until_expiry);
+            const style = expiryStyle(ing.days_until_expiry);
             return (
               <li key={ing.id}>
-                <Card className="!p-4">
-                  <div className="flex flex-wrap justify-between gap-3">
-                    <div>
-                      <p className="font-medium">{ing.name}</p>
-                      <p className="text-sm text-kitchen-muted">
-                        {ing.quantity} {ing.unit} · {ing.storage_type}
-                        {ing.opened && " · opened"}
-                      </p>
-                      <p className="text-xs text-kitchen-muted mt-1">
-                        Freshness {ing.freshness_score}/10
-                        {ing.cost > 0 && ` · ₹${ing.cost}`}
-                      </p>
-                    </div>
-                    <div className="flex items-start gap-2">
-                      <span
-                        className={`text-xs px-2 py-1 rounded-full ${badge.className}`}
-                      >
-                        {badge.label}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => startEdit(ing)}
-                        className="text-xs text-kitchen-accent hover:underline"
-                      >
-                        Edit
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleDelete(ing.id)}
-                        className="text-xs text-kitchen-danger hover:underline"
-                      >
-                        Delete
-                      </button>
-                    </div>
+                <div
+                  className="flex items-center justify-between px-4 py-3"
+                  style={{ border: "1px solid var(--kitchen-line)", borderRadius: "var(--radius-card)", background: "rgb(var(--kitchen-card))" }}
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium text-kitchen-text truncate">{ing.name}</p>
+                    <MonoLabel className="text-kitchen-muted mt-0.5">
+                      {ing.quantity} {ing.unit} · {ing.storage_type}{ing.opened ? " · opened" : ""}
+                    </MonoLabel>
                   </div>
-                </Card>
+                  <div className="flex items-center gap-2 ml-3 flex-shrink-0">
+                    {label && (
+                      <span
+                        className="text-[10px] font-mono px-2 py-0.5"
+                        style={{ borderRadius: 999, letterSpacing: "0.05em", ...style }}
+                      >
+                        {label}
+                      </span>
+                    )}
+                    <button type="button" onClick={() => startEdit(ing)} className="text-xs text-kitchen-muted hover:text-kitchen-accent transition-colors">
+                      Edit
+                    </button>
+                    <button type="button" onClick={() => handleDelete(ing.id)} className="text-xs text-kitchen-muted hover:text-kitchen-danger transition-colors">
+                      ×
+                    </button>
+                  </div>
+                </div>
               </li>
             );
           })}
         </ul>
+      )}
+
+      {/* FAB */}
+      <button
+        type="button"
+        onClick={() => { setEditing(null); setForm(emptyForm); setShowForm(true); }}
+        className="fixed bottom-20 right-5 md:bottom-6 w-14 h-14 flex items-center justify-center text-2xl font-light transition-transform hover:scale-105 active:scale-95 z-40"
+        style={{
+          background: "rgb(var(--kitchen-accent))",
+          color: "rgb(26 18 10)",
+          borderRadius: "50%",
+          boxShadow: "0 8px 24px rgb(var(--kitchen-accent) / 0.35), 0 0 0 1px rgb(var(--kitchen-accent) / 0.4)",
+          bottom: "calc(72px + env(safe-area-inset-bottom, 0px))",
+        }}
+        aria-label="Add ingredient"
+      >
+        +
+      </button>
+
+      {/* Sheet */}
+      {showForm && (
+        <IngredientSheet
+          editing={editing}
+          form={form}
+          setForm={setForm}
+          onSubmit={handleSubmit}
+          onClose={() => { setShowForm(false); setEditing(null); }}
+        />
       )}
     </div>
   );
