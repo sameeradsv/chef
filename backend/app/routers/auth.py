@@ -1,27 +1,16 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta
-
-from fastapi import APIRouter, Depends, HTTPException, status
-from passlib.context import CryptContext
+from fastapi import APIRouter, Depends, Header, HTTPException, status
 from sqlalchemy.orm import Session
+from typing import Optional
 
+from app.auth_utils import create_session, hash_password, verify_password
 from app.database import get_db
-from app.dependencies import ALGORITHM, SECRET_KEY, get_current_user
+from app.dependencies import get_current_user
 from app.models import UserAccountModel
 from app.schemas import LoginRequest, RegisterRequest, TokenResponse, UserAccountResponse
 
-from jose import jwt
-
 router = APIRouter(prefix="/auth", tags=["auth"])
-
-_pwd = CryptContext(schemes=["bcrypt"], deprecated="auto")
-TOKEN_EXPIRE_DAYS = 30
-
-
-def _make_token(user_id: str) -> str:
-    exp = datetime.utcnow() + timedelta(days=TOKEN_EXPIRE_DAYS)
-    return jwt.encode({"sub": user_id, "exp": exp}, SECRET_KEY, algorithm=ALGORITHM)
 
 
 @router.post("/register", response_model=TokenResponse, status_code=201)
@@ -32,18 +21,19 @@ def register(payload: RegisterRequest, db: Session = Depends(get_db)):
         .first()
     )
     if existing:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Username already taken",
-        )
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Username already taken")
     user = UserAccountModel(
         username=payload.username,
-        hashed_passcode=_pwd.hash(payload.passcode),
+        hashed_passcode=hash_password(payload.passcode),
     )
     db.add(user)
     db.commit()
     db.refresh(user)
-    return TokenResponse(access_token=_make_token(user.id))
+    session = create_session(db, user)
+    return TokenResponse(
+        token=session.token,
+        user=UserAccountResponse.model_validate(user),
+    )
 
 
 @router.post("/login", response_model=TokenResponse)
@@ -53,14 +43,33 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)):
         .filter(UserAccountModel.username == payload.username.lower())
         .first()
     )
-    if not user or not _pwd.verify(payload.passcode, user.hashed_passcode):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid username or passcode",
-        )
-    return TokenResponse(access_token=_make_token(user.id))
+    if not user or not verify_password(payload.passcode, user.hashed_passcode):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid username or passcode")
+    session = create_session(db, user)
+    return TokenResponse(
+        token=session.token,
+        user=UserAccountResponse.model_validate(user),
+    )
+
+
+@router.delete("/logout", status_code=204)
+def logout(
+    authorization: Optional[str] = Header(None),
+    db: Session = Depends(get_db),
+):
+    if authorization and authorization.lower().startswith("bearer "):
+        token = authorization[7:].strip()
+        from app.models import AuthSessionModel
+        db.query(AuthSessionModel).filter(AuthSessionModel.token == token).delete()
+        db.commit()
 
 
 @router.get("/me", response_model=UserAccountResponse)
 def me(current_user: UserAccountModel = Depends(get_current_user)):
     return current_user
+
+
+@router.get("/status")
+def status_check(db: Session = Depends(get_db)):
+    has_users = db.query(UserAccountModel).first() is not None
+    return {"has_users": has_users, "sync_ready": True}

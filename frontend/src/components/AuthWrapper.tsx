@@ -6,17 +6,17 @@ import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { Layout } from "@/components/Layout";
 
 function AuthGate({ children }: { children: ReactNode }) {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, loading } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
 
   useEffect(() => {
-    if (!isAuthenticated && pathname !== "/login") {
+    if (!loading && !isAuthenticated && pathname !== "/login") {
       router.push("/login");
     }
-  }, [isAuthenticated, pathname, router]);
+  }, [isAuthenticated, loading, pathname, router]);
 
-  // Show nothing while redirecting to login
+  if (loading) return null;
   if (!isAuthenticated && pathname !== "/login") return null;
 
   return <Layout>{children}</Layout>;

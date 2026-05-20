@@ -21,6 +21,27 @@ class Base(DeclarativeBase):
     pass
 
 
+def _migrate_sqlite() -> None:
+    if not DATABASE_URL.startswith("sqlite"):
+        return
+    with engine.connect() as conn:
+        from sqlalchemy import text, inspect
+        inspector = inspect(engine)
+        if "auth_sessions" not in inspector.get_table_names():
+            conn.execute(text(
+                "CREATE TABLE auth_sessions ("
+                "id INTEGER PRIMARY KEY AUTOINCREMENT, "
+                "token VARCHAR(64) NOT NULL UNIQUE, "
+                "user_id VARCHAR(36) NOT NULL REFERENCES user_accounts(id), "
+                "created_at DATETIME DEFAULT CURRENT_TIMESTAMP, "
+                "expires_at DATETIME NOT NULL"
+                ")"
+            ))
+            conn.execute(text("CREATE INDEX ix_auth_sessions_token ON auth_sessions (token)"))
+            conn.execute(text("CREATE INDEX ix_auth_sessions_user_id ON auth_sessions (user_id)"))
+            conn.commit()
+
+
 def get_db():
     db = SessionLocal()
     try:

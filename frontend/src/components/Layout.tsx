@@ -10,6 +10,7 @@ const nav = [
   { href: "/decision", label: "Decide", icon: "◎" },
   { href: "/grocery", label: "Grocery", icon: "▤" },
   { href: "/history", label: "History", icon: "◷" },
+  { href: "/settings", label: "Settings", icon: "◈" },
 ];
 
 export function Layout({ children }: { children: React.ReactNode }) {

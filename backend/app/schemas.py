@@ -88,6 +88,12 @@ class UserPreferencesResponse(BaseModel):
     dietary_restrictions: List[str] = Field(default_factory=list)
 
 
+class UserPreferencesPayload(BaseModel):
+    favorite_cuisines: Optional[str] = None
+    spice_level: Optional[int] = Field(None, ge=1, le=10)
+    dietary_restrictions: Optional[str] = None
+
+
 class RestaurantOption(BaseModel):
     id: str
     platform: str
@@ -156,8 +162,8 @@ class LoginRequest(BaseModel):
 
 
 class TokenResponse(BaseModel):
-    access_token: str
-    token_type: str = "bearer"
+    token: str
+    user: "UserAccountResponse"
 
 
 class UserAccountResponse(BaseModel):

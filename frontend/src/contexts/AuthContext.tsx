@@ -1,72 +1,94 @@
 "use client";
 
+import { createContext, useCallback, useContext } from "react";
 import {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useState,
-  type ReactNode,
-} from "react";
-import { auth, clearToken, getToken, setToken } from "@/lib/api";
+  AuthProvider as CortexProvider,
+  useAuth as useCortexAuth,
+  setAuthToken,
+} from "@shared/cortex";
+import type { AuthUser } from "@shared/cortex";
 
-interface AuthContextValue {
-  token: string | null;
+const API_BASE = process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "") ?? "http://localhost:8000";
+
+async function callAuth(
+  endpoint: string,
+  username: string,
+  passcode: string,
+): Promise<{ token: string; user: AuthUser }> {
+  const res = await fetch(`${API_BASE}/auth/${endpoint}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ username: username.toLowerCase(), passcode }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: "Request failed" }));
+    throw new Error(err.detail || "Request failed");
+  }
+  return res.json();
+}
+
+interface ChefAuthContextValue {
+  user: AuthUser | null;
+  loading: boolean;
   username: string | null;
   isAuthenticated: boolean;
   login: (username: string, passcode: string) => Promise<void>;
   register: (username: string, passcode: string) => Promise<void>;
-  logout: () => void;
+  logout: () => Promise<void>;
 }
 
-const AuthContext = createContext<AuthContextValue>({} as AuthContextValue);
+const ChefAuthContext = createContext<ChefAuthContextValue>({} as ChefAuthContextValue);
 
-export function AuthProvider({ children }: { children: ReactNode }) {
-  const [token, setTokenState] = useState<string | null>(() => getToken());
-  const [username, setUsername] = useState<string | null>(() =>
-    typeof window !== "undefined" ? localStorage.getItem("chef_username") : null
+function ChefAuthBridge({ children }: { children: React.ReactNode }) {
+  const { user, loading, logout, refetch } = useCortexAuth();
+
+  const login = useCallback(
+    async (username: string, passcode: string) => {
+      const data = await callAuth("login", username, passcode);
+      setAuthToken("chef_auth_token", data.token);
+      await refetch();
+    },
+    [refetch],
   );
 
-  useEffect(() => {
-    const handler = () => {
-      setTokenState(null);
-      setUsername(null);
-    };
-    window.addEventListener("chef:unauthorized", handler);
-    return () => window.removeEventListener("chef:unauthorized", handler);
-  }, []);
-
-  const login = useCallback(async (user: string, passcode: string) => {
-    const data = await auth.login(user, passcode);
-    setToken(data.access_token);
-    localStorage.setItem("chef_username", user.toLowerCase());
-    setTokenState(data.access_token);
-    setUsername(user.toLowerCase());
-  }, []);
-
-  const register = useCallback(async (user: string, passcode: string) => {
-    const data = await auth.register(user, passcode);
-    setToken(data.access_token);
-    localStorage.setItem("chef_username", user.toLowerCase());
-    setTokenState(data.access_token);
-    setUsername(user.toLowerCase());
-  }, []);
-
-  const logout = useCallback(() => {
-    clearToken();
-    setTokenState(null);
-    setUsername(null);
-  }, []);
+  const register = useCallback(
+    async (username: string, passcode: string) => {
+      const data = await callAuth("register", username, passcode);
+      setAuthToken("chef_auth_token", data.token);
+      await refetch();
+    },
+    [refetch],
+  );
 
   return (
-    <AuthContext.Provider
-      value={{ token, username, isAuthenticated: !!token, login, register, logout }}
+    <ChefAuthContext.Provider
+      value={{
+        user,
+        loading,
+        username: user?.username ?? null,
+        isAuthenticated: !!user,
+        login,
+        register,
+        logout,
+      }}
     >
       {children}
-    </AuthContext.Provider>
+    </ChefAuthContext.Provider>
+  );
+}
+
+export function AuthProvider({ children }: { children: React.ReactNode }) {
+  return (
+    <CortexProvider
+      apiBase={API_BASE}
+      tokenKey="chef_auth_token"
+      authPath="/auth"
+    >
+      <ChefAuthBridge>{children}</ChefAuthBridge>
+    </CortexProvider>
   );
 }
 
 export function useAuth() {
-  return useContext(AuthContext);
+  return useContext(ChefAuthContext);
 }
