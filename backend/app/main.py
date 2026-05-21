@@ -18,7 +18,7 @@ app = FastAPI(
 
 origins = os.getenv(
     "CORS_ORIGINS",
-    "http://localhost:3000,http://127.0.0.1:3000,https://sameeradsv.github.io",
+    "http://localhost:3000,http://localhost:3001,http://127.0.0.1:3000,http://127.0.0.1:3001,https://sameeradsv.github.io",
 ).split(",")
 
 app.add_middleware(
