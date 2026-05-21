@@ -270,8 +270,9 @@ export default function DecisionPage() {
   const [result, setResult] = useState<CookVsOrderResult | null>(null);
   const [state, setState] = useState<UserState>(defaultState);
   const [loading, setLoading] = useState(false);
-  const [initialized, setInitialized] = useState(false);
+  const [status, setStatus] = useState<"loading" | "waking" | "ready">("loading");
   const [selected, setSelected] = useState<string | null>(null);
+  const [attempt, setAttempt] = useState(0);
 
   async function runDecision(updatedState?: UserState) {
     setLoading(true);
@@ -280,22 +281,57 @@ export default function DecisionPage() {
       const data = await api.cookVsOrder();
       setResult(data);
       setSelected(data.recommendation);
+      setStatus("ready");
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "";
+      if (msg.toLowerCase().includes("fetch") || msg.toLowerCase().includes("load")) {
+        setStatus("waking");
+      }
     } finally {
       setLoading(false);
     }
   }
 
   useEffect(() => {
-    runDecision().then(() => setInitialized(true));
-  }, []);
+    runDecision();
+  }, [attempt]);
 
-  if (!initialized && loading) {
+  // Auto-retry every 12s while waking
+  useEffect(() => {
+    if (status !== "waking") return;
+    const t = setTimeout(() => setAttempt((n) => n + 1), 12000);
+    return () => clearTimeout(t);
+  }, [status, attempt]);
+
+  if (status === "loading" && !result) {
     return (
       <div className="space-y-4 pt-2">
         <div className="loading-shimmer h-8 w-48 rounded-card" />
         {[1, 2, 3].map((i) => (
           <div key={i} className="loading-shimmer h-24 rounded-card" />
         ))}
+      </div>
+    );
+  }
+
+  if (status === "waking") {
+    return (
+      <div className="pt-2">
+        <div
+          className="p-5 space-y-3 text-center"
+          style={{ border: "1px solid rgb(var(--kitchen-accent) / 0.2)", borderRadius: "var(--radius-card)", background: "rgb(var(--kitchen-accent) / 0.05)" }}
+        >
+          <div className="flex justify-center gap-1">
+            {[0, 1, 2].map((i) => (
+              <div key={i} className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: "rgb(var(--kitchen-accent))", animationDelay: `${i * 0.2}s` }} />
+            ))}
+          </div>
+          <p className="text-sm text-kitchen-text font-medium">Server is waking up…</p>
+          <p className="text-xs text-kitchen-muted">Retrying automatically every 12 seconds.</p>
+          <button type="button" onClick={() => setAttempt((n) => n + 1)} className="text-xs text-kitchen-accent font-mono hover:opacity-70 transition-opacity">
+            RETRY NOW
+          </button>
+        </div>
       </div>
     );
   }

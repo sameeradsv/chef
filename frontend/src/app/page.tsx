@@ -228,10 +228,13 @@ export default function DashboardPage() {
   const [expiring, setExpiring] = useState<Ingredient[]>([]);
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [meal, setMeal] = useState<RecommendMealResult | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [status, setStatus] = useState<"loading" | "waking" | "error" | "ok">("loading");
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
+    let cancelled = false;
+    setStatus("loading");
     async function load() {
       try {
         const [exp, rec, recMeal] = await Promise.all([
@@ -239,17 +242,32 @@ export default function DashboardPage() {
           api.recommendRecipes(5),
           api.recommendMeal(),
         ]);
+        if (cancelled) return;
         setExpiring(exp);
         setRecipes(rec);
         setMeal(recMeal);
+        setStatus("ok");
       } catch (e) {
-        setError(e instanceof Error ? e.message : "Failed to load");
-      } finally {
-        setLoading(false);
+        if (cancelled) return;
+        const msg = e instanceof Error ? e.message : "Failed to load";
+        if (msg.toLowerCase().includes("fetch") || msg.toLowerCase().includes("load")) {
+          setStatus("waking");
+        } else {
+          setStatus("error");
+          setErrorMsg(msg);
+        }
       }
     }
     load();
-  }, []);
+    return () => { cancelled = true; };
+  }, [attempt]);
+
+  // Auto-retry every 12s while waking
+  useEffect(() => {
+    if (status !== "waking") return;
+    const t = setTimeout(() => setAttempt((n) => n + 1), 12000);
+    return () => clearTimeout(t);
+  }, [status, attempt]);
 
   return (
     <div className="space-y-5">
@@ -266,7 +284,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Main content */}
-      {loading ? (
+      {status === "loading" ? (
         <div className="space-y-4">
           <LoadingShimmer className="h-56" />
           <LoadingShimmer className="h-24" />
@@ -276,13 +294,44 @@ export default function DashboardPage() {
             <LoadingShimmer className="h-36 w-36 flex-shrink-0" />
           </div>
         </div>
-      ) : error ? (
+      ) : status === "waking" ? (
+        <div
+          className="p-5 space-y-3 text-center"
+          style={{ border: "1px solid rgb(var(--kitchen-accent) / 0.2)", borderRadius: "var(--radius-card)", background: "rgb(var(--kitchen-accent) / 0.05)" }}
+        >
+          <div className="flex justify-center gap-1">
+            {[0, 1, 2].map((i) => (
+              <div
+                key={i}
+                className="w-1.5 h-1.5 rounded-full animate-pulse"
+                style={{ background: "rgb(var(--kitchen-accent))", animationDelay: `${i * 0.2}s` }}
+              />
+            ))}
+          </div>
+          <p className="text-sm text-kitchen-text font-medium">Server is waking up…</p>
+          <p className="text-xs text-kitchen-muted">Render free tier spins down after inactivity. Retrying automatically.</p>
+          <button
+            type="button"
+            onClick={() => setAttempt((n) => n + 1)}
+            className="text-xs text-kitchen-accent font-mono hover:opacity-70 transition-opacity"
+          >
+            RETRY NOW
+          </button>
+        </div>
+      ) : status === "error" ? (
         <div
           className="p-4 text-sm text-kitchen-danger"
           style={{ border: "1px solid rgb(var(--kitchen-danger) / 0.2)", borderRadius: "var(--radius-card)", background: "rgb(var(--kitchen-danger) / 0.06)" }}
         >
-          <p className="font-medium mb-1">Could not reach the Chef API</p>
-          <p className="text-kitchen-muted text-xs">{error}</p>
+          <p className="font-medium mb-1">Could not load dashboard</p>
+          <p className="text-kitchen-muted text-xs">{errorMsg}</p>
+          <button
+            type="button"
+            onClick={() => setAttempt((n) => n + 1)}
+            className="text-xs text-kitchen-accent font-mono mt-2 hover:opacity-70 transition-opacity"
+          >
+            RETRY
+          </button>
         </div>
       ) : (
         <>
