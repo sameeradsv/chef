@@ -32,7 +32,6 @@ export default function LoginPage() {
         if (!cancelled) setBackendStatus(res.ok ? "ok" : "unreachable");
       } catch {
         if (!cancelled) {
-          // >3s means it's waking up, not just unreachable
           setBackendStatus(Date.now() - start > 3000 ? "waking" : "unreachable");
         }
       }
@@ -74,14 +73,11 @@ export default function LoginPage() {
 
   return (
     <div
-      className="min-h-dvh flex flex-col overflow-hidden relative"
+      className="h-dvh flex flex-col overflow-hidden relative"
       style={{ backgroundColor: "rgb(var(--kitchen-bg))", color: "rgb(var(--kitchen-ink))", fontFamily: "var(--chef-font-sans)" }}
     >
       {/* Hero gradient strip */}
-      <div
-        className="absolute top-0 left-0 right-0 pointer-events-none"
-        style={{ height: 220 }}
-      >
+      <div className="absolute top-0 left-0 right-0 pointer-events-none" style={{ height: 180 }}>
         <div
           className="absolute inset-0"
           style={{ background: "linear-gradient(135deg, rgb(var(--kitchen-accent2) / 0.3) 0%, transparent 70%)" }}
@@ -92,51 +88,41 @@ export default function LoginPage() {
         />
         <div
           className="absolute bottom-0 left-0 right-0"
-          style={{ height: 100, background: "linear-gradient(180deg, transparent, rgb(var(--kitchen-bg)))" }}
+          style={{ height: 80, background: "linear-gradient(180deg, transparent, rgb(var(--kitchen-bg)))" }}
         />
       </div>
 
       {/* Wordmark */}
-      <div className="relative pt-16 pb-0 text-center">
+      <div className="relative pt-10 text-center flex-shrink-0">
         <div className="inline-flex items-center gap-2.5">
           <div
-            className="w-2.5 h-2.5 rounded-full bg-kitchen-accent"
-            style={{ boxShadow: "0 0 16px rgb(var(--kitchen-accent))" }}
+            className="w-2 h-2 rounded-full bg-kitchen-accent"
+            style={{ boxShadow: "0 0 12px rgb(var(--kitchen-accent))" }}
           />
-          <span
-            className="text-[11px] text-kitchen-muted tracking-[0.25em] font-mono"
-          >
-            CHEF
-          </span>
+          <span className="text-[11px] text-kitchen-muted tracking-[0.25em] font-mono">CHEF</span>
         </div>
-
         <h1
-          className="mt-14 font-display font-normal leading-tight"
-          style={{ fontSize: 34, letterSpacing: "-0.025em" }}
+          className="mt-5 font-display font-normal leading-tight"
+          style={{ fontSize: 28, letterSpacing: "-0.025em" }}
         >
           {isLogin ? (
-            <>Welcome <em className="not-italic text-kitchen-accent">back</em>.</>
+            <>Your <em className="not-italic text-kitchen-accent">kitchen</em>.</>
           ) : (
             <>Cook with <em className="not-italic text-kitchen-accent">intent</em>.</>
           )}
         </h1>
-        <p
-          className="mt-2 text-kitchen-muted text-[13px] mx-auto"
-          style={{ maxWidth: 280, lineHeight: 1.5 }}
-        >
+        <p className="mt-1.5 text-kitchen-muted text-[13px] mx-auto" style={{ maxWidth: 260, lineHeight: 1.4 }}>
           {isLogin
-            ? "Your kitchen, picking up where you left off."
-            : "A kitchen that remembers what you have, what you crave, and what you can pull off tonight."}
+            ? "Sign in to pick up where you left off."
+            : "Track your pantry, decide what to eat, skip the indecision."}
         </p>
       </div>
 
       {/* Backend status banner */}
       {backendStatus !== "ok" && (
-        <div
-          className="mx-auto w-full max-w-sm px-[22px]"
-        >
+        <div className="mx-auto w-full max-w-sm px-5 mt-3 flex-shrink-0">
           <div
-            className="px-3.5 py-2.5 text-xs font-mono flex items-center gap-2"
+            className="px-3 py-2 text-xs font-mono flex items-center gap-2"
             style={{
               borderRadius: "var(--radius-btn)",
               ...(backendStatus === "checking" || backendStatus === "waking"
@@ -147,32 +133,26 @@ export default function LoginPage() {
           >
             <span
               className="w-1.5 h-1.5 rounded-full flex-shrink-0"
-              style={{
-                background: "currentColor",
-                animation: backendStatus === "checking" ? "pulse 1.5s ease-in-out infinite" : "none",
-              }}
+              style={{ background: "currentColor", animation: backendStatus === "checking" ? "pulse 1.5s ease-in-out infinite" : "none" }}
             />
-            {backendStatus === "checking" && "Connecting to server…"}
-            {backendStatus === "waking"   && "Server is waking up — first login may take ~30s"}
+            {backendStatus === "checking"   && "Connecting to server…"}
+            {backendStatus === "waking"     && "Server waking up — first login may take ~30s"}
             {backendStatus === "unreachable" && "Server unreachable — check your connection"}
           </div>
         </div>
       )}
 
-      {/* Form */}
-      <div className="relative flex-1 flex flex-col px-[22px] pt-7 pb-4 gap-3.5 overflow-auto max-w-sm mx-auto w-full">
-
-        {/* Field helper */}
+      {/* Form — flex-1 so it fills remaining space, overflow-y-auto as safety net */}
+      <form
+        onSubmit={handleSubmit}
+        className="relative flex-1 flex flex-col justify-center px-5 gap-3 overflow-y-auto max-w-sm mx-auto w-full min-h-0"
+      >
         {[
-          { id: "username", label: "USERNAME", type: "text", value: username, placeholder: "e.g. jordan", setter: setUsername, autoComplete: "username" },
+          { id: "username", label: "USERNAME", type: "text",     value: username, placeholder: "e.g. jordan",             setter: setUsername, autoComplete: "username" },
           { id: "passcode", label: "PASSCODE", type: "password", value: passcode, placeholder: isLogin ? "Your password" : "At least 4 characters", setter: setPasscode, autoComplete: isLogin ? "current-password" : "new-password" },
         ].map(({ id, label, type, value, placeholder, setter, autoComplete }) => (
           <div key={id}>
-            <label
-              htmlFor={id}
-              className="block text-[10px] text-kitchen-muted font-mono mb-1.5"
-              style={{ letterSpacing: "0.15em" }}
-            >
+            <label htmlFor={id} className="block text-[10px] text-kitchen-muted font-mono mb-1.5" style={{ letterSpacing: "0.15em" }}>
               {label}
             </label>
             <input
@@ -184,17 +164,13 @@ export default function LoginPage() {
               autoComplete={autoComplete}
               placeholder={placeholder}
               className="w-full bg-kitchen-card text-kitchen-text placeholder:text-kitchen-muted text-sm px-3.5 py-3 outline-none focus:ring-1 ring-kitchen-accent/60 transition-shadow"
-              style={{
-                border: "1px solid var(--kitchen-line2)",
-                borderRadius: "var(--radius-btn)",
-                fontFamily: "var(--chef-font-sans)",
-              }}
+              style={{ border: "1px solid var(--kitchen-line2)", borderRadius: "var(--radius-btn)", fontFamily: "var(--chef-font-sans)" }}
             />
           </div>
         ))}
 
         {isLogin && (
-          <div className="flex justify-end -mt-1">
+          <div className="flex justify-end -mt-1.5">
             <button type="button" className="text-xs text-kitchen-muted hover:text-kitchen-text transition-colors">
               Forgot password?
             </button>
@@ -203,51 +179,46 @@ export default function LoginPage() {
 
         {error && (
           <p
-            className="text-xs text-kitchen-danger px-3.5 py-2.5"
+            className="text-xs text-kitchen-danger px-3.5 py-2"
             style={{ background: "rgb(var(--kitchen-danger) / 0.08)", border: "1px solid rgb(var(--kitchen-danger) / 0.2)", borderRadius: "var(--radius-btn)" }}
           >
             {error}
           </p>
         )}
 
-        <form onSubmit={handleSubmit} className="contents">
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full py-3.5 text-sm font-medium bg-kitchen-accent text-kitchen-bg disabled:opacity-50 transition-opacity hover:opacity-90"
-            style={{ borderRadius: "var(--radius-btn)", color: "rgb(26 18 10)", marginTop: 4 }}
-          >
-            {loading ? "Please wait…" : isLogin ? "Sign in →" : "Create account →"}
-          </button>
-        </form>
+        <button
+          type="submit"
+          disabled={loading}
+          className="w-full py-3 text-sm font-medium bg-kitchen-accent disabled:opacity-50 transition-opacity hover:opacity-90"
+          style={{ borderRadius: "var(--radius-btn)", color: "rgb(26 18 10)" }}
+        >
+          {loading ? "Please wait…" : isLogin ? "Sign in →" : "Create account →"}
+        </button>
 
-        {/* Divider */}
-        <div className="flex items-center gap-3 my-1">
+        <div className="flex items-center gap-3">
           <div className="flex-1 h-px" style={{ background: "var(--kitchen-line)" }} />
           <span className="text-[10px] text-kitchen-muted font-mono tracking-[0.1em]">OR</span>
           <div className="flex-1 h-px" style={{ background: "var(--kitchen-line)" }} />
         </div>
 
-        {/* Demo */}
         <button
           type="button"
           onClick={handleDemo}
           disabled={loading}
-          className="w-full py-3 text-sm text-kitchen-accent disabled:opacity-50 transition-opacity hover:opacity-80"
+          className="w-full py-2.5 text-sm text-kitchen-accent disabled:opacity-50 transition-opacity hover:opacity-80"
           style={{
             border: "1.5px dashed rgb(var(--kitchen-accent2))",
             background: "rgb(var(--kitchen-accent) / 0.05)",
             borderRadius: "var(--radius-btn)",
-            fontFamily: "var(--chef-font-sans)",
           }}
         >
           Try the demo — no sign‑up
         </button>
-      </div>
+      </form>
 
-      {/* Mode toggle */}
+      {/* Footer */}
       <div
-        className="text-center py-4 text-[13px] text-kitchen-muted"
+        className="text-center py-3.5 text-[13px] text-kitchen-muted flex-shrink-0"
         style={{ borderTop: "1px solid var(--kitchen-line)", background: "rgb(var(--kitchen-surface))" }}
       >
         {isLogin ? "New here? " : "Have an account? "}
@@ -255,16 +226,10 @@ export default function LoginPage() {
           type="button"
           onClick={() => { setMode(isLogin ? "register" : "login"); setError(null); }}
           className="text-kitchen-accent hover:opacity-80 transition-opacity"
-          style={{ fontFamily: "var(--chef-font-sans)" }}
         >
           {isLogin ? "Create account" : "Sign in"}
         </button>
       </div>
-
-      {/* Temporary: API URL debug */}
-      <p className="text-center text-[10px] text-kitchen-muted font-mono pb-2 opacity-50">
-        api: {API_BASE}
-      </p>
     </div>
   );
 }
