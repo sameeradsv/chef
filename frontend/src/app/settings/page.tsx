@@ -433,7 +433,12 @@ export default function SettingsPage() {
       </div>
 
       {/* Sign out */}
-      <div className="pt-4 pb-8">
+      <div className="pt-4 pb-8 space-y-2">
+        {username === "demo" && (
+          <p className="text-[11px] text-center text-kitchen-muted font-mono">
+            You&apos;re in demo mode — data resets on each deploy
+          </p>
+        )}
         <button
           type="button"
           onClick={handleLogout}
@@ -443,7 +448,7 @@ export default function SettingsPage() {
             borderRadius: "var(--radius-btn)",
           }}
         >
-          Sign out
+          {username === "demo" ? "Exit demo" : "Sign out"}
         </button>
       </div>
     </div>
