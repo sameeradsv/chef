@@ -19,7 +19,14 @@
       "Bash(git commit -m ' *)",
       "Bash(npm install *)",
       "Bash(git checkout *)",
-      "Bash(git push *)"
+      "Bash(git push *)",
+      "Bash(Start-Sleep -Seconds 5)",
+      "Bash(Get-Content \"C:\\\\Users\\\\samee\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\D--Downloads-Personal-Development-chef\\\\81b6612f-8ad6-47fa-8919-50069a329663\\\\tasks\\\\bvj9892d8.output\" -ErrorAction SilentlyContinue)",
+      "Bash(Select-Object -First 30)",
+      "Bash(echo \"started pid $!\")",
+      "Bash(curl -s http://localhost:3000)",
+      "PowerShell(npm run *)",
+      "Bash(python -c ' *)"
     ]
   }
 }

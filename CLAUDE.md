@@ -7,7 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 Chef is a kitchen decision intelligence system that answers "What is the best food decision right now?" by comparing cooking at home vs. ordering vs. eating out using a deterministic scoring engine (not AI/LLM-driven).
 
 - **Frontend**: Next.js 15 / React 19 / TypeScript / Tailwind CSS — deployed to GitHub Pages as a static export
-- **Backend**: FastAPI + SQLAlchemy 2.0 + Pydantic 2 — deployed to Render (free tier, **PostgreSQL** for persistent cross-device data)
+- **Backend**: FastAPI + SQLAlchemy 2.0 + Pydantic 2 — deployed to Render (free tier); database is **Neon PostgreSQL** (free tier, external, set via `DATABASE_URL` in Render dashboard)
 
 ## Commands
 
@@ -86,7 +86,7 @@ Custom Tailwind color tokens are defined as CSS variables (`--kitchen-bg`, `--ki
 ### Deployment
 
 - **Frontend**: GitHub Actions builds `next export` (static) with `basePath: "/chef"`, deploys to GitHub Pages. PWA is disabled in dev and on GitHub Pages build.
-- **Backend**: Render Blueprint (`render.yaml`) — Python 3.11, `uvicorn app.main:app --host 0.0.0.0 --port $PORT`. Uses Render managed **PostgreSQL** (free tier, persists across deploys). Set `ANTHROPIC_API_KEY` manually in Render dashboard to enable LLM narratives.
+- **Backend**: Render Blueprint (`render.yaml`) — Python 3.11, `uvicorn app.main:app --host 0.0.0.0 --port $PORT`. Database is **Neon PostgreSQL** (free tier, external) — set `DATABASE_URL` manually in Render dashboard after deploy. Set `ANTHROPIC_API_KEY` manually in Render dashboard to enable LLM narratives.
 - **CI/CD** (`.github/workflows/deploy.yml`): `CHEF_API_URL` repo Actions variable sets the backend URL baked into the frontend build. `RENDER_DEPLOY_HOOK` secret triggers backend redeploy.
 
 ### Stubbed / Not Yet Implemented
