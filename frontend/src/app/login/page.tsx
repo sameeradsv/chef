@@ -61,11 +61,11 @@ export default function LoginPage() {
       >
         <div
           className="absolute inset-0"
-          style={{ background: "linear-gradient(135deg, rgba(var(--kitchen-accent2), 0.3) 0%, transparent 70%)" }}
+          style={{ background: "linear-gradient(135deg, rgb(var(--kitchen-accent2) / 0.3) 0%, transparent 70%)" }}
         />
         <div
           className="absolute inset-0"
-          style={{ backgroundImage: "repeating-linear-gradient(45deg, rgba(var(--kitchen-accent), 0.03) 0 6px, transparent 6px 12px)" }}
+          style={{ backgroundImage: "repeating-linear-gradient(45deg, rgb(var(--kitchen-accent) / 0.03) 0 6px, transparent 6px 12px)" }}
         />
         <div
           className="absolute bottom-0 left-0 right-0"

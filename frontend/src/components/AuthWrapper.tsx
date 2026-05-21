@@ -5,19 +5,8 @@ import { usePathname, useRouter } from "next/navigation";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { Layout } from "@/components/Layout";
 
-function AuthGate({ children }: { children: ReactNode }) {
-  const { isAuthenticated, loading } = useAuth();
-  const router = useRouter();
-  const pathname = usePathname();
-  const isLogin = pathname === "/login";
-
-  useEffect(() => {
-    if (!loading && !isAuthenticated && !isLogin) {
-      router.push("/login");
-    }
-  }, [isAuthenticated, loading, isLogin, router]);
-
-  if (loading) return (
+function LoadingScreen() {
+  return (
     <div
       className="fixed inset-0 flex items-center justify-center"
       style={{ background: "rgb(var(--kitchen-bg))" }}
@@ -45,7 +34,25 @@ function AuthGate({ children }: { children: ReactNode }) {
       </div>
     </div>
   );
-  if (!isAuthenticated && !isLogin) return null;
+}
+
+function AuthGate({ children }: { children: ReactNode }) {
+  const { isAuthenticated, loading } = useAuth();
+  const router = useRouter();
+  const pathname = usePathname();
+  // Normalize trailing slash — next.config sets trailingSlash:true on GitHub Pages,
+  // so /login becomes /login/ which would break a strict === "/login" check.
+  const isLogin = pathname.replace(/\/$/, "") === "/login";
+
+  useEffect(() => {
+    if (!loading && !isAuthenticated && !isLogin) {
+      router.push("/login");
+    }
+  }, [isAuthenticated, loading, isLogin, router]);
+
+  if (loading) return <LoadingScreen />;
+  // Show loading screen while router.push("/login") is in flight
+  if (!isAuthenticated && !isLogin) return <LoadingScreen />;
   if (isLogin) return <>{children}</>;
 
   return <Layout>{children}</Layout>;
