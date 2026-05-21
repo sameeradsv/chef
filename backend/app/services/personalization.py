@@ -30,13 +30,15 @@ def get_user_profile(user_id: str, db: Session) -> UserProfileResponse:
     fav_cuisines: list[str] = []
     spice_level = 5
     dietary_restrictions: list[str] = []
+    vegetarian = True
+    skipped_ingredients: list[str] = []
 
     if prefs_row:
-        fav_cuisines = [c.strip() for c in prefs_row.favorite_cuisines.split(",") if c.strip()]
+        fav_cuisines = [c.strip() for c in (prefs_row.favorite_cuisines or "").split(",") if c.strip()]
         spice_level = prefs_row.spice_level
-        dietary_restrictions = [
-            r.strip() for r in prefs_row.dietary_restrictions.split(",") if r.strip()
-        ]
+        dietary_restrictions = [r.strip() for r in (prefs_row.dietary_restrictions or "").split(",") if r.strip()]
+        vegetarian = prefs_row.vegetarian if prefs_row.vegetarian is not None else True
+        skipped_ingredients = [s.strip() for s in (prefs_row.skipped_ingredients or "").split(",") if s.strip()]
 
     if not history:
         return UserProfileResponse(
@@ -47,6 +49,8 @@ def get_user_profile(user_id: str, db: Session) -> UserProfileResponse:
             favorite_cuisines=fav_cuisines,
             spice_level=spice_level,
             dietary_restrictions=dietary_restrictions,
+            vegetarian=vegetarian,
+            skipped_ingredients=skipped_ingredients,
         )
 
     # Cook rate
@@ -80,4 +84,6 @@ def get_user_profile(user_id: str, db: Session) -> UserProfileResponse:
         favorite_cuisines=fav_cuisines,
         spice_level=spice_level,
         dietary_restrictions=dietary_restrictions,
+        vegetarian=vegetarian,
+        skipped_ingredients=skipped_ingredients,
     )

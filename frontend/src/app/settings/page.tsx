@@ -122,12 +122,16 @@ export default function SettingsPage() {
   const [prefs, setPrefs] = useState<UserPreferences | null>(null);
   const [cuisines, setCuisines] = useState("");
   const [spice, setSpice] = useState(5);
-  const [dietary, setDietary] = useState("");
+  const [vegetarian, setVegetarian] = useState(true);
+  const [skipped, setSkipped] = useState<string[]>([]);
+  const [customSkip, setCustomSkip] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [prefsOpen, setPrefsOpen] = useState(false);
+
+  const PRESET_SKIPS = ["mushroom", "soy", "nuts", "dairy", "onion", "garlic", "shellfish"];
 
   useEffect(() => {
     api.getPreferences()
@@ -135,11 +139,24 @@ export default function SettingsPage() {
         setPrefs(p);
         setCuisines(p.favorite_cuisines.join(", "));
         setSpice(p.spice_level);
-        setDietary(p.dietary_restrictions.join(", "));
+        setVegetarian(p.vegetarian ?? true);
+        setSkipped(p.skipped_ingredients ?? []);
       })
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
   }, []);
+
+  function toggleSkip(item: string) {
+    setSkipped((prev) =>
+      prev.includes(item) ? prev.filter((s) => s !== item) : [...prev, item]
+    );
+  }
+
+  function addCustomSkip() {
+    const val = customSkip.trim().toLowerCase();
+    if (val && !skipped.includes(val)) setSkipped((prev) => [...prev, val]);
+    setCustomSkip("");
+  }
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
@@ -149,7 +166,8 @@ export default function SettingsPage() {
       const updated = await api.updatePreferences({
         favorite_cuisines: cuisines.trim() || undefined,
         spice_level: spice,
-        dietary_restrictions: dietary.trim() || undefined,
+        vegetarian,
+        skipped_ingredients: skipped.join(","),
       });
       setPrefs(updated);
       setSaved(true);
@@ -244,12 +262,123 @@ export default function SettingsPage() {
         </button>
 
         {prefsOpen && !loading && (
-          <form onSubmit={handleSave} className="px-4 py-4 space-y-4 animate-fade-in" style={{ borderBottom: "1px solid var(--kitchen-line)" }}>
+          <form onSubmit={handleSave} className="px-4 py-4 space-y-5 animate-fade-in" style={{ borderBottom: "1px solid var(--kitchen-line)" }}>
+
+            {/* Vegetarian toggle */}
+            <div>
+              <div className="flex items-center justify-between">
+                <div>
+                  <MonoLabel className="text-kitchen-muted block">VEGETARIAN</MonoLabel>
+                  <p className="text-[11px] text-kitchen-muted mt-0.5">
+                    {vegetarian ? "Excludes meat, fish & eggs" : "All recipes shown"}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setVegetarian((v) => !v)}
+                  className="relative flex-shrink-0 transition-colors"
+                  style={{
+                    width: 44, height: 26,
+                    borderRadius: 999,
+                    background: vegetarian ? "rgb(var(--kitchen-success))" : "var(--kitchen-line2)",
+                  }}
+                  aria-pressed={vegetarian}
+                >
+                  <span
+                    className="absolute top-1 transition-all"
+                    style={{
+                      width: 18, height: 18,
+                      borderRadius: "50%",
+                      background: "#fff",
+                      left: vegetarian ? 22 : 4,
+                      boxShadow: "0 1px 3px rgba(0,0,0,0.3)",
+                    }}
+                  />
+                </button>
+              </div>
+              {vegetarian && (
+                <div
+                  className="mt-2 flex items-center gap-1.5 px-2.5 py-1.5"
+                  style={{ background: "rgb(var(--kitchen-success) / 0.08)", borderRadius: "var(--radius-btn)", border: "1px solid rgb(var(--kitchen-success) / 0.2)" }}
+                >
+                  <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: "rgb(var(--kitchen-success))" }} />
+                  <span className="text-[11px] font-mono" style={{ color: "rgb(var(--kitchen-success))" }}>
+                    Egg, meat &amp; fish automatically excluded
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {/* Skip list */}
+            <div>
+              <MonoLabel className="text-kitchen-muted block mb-2">ALSO SKIP</MonoLabel>
+              <div className="flex flex-wrap gap-2">
+                {PRESET_SKIPS.map((item) => {
+                  const active = skipped.includes(item);
+                  return (
+                    <button
+                      key={item}
+                      type="button"
+                      onClick={() => toggleSkip(item)}
+                      className="px-2.5 py-1 text-xs font-mono transition-all"
+                      style={{
+                        borderRadius: 999,
+                        border: active ? "1px solid rgb(var(--kitchen-accent) / 0.5)" : "1px solid var(--kitchen-line2)",
+                        background: active ? "rgb(var(--kitchen-accent) / 0.12)" : "transparent",
+                        color: active ? "rgb(var(--kitchen-accent))" : "rgb(var(--kitchen-ink3))",
+                        letterSpacing: "0.06em",
+                      }}
+                    >
+                      {active ? "✕ " : ""}{item}
+                    </button>
+                  );
+                })}
+                {/* Custom additions */}
+                {skipped.filter((s) => !PRESET_SKIPS.includes(s)).map((item) => (
+                  <button
+                    key={item}
+                    type="button"
+                    onClick={() => toggleSkip(item)}
+                    className="px-2.5 py-1 text-xs font-mono transition-all"
+                    style={{
+                      borderRadius: 999,
+                      border: "1px solid rgb(var(--kitchen-accent) / 0.5)",
+                      background: "rgb(var(--kitchen-accent) / 0.12)",
+                      color: "rgb(var(--kitchen-accent))",
+                    }}
+                  >
+                    ✕ {item}
+                  </button>
+                ))}
+              </div>
+              <div className="flex gap-2 mt-2">
+                <input
+                  value={customSkip}
+                  onChange={(e) => setCustomSkip(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addCustomSkip(); } }}
+                  placeholder="Add ingredient…"
+                  className={inputCls}
+                  style={{ ...inputStyle, flex: 1 }}
+                />
+                <button
+                  type="button"
+                  onClick={addCustomSkip}
+                  className="px-3 text-sm text-kitchen-accent transition-opacity hover:opacity-80"
+                  style={{ border: "1px solid var(--kitchen-line2)", borderRadius: "var(--radius-btn)" }}
+                >
+                  Add
+                </button>
+              </div>
+            </div>
+
+            {/* Cuisines */}
             <div>
               <MonoLabel className="text-kitchen-muted block mb-1.5">FAVOURITE CUISINES</MonoLabel>
               <input value={cuisines} onChange={(e) => setCuisines(e.target.value)} placeholder="e.g. Indian, Thai, Italian" className={inputCls} style={inputStyle} />
               <p className="text-[11px] text-kitchen-muted mt-1">Comma-separated</p>
             </div>
+
+            {/* Spice */}
             <div>
               <div className="flex justify-between mb-1.5">
                 <MonoLabel className="text-kitchen-muted">SPICE LEVEL</MonoLabel>
@@ -261,10 +390,7 @@ export default function SettingsPage() {
                 <span className="text-[11px] text-kitchen-muted">Very spicy</span>
               </div>
             </div>
-            <div>
-              <MonoLabel className="text-kitchen-muted block mb-1.5">DIETARY RESTRICTIONS</MonoLabel>
-              <input value={dietary} onChange={(e) => setDietary(e.target.value)} placeholder="e.g. vegetarian, no nuts" className={inputCls} style={inputStyle} />
-            </div>
+
             {error && <p className="text-xs text-kitchen-danger">{error}</p>}
             <button
               type="submit"
@@ -279,13 +405,14 @@ export default function SettingsPage() {
 
         {prefs && (
           <>
+            <SettingsRow label="Vegetarian" value={prefs.vegetarian ? "On — no meat or eggs" : "Off"} />
+            {prefs.skipped_ingredients.length > 0 && (
+              <SettingsRow label="Also skipping" value={prefs.skipped_ingredients.join(", ")} />
+            )}
             {prefs.favorite_cuisines.length > 0 && (
-              <SettingsRow label="Cuisines" value={prefs.favorite_cuisines.slice(0, 2).join(", ") + (prefs.favorite_cuisines.length > 2 ? ", +" + (prefs.favorite_cuisines.length - 2) : "")} />
+              <SettingsRow label="Cuisines" value={prefs.favorite_cuisines.slice(0, 2).join(", ") + (prefs.favorite_cuisines.length > 2 ? " +" + (prefs.favorite_cuisines.length - 2) : "")} />
             )}
             <SettingsRow label="Spice level" value={`${prefs.spice_level} / 10`} />
-            {prefs.dietary_restrictions.length > 0 && (
-              <SettingsRow label="Dietary" value={prefs.dietary_restrictions.join(", ")} />
-            )}
           </>
         )}
       </div>

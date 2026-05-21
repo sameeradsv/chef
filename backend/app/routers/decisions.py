@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.dependencies import get_current_user
-from app.models import IngredientModel, UserAccountModel, UserStateModel
+from app.models import IngredientModel, UserAccountModel, UserPreferencesModel, UserStateModel
 from app.schemas import (
     CookVsOrderRequest,
     CookVsOrderResponse,
@@ -25,6 +25,15 @@ from app.services.recipes import (
 )
 
 router = APIRouter(prefix="/decision", tags=["decisions"])
+
+
+def _diet(db: Session, user_id: str) -> tuple[bool, list[str]]:
+    row = db.query(UserPreferencesModel).filter(UserPreferencesModel.user_id == user_id).first()
+    if not row:
+        return True, []
+    skipped = [s.strip() for s in (row.skipped_ingredients or "").split(",") if s.strip()]
+    veg = row.vegetarian if row.vegetarian is not None else True
+    return veg, skipped
 
 
 def _state(db: Session, user_id: str) -> UserStatePayload:
@@ -69,12 +78,13 @@ def cook_vs_order(
     pantry = db.query(IngredientModel).filter(IngredientModel.user_id == current_user.id).all()
     state = _state(db, current_user.id)
     profile = get_user_profile(current_user.id, db)
+    vegetarian, skipped = _diet(db, current_user.id)
 
     if body.recipe_id:
         recipe = get_recipe_by_id(body.recipe_id, pantry)
     else:
-        recs = recommend_recipes(pantry, state, 1)
-        recipe = recs[0] if recs else get_recipe_by_id("r-paneer-bhurji", pantry)
+        recs = recommend_recipes(pantry, state, 1, vegetarian=vegetarian, skipped_ingredients=skipped)
+        recipe = recs[0] if recs else get_recipe_by_id("r-dal-tadka", pantry)
     if not recipe:
         from app.services.recipes import load_recipes
         raw = load_recipes()[0]
@@ -106,8 +116,9 @@ def recommend_meal_endpoint(
     pantry = db.query(IngredientModel).filter(IngredientModel.user_id == current_user.id).all()
     state = _state(db, current_user.id)
     profile = get_user_profile(current_user.id, db)
-    recs = recommend_recipes(pantry, state, 1)
-    recipe = recs[0] if recs else get_recipe_by_id("r-paneer-bhurji", pantry)
+    vegetarian, skipped = _diet(db, current_user.id)
+    recs = recommend_recipes(pantry, state, 1, vegetarian=vegetarian, skipped_ingredients=skipped)
+    recipe = recs[0] if recs else get_recipe_by_id("r-dal-tadka", pantry)
     rest_raw = best_restaurant_for_state(state)
     restaurant = _restaurant_dto(rest_raw)
     result = recommend_meal(

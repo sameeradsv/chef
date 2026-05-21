@@ -11,6 +11,24 @@ DATA_PATH = Path(__file__).resolve().parent.parent.parent / "data"
 RECIPES_FILE = DATA_PATH / "seed_recipes.json"
 RESTAURANTS_FILE = DATA_PATH / "seed_restaurants.json"
 
+# Ingredients that make a recipe non-vegetarian. Egg is also excluded when
+# vegetarian=True because in Indian vegetarian cooking eggs are not considered veg.
+_NON_VEG: set[str] = {
+    "chicken", "mutton", "lamb", "beef", "pork", "fish", "prawn", "shrimp",
+    "meat", "seafood", "bacon", "ham", "sausage", "turkey", "duck",
+    "anchovy", "tuna", "salmon", "sardine", "crab", "lobster", "egg",
+}
+
+
+def _passes_diet(raw: dict, vegetarian: bool, skipped: set[str]) -> bool:
+    ings = {i["normalized_name"].lower() for i in raw.get("ingredients", [])}
+    if vegetarian and ings & _NON_VEG:
+        return False
+    if skipped and ings & skipped:
+        return False
+    return True
+
+
 SUBSTITUTION_RULES: dict[str, list[dict]] = {
     "paneer": [{"substitute": "tofu", "note": "Similar texture, lower fat"}],
     "cream": [{"substitute": "yogurt", "note": "Tangier but works in curries"}],
@@ -96,8 +114,12 @@ def recommend_recipes(
     pantry: list,
     state: UserStatePayload | None = None,
     limit: int = 5,
+    vegetarian: bool = True,
+    skipped_ingredients: list[str] | None = None,
 ) -> list[RecipeResponse]:
     recipes = load_recipes()
+    skipped = {s.strip().lower() for s in (skipped_ingredients or []) if s.strip()}
+    recipes = [r for r in recipes if _passes_diet(r, vegetarian, skipped)]
     scored: list[tuple[float, dict]] = []
     pantry_names = _pantry_set(pantry)
     state = state or UserStatePayload()
@@ -126,8 +148,12 @@ def search_recipes(
     cuisine: str | None = None,
     max_time: int | None = None,
     pantry: list | None = None,
+    vegetarian: bool = True,
+    skipped_ingredients: list[str] | None = None,
 ) -> list[RecipeResponse]:
     recipes = load_recipes()
+    skipped = {s.strip().lower() for s in (skipped_ingredients or []) if s.strip()}
+    recipes = [r for r in recipes if _passes_diet(r, vegetarian, skipped)]
     toks = [t.lower() for t in (tokens or []) if t.strip()]
     results = []
     for raw in recipes:

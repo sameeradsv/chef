@@ -127,6 +127,8 @@ def seed_database(db: Session) -> None:
             user_id=demo.id,
             favorite_cuisines="Indian,South Indian",
             spice_level=7,
+            vegetarian=True,
+            skipped_ingredients="",
         )
     )
 

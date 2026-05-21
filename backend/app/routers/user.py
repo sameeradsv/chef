@@ -42,13 +42,25 @@ def set_user_state(
     )
 
 
-@router.get("/preferences", response_model=UserProfileResponse)
+@router.get("/preferences", response_model=UserPreferencesResponse)
 def get_preferences(
     db: Session = Depends(get_db),
     current_user: UserAccountModel = Depends(get_current_user),
 ):
-    from app.services.personalization import get_user_profile
-    return get_user_profile(current_user.id, db)
+    row = (
+        db.query(UserPreferencesModel)
+        .filter(UserPreferencesModel.user_id == current_user.id)
+        .first()
+    )
+    if not row:
+        return UserPreferencesResponse()
+    return UserPreferencesResponse(
+        favorite_cuisines=[c.strip() for c in (row.favorite_cuisines or "").split(",") if c.strip()],
+        spice_level=row.spice_level,
+        dietary_restrictions=[r.strip() for r in (row.dietary_restrictions or "").split(",") if r.strip()],
+        vegetarian=row.vegetarian if row.vegetarian is not None else True,
+        skipped_ingredients=[s.strip() for s in (row.skipped_ingredients or "").split(",") if s.strip()],
+    )
 
 
 @router.put("/preferences", response_model=UserPreferencesResponse)
@@ -74,4 +86,6 @@ def update_preferences(
         favorite_cuisines=[c.strip() for c in (row.favorite_cuisines or "").split(",") if c.strip()],
         spice_level=row.spice_level,
         dietary_restrictions=[r.strip() for r in (row.dietary_restrictions or "").split(",") if r.strip()],
+        vegetarian=row.vegetarian if row.vegetarian is not None else True,
+        skipped_ingredients=[s.strip() for s in (row.skipped_ingredients or "").split(",") if s.strip()],
     )

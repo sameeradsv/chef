@@ -86,12 +86,16 @@ class UserPreferencesResponse(BaseModel):
     favorite_cuisines: List[str] = Field(default_factory=list)
     spice_level: int = 5
     dietary_restrictions: List[str] = Field(default_factory=list)
+    vegetarian: bool = True
+    skipped_ingredients: List[str] = Field(default_factory=list)
 
 
 class UserPreferencesPayload(BaseModel):
     favorite_cuisines: Optional[str] = None
     spice_level: Optional[int] = Field(None, ge=1, le=10)
     dietary_restrictions: Optional[str] = None
+    vegetarian: Optional[bool] = None
+    skipped_ingredients: Optional[str] = None
 
 
 class RestaurantOption(BaseModel):
@@ -229,3 +233,5 @@ class UserProfileResponse(BaseModel):
     favorite_cuisines: List[str] = Field(default_factory=list)
     spice_level: int = 5
     dietary_restrictions: List[str] = Field(default_factory=list)
+    vegetarian: bool = True
+    skipped_ingredients: List[str] = Field(default_factory=list)

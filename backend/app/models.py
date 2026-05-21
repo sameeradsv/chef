@@ -79,6 +79,8 @@ class UserPreferencesModel(Base):
     favorite_cuisines: Mapped[str] = mapped_column(Text, default="Indian,South Indian")
     spice_level: Mapped[int] = mapped_column(Integer, default=5)
     dietary_restrictions: Mapped[str] = mapped_column(Text, default="")
+    vegetarian: Mapped[bool] = mapped_column(Boolean, default=True)
+    skipped_ingredients: Mapped[str] = mapped_column(Text, default="")
 
 
 class CookingHistoryModel(Base):
