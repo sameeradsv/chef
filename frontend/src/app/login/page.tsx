@@ -260,6 +260,11 @@ export default function LoginPage() {
           {isLogin ? "Create account" : "Sign in"}
         </button>
       </div>
+
+      {/* Temporary: API URL debug */}
+      <p className="text-center text-[10px] text-kitchen-muted font-mono pb-2 opacity-50">
+        api: {API_BASE}
+      </p>
     </div>
   );
 }

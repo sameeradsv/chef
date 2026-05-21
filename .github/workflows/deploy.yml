@@ -56,7 +56,7 @@ jobs:
         working-directory: frontend
         env:
           GITHUB_PAGES: "true"
-          NEXT_PUBLIC_API_URL: ${{ vars.CHEF_API_URL || 'https://chef-api.onrender.com' }}
+          NEXT_PUBLIC_API_URL: ${{ vars.CHEF_API_URL || secrets.CHEF_API_URL || 'https://chef-api.onrender.com' }}
         run: npm run build:pages
 
       - uses: actions/upload-pages-artifact@v3
