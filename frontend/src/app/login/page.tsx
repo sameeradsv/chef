@@ -4,6 +4,10 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 
+const API_BASE = process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "") ?? "http://localhost:8000";
+
+type BackendStatus = "checking" | "ok" | "waking" | "unreachable";
+
 export default function LoginPage() {
   const { isAuthenticated, login, register } = useAuth();
   const router = useRouter();
@@ -12,11 +16,30 @@ export default function LoginPage() {
   const [passcode, setPasscode] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [backendStatus, setBackendStatus] = useState<BackendStatus>("checking");
   const isLogin = mode === "login";
 
   useEffect(() => {
     if (isAuthenticated) router.push("/");
   }, [isAuthenticated, router]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const start = Date.now();
+    async function ping() {
+      try {
+        const res = await fetch(`${API_BASE}/health`, { method: "GET" });
+        if (!cancelled) setBackendStatus(res.ok ? "ok" : "unreachable");
+      } catch {
+        if (!cancelled) {
+          // >3s means it's waking up, not just unreachable
+          setBackendStatus(Date.now() - start > 3000 ? "waking" : "unreachable");
+        }
+      }
+    }
+    ping();
+    return () => { cancelled = true; };
+  }, []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -106,6 +129,35 @@ export default function LoginPage() {
             : "A kitchen that remembers what you have, what you crave, and what you can pull off tonight."}
         </p>
       </div>
+
+      {/* Backend status banner */}
+      {backendStatus !== "ok" && (
+        <div
+          className="mx-auto w-full max-w-sm px-[22px]"
+        >
+          <div
+            className="px-3.5 py-2.5 text-xs font-mono flex items-center gap-2"
+            style={{
+              borderRadius: "var(--radius-btn)",
+              ...(backendStatus === "checking" || backendStatus === "waking"
+                ? { background: "rgb(var(--kitchen-accent) / 0.08)", border: "1px solid rgb(var(--kitchen-accent) / 0.2)", color: "rgb(var(--kitchen-accent))" }
+                : { background: "rgb(var(--kitchen-danger) / 0.08)", border: "1px solid rgb(var(--kitchen-danger) / 0.2)", color: "rgb(var(--kitchen-danger))" }
+              ),
+            }}
+          >
+            <span
+              className="w-1.5 h-1.5 rounded-full flex-shrink-0"
+              style={{
+                background: "currentColor",
+                animation: backendStatus === "checking" ? "pulse 1.5s ease-in-out infinite" : "none",
+              }}
+            />
+            {backendStatus === "checking" && "Connecting to server…"}
+            {backendStatus === "waking"   && "Server is waking up — first login may take ~30s"}
+            {backendStatus === "unreachable" && "Server unreachable — check your connection"}
+          </div>
+        </div>
+      )}
 
       {/* Form */}
       <div className="relative flex-1 flex flex-col px-[22px] pt-7 pb-4 gap-3.5 overflow-auto max-w-sm mx-auto w-full">
