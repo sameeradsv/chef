@@ -25,7 +25,7 @@ def _migrate_sqlite() -> None:
     if not DATABASE_URL.startswith("sqlite"):
         return
     with engine.connect() as conn:
-        from sqlalchemy import text, inspect
+        from sqlalchemy import inspect, text
         inspector = inspect(engine)
         if "auth_sessions" not in inspector.get_table_names():
             conn.execute(text(
@@ -39,6 +39,31 @@ def _migrate_sqlite() -> None:
             ))
             conn.execute(text("CREATE INDEX ix_auth_sessions_token ON auth_sessions (token)"))
             conn.execute(text("CREATE INDEX ix_auth_sessions_user_id ON auth_sessions (user_id)"))
+            conn.commit()
+        # Add columns introduced after initial deploy
+        existing = {c["name"] for c in inspector.get_columns("user_preferences")}
+        if "vegetarian" not in existing:
+            conn.execute(text("ALTER TABLE user_preferences ADD COLUMN vegetarian BOOLEAN DEFAULT 1"))
+            conn.commit()
+        if "skipped_ingredients" not in existing:
+            conn.execute(text("ALTER TABLE user_preferences ADD COLUMN skipped_ingredients TEXT DEFAULT ''"))
+            conn.commit()
+
+
+def _migrate_postgres() -> None:
+    if DATABASE_URL.startswith("sqlite"):
+        return
+    with engine.connect() as conn:
+        from sqlalchemy import inspect, text
+        inspector = inspect(engine)
+        if "user_preferences" not in inspector.get_table_names():
+            return
+        existing = {c["name"] for c in inspector.get_columns("user_preferences")}
+        if "vegetarian" not in existing:
+            conn.execute(text("ALTER TABLE user_preferences ADD COLUMN vegetarian BOOLEAN DEFAULT TRUE"))
+            conn.commit()
+        if "skipped_ingredients" not in existing:
+            conn.execute(text("ALTER TABLE user_preferences ADD COLUMN skipped_ingredients TEXT DEFAULT ''"))
             conn.commit()
 
 

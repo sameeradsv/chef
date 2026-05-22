@@ -3,7 +3,7 @@ import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.database import Base, SessionLocal, _migrate_sqlite, engine
+from app.database import Base, SessionLocal, _migrate_postgres, _migrate_sqlite, engine
 from app.routers import decisions, ingredients, recipes, user
 from app.routers.auth import router as auth_router
 from app.routers.grocery import router as grocery_router
@@ -42,6 +42,7 @@ app.include_router(grocery_router)
 def on_startup():
     Base.metadata.create_all(bind=engine)
     _migrate_sqlite()
+    _migrate_postgres()
     db = SessionLocal()
     try:
         seed_database(db)
