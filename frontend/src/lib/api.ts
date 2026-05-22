@@ -157,6 +157,7 @@ export interface UserPreferences {
   dietary_restrictions: string[];
   vegetarian: boolean;
   skipped_ingredients: string[];
+  city: string;
 }
 
 export interface GroceryItem {
@@ -220,7 +221,7 @@ export const api = {
 
   // User preferences
   getPreferences: () => request<UserPreferences>("/user/preferences"),
-  updatePreferences: (data: { favorite_cuisines?: string; spice_level?: number; dietary_restrictions?: string; vegetarian?: boolean; skipped_ingredients?: string }) =>
+  updatePreferences: (data: { favorite_cuisines?: string; spice_level?: number; dietary_restrictions?: string; vegetarian?: boolean; skipped_ingredients?: string; city?: string }) =>
     request<UserPreferences>("/user/preferences", {
       method: "PUT",
       body: JSON.stringify(data),

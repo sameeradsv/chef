@@ -60,6 +60,7 @@ def get_preferences(
         dietary_restrictions=[r.strip() for r in (row.dietary_restrictions or "").split(",") if r.strip()],
         vegetarian=row.vegetarian if row.vegetarian is not None else True,
         skipped_ingredients=[s.strip() for s in (row.skipped_ingredients or "").split(",") if s.strip()],
+        city=row.city or "",
     )
 
 
@@ -88,4 +89,5 @@ def update_preferences(
         dietary_restrictions=[r.strip() for r in (row.dietary_restrictions or "").split(",") if r.strip()],
         vegetarian=row.vegetarian if row.vegetarian is not None else True,
         skipped_ingredients=[s.strip() for s in (row.skipped_ingredients or "").split(",") if s.strip()],
+        city=row.city or "",
     )

@@ -93,7 +93,7 @@ def cook_vs_order(
     if body.restaurant_id:
         rest_raw = get_restaurant_by_id(body.restaurant_id)
     else:
-        rest_raw = best_restaurant_for_state(state)
+        rest_raw = best_restaurant_for_state(state, vegetarian=vegetarian)
     restaurant = _restaurant_dto(rest_raw)
 
     result = compare_options(
@@ -119,7 +119,7 @@ def recommend_meal_endpoint(
     vegetarian, skipped = _diet(db, current_user.id)
     recs = recommend_recipes(pantry, state, 1, vegetarian=vegetarian, skipped_ingredients=skipped)
     recipe = recs[0] if recs else get_recipe_by_id("r-dal-tadka", pantry)
-    rest_raw = best_restaurant_for_state(state)
+    rest_raw = best_restaurant_for_state(state, vegetarian=vegetarian)
     restaurant = _restaurant_dto(rest_raw)
     result = recommend_meal(
         recipe,

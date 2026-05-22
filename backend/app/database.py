@@ -48,6 +48,9 @@ def _migrate_sqlite() -> None:
         if "skipped_ingredients" not in existing:
             conn.execute(text("ALTER TABLE user_preferences ADD COLUMN skipped_ingredients TEXT DEFAULT ''"))
             conn.commit()
+        if "city" not in existing:
+            conn.execute(text("ALTER TABLE user_preferences ADD COLUMN city VARCHAR(100) DEFAULT ''"))
+            conn.commit()
 
 
 def _migrate_postgres() -> None:
@@ -64,6 +67,9 @@ def _migrate_postgres() -> None:
             conn.commit()
         if "skipped_ingredients" not in existing:
             conn.execute(text("ALTER TABLE user_preferences ADD COLUMN skipped_ingredients TEXT DEFAULT ''"))
+            conn.commit()
+        if "city" not in existing:
+            conn.execute(text("ALTER TABLE user_preferences ADD COLUMN city VARCHAR(100) DEFAULT ''"))
             conn.commit()
 
 

@@ -29,6 +29,32 @@ def _passes_diet(raw: dict, vegetarian: bool, skipped: set[str]) -> bool:
     return True
 
 
+def _passes_diet_response(resp, vegetarian: bool, skipped: set[str]) -> bool:
+    """Same check but for an already-built RecipeResponse object."""
+    ings = {i.normalized_name.lower() for i in resp.ingredients}
+    if vegetarian and ings & _NON_VEG:
+        return False
+    if skipped and ings & skipped:
+        return False
+    return True
+
+
+def _recipe_score(resp, state) -> float:
+    """Score a RecipeResponse given current UserStatePayload."""
+    score = resp.pantry_match_pct * 0.4
+    score += len(resp.uses_expiring) * 15
+    total_time = resp.prep_time_minutes + resp.cook_time_minutes
+    if total_time <= state.time_available_minutes:
+        score += 10
+    score += (resp.nutrition_score / 10) * state.health_priority
+    score -= resp.difficulty * 2
+    if state.craving and state.craving.lower() in resp.cuisine.lower():
+        score += 8
+    if state.energy_level <= 4 and resp.difficulty <= 2:
+        score += 12
+    return score
+
+
 SUBSTITUTION_RULES: dict[str, list[dict]] = {
     "paneer": [{"substitute": "tofu", "note": "Similar texture, lower fat"}],
     "cream": [{"substitute": "yogurt", "note": "Tangier but works in curries"}],
@@ -186,7 +212,7 @@ def get_restaurant_by_id(restaurant_id: str) -> dict | None:
     return None
 
 
-def best_restaurant_for_state(state: UserStatePayload) -> dict:
+def best_restaurant_for_state(state: UserStatePayload, vegetarian: bool = False) -> dict:
     restaurants = load_restaurants()
     if not restaurants:
         return {
@@ -199,7 +225,12 @@ def best_restaurant_for_state(state: UserStatePayload) -> dict:
             "rating": 4.0,
             "cuisine": "Indian",
             "discount_available": False,
+            "vegetarian_friendly": True,
         }
+    if vegetarian:
+        veg = [r for r in restaurants if r.get("vegetarian_friendly", True)]
+        if veg:
+            restaurants = veg
     best = restaurants[0]
     best_score = -1
     for r in restaurants:

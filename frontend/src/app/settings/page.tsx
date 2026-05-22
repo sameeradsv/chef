@@ -125,6 +125,7 @@ export default function SettingsPage() {
   const [vegetarian, setVegetarian] = useState(true);
   const [skipped, setSkipped] = useState<string[]>([]);
   const [customSkip, setCustomSkip] = useState("");
+  const [city, setCity] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -141,6 +142,7 @@ export default function SettingsPage() {
         setSpice(p.spice_level);
         setVegetarian(p.vegetarian ?? true);
         setSkipped(p.skipped_ingredients ?? []);
+        setCity(p.city ?? "");
       })
       .catch(() => setError("Could not load preferences. Try refreshing."))
       .finally(() => setLoading(false));
@@ -168,6 +170,7 @@ export default function SettingsPage() {
         spice_level: spice,
         vegetarian,
         skipped_ingredients: skipped.join(","),
+        city: city.trim(),
       });
       setPrefs(updated);
       setSaved(true);
@@ -378,6 +381,21 @@ export default function SettingsPage() {
               <p className="text-[11px] text-kitchen-muted mt-1">Comma-separated</p>
             </div>
 
+            {/* Location */}
+            <div>
+              <MonoLabel className="text-kitchen-muted block mb-1.5">YOUR LOCATION</MonoLabel>
+              <input
+                value={city}
+                onChange={(e) => setCity(e.target.value)}
+                placeholder="e.g. Koramangala, Bangalore"
+                className={inputCls}
+                style={inputStyle}
+              />
+              <p className="text-[11px] text-kitchen-muted mt-1">
+                City or landmark — used for restaurant &amp; delivery suggestions
+              </p>
+            </div>
+
             {/* Spice */}
             <div>
               <div className="flex justify-between mb-1.5">
@@ -413,6 +431,7 @@ export default function SettingsPage() {
               <SettingsRow label="Cuisines" value={prefs.favorite_cuisines.slice(0, 2).join(", ") + (prefs.favorite_cuisines.length > 2 ? " +" + (prefs.favorite_cuisines.length - 2) : "")} />
             )}
             <SettingsRow label="Spice level" value={`${prefs.spice_level} / 10`} />
+            {prefs.city && <SettingsRow label="Location" value={prefs.city} />}
           </>
         )}
       </div>

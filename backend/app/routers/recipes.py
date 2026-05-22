@@ -5,10 +5,16 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.dependencies import get_current_user
-from app.models import IngredientModel, UserAccountModel, UserStateModel
-from app.schemas import RecipeResponse, UserStatePayload
+from app.models import IngredientModel, UserAccountModel, UserPreferencesModel, UserStateModel
+from app.schemas import RecipeResponse, UserPreferencesResponse, UserStatePayload
 from app.services.mealdb import search_mealdb
-from app.services.recipes import get_recipe_by_id, recommend_recipes, search_recipes
+from app.services.recipes import (
+    _passes_diet_response,
+    _recipe_score,
+    get_recipe_by_id,
+    recommend_recipes,
+    search_recipes,
+)
 
 router = APIRouter(prefix="/recipes", tags=["recipes"])
 
@@ -18,11 +24,7 @@ def _get_pantry(db: Session, user_id: str) -> list:
 
 
 def _get_state(db: Session, user_id: str) -> UserStatePayload:
-    row = (
-        db.query(UserStateModel)
-        .filter(UserStateModel.user_id == user_id)
-        .first()
-    )
+    row = db.query(UserStateModel).filter(UserStateModel.user_id == user_id).first()
     if not row:
         return UserStatePayload()
     return UserStatePayload(
@@ -36,6 +38,20 @@ def _get_state(db: Session, user_id: str) -> UserStatePayload:
     )
 
 
+def _get_prefs(db: Session, user_id: str) -> UserPreferencesResponse:
+    row = db.query(UserPreferencesModel).filter(UserPreferencesModel.user_id == user_id).first()
+    if not row:
+        return UserPreferencesResponse()
+    return UserPreferencesResponse(
+        favorite_cuisines=[c.strip() for c in (row.favorite_cuisines or "").split(",") if c.strip()],
+        spice_level=row.spice_level,
+        dietary_restrictions=[],
+        vegetarian=row.vegetarian if row.vegetarian is not None else True,
+        skipped_ingredients=[s.strip() for s in (row.skipped_ingredients or "").split(",") if s.strip()],
+        city=row.city or "",
+    )
+
+
 @router.get("/recommend", response_model=list[RecipeResponse])
 def recommend(
     limit: int = Query(5, ge=1, le=20),
@@ -44,7 +60,28 @@ def recommend(
 ):
     pantry = _get_pantry(db, current_user.id)
     state = _get_state(db, current_user.id)
-    return recommend_recipes(pantry, state, limit)
+    prefs = _get_prefs(db, current_user.id)
+    is_demo = current_user.username == "demo"
+    skipped = {s.lower() for s in prefs.skipped_ingredients}
+
+    results = recommend_recipes(
+        pantry, state, limit,
+        vegetarian=prefs.vegetarian,
+        skipped_ingredients=prefs.skipped_ingredients,
+    )
+
+    # Non-demo users: augment with live TheMealDB results filtered by their preferences
+    if not is_demo and prefs.favorite_cuisines:
+        seen = {r.name.lower() for r in results}
+        for cuisine in prefs.favorite_cuisines[:2]:
+            for r in search_mealdb(cuisine, pantry):
+                if r.name.lower() not in seen and _passes_diet_response(r, prefs.vegetarian, skipped):
+                    results.append(r)
+                    seen.add(r.name.lower())
+        results.sort(key=lambda r: _recipe_score(r, state), reverse=True)
+        results = results[:limit]
+
+    return results
 
 
 @router.get("/search", response_model=list[RecipeResponse])
@@ -56,16 +93,21 @@ def search(
     current_user: UserAccountModel = Depends(get_current_user),
 ):
     pantry = _get_pantry(db, current_user.id)
-    # Multi-keyword: split on whitespace, each token must appear in haystack
+    prefs = _get_prefs(db, current_user.id)
     tokens = [t.strip() for t in q.split() if t.strip()]
-    seed_results = search_recipes(tokens, cuisine, max_time, pantry)
+    seed_results = search_recipes(
+        tokens, cuisine, max_time, pantry,
+        vegetarian=prefs.vegetarian,
+        skipped_ingredients=prefs.skipped_ingredients,
+    )
 
-    # Try TheMealDB for live results if there's a query
+    # TheMealDB: always search live if a query is given (respects prefs filter)
     if q.strip():
+        skipped = {s.lower() for s in prefs.skipped_ingredients}
         live = search_mealdb(q.strip(), pantry)
         seen_names = {r.name.lower() for r in seed_results}
         for r in live:
-            if r.name.lower() not in seen_names:
+            if r.name.lower() not in seen_names and _passes_diet_response(r, prefs.vegetarian, skipped):
                 seed_results.append(r)
                 seen_names.add(r.name.lower())
 

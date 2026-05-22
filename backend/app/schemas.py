@@ -88,6 +88,7 @@ class UserPreferencesResponse(BaseModel):
     dietary_restrictions: List[str] = Field(default_factory=list)
     vegetarian: bool = True
     skipped_ingredients: List[str] = Field(default_factory=list)
+    city: str = ""
 
 
 class UserPreferencesPayload(BaseModel):
@@ -96,6 +97,7 @@ class UserPreferencesPayload(BaseModel):
     dietary_restrictions: Optional[str] = None
     vegetarian: Optional[bool] = None
     skipped_ingredients: Optional[str] = None
+    city: Optional[str] = None
 
 
 class RestaurantOption(BaseModel):
@@ -235,3 +237,4 @@ class UserProfileResponse(BaseModel):
     dietary_restrictions: List[str] = Field(default_factory=list)
     vegetarian: bool = True
     skipped_ingredients: List[str] = Field(default_factory=list)
+    city: str = ""
