@@ -44,7 +44,7 @@ export default function GroceryPage() {
   useEffect(() => {
     Promise.all([api.listGrocery(), api.grocerySuggestions()])
       .then(([list, sugg]) => { setItems(list); setSuggestions(sugg); })
-      .catch((e) => setError(e.message))
+      .catch(() => setError("Could not load grocery list."))
       .finally(() => setLoading(false));
   }, []);
 
@@ -61,7 +61,7 @@ export default function GroceryPage() {
       setItems((prev) => [item, ...prev]);
       setName(""); setQty(""); setUnit("");
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Failed to add item");
+      setError("Failed to add item. Please try again.");
     } finally {
       setAdding(false);
     }

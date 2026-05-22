@@ -75,7 +75,7 @@ export default function HistoryPage() {
   useEffect(() => {
     api.getHistory(100)
       .then(setEntries)
-      .catch((e) => setError(e.message))
+      .catch(() => setError("Could not load history."))
       .finally(() => setLoading(false));
   }, []);
 
@@ -93,7 +93,7 @@ export default function HistoryPage() {
       setShowLog(false);
       setLogRecipe(""); setLogCuisine(""); setLogSatisfaction(undefined);
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Failed to log");
+      setError("Failed to save. Please try again.");
     } finally {
       setSubmitting(false);
     }

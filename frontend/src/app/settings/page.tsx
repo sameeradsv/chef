@@ -142,7 +142,7 @@ export default function SettingsPage() {
         setVegetarian(p.vegetarian ?? true);
         setSkipped(p.skipped_ingredients ?? []);
       })
-      .catch((e) => setError(e.message))
+      .catch(() => setError("Could not load preferences. Try refreshing."))
       .finally(() => setLoading(false));
   }, []);
 
@@ -173,15 +173,15 @@ export default function SettingsPage() {
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
       setPrefsOpen(false);
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Failed to save");
+    } catch {
+      setError("Failed to save preferences. Please try again.");
     } finally {
       setSaving(false);
     }
   }
 
-  function handleLogout() {
-    logout();
+  async function handleLogout() {
+    try { await logout(); } catch { /* ignore */ }
     router.push("/login");
   }
 

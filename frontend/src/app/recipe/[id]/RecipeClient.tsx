@@ -32,7 +32,7 @@ export function RecipeClient({ id }: { id: string }) {
   useEffect(() => {
     api.getRecipe(id)
       .then(setRecipe)
-      .catch((e) => setError(e.message))
+      .catch(() => setError("Could not load recipe."))
       .finally(() => setLoading(false));
   }, [id]);
 
