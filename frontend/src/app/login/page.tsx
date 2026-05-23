@@ -151,6 +151,7 @@ export default function LoginPage() {
             cortexApiBase={CORTEX_URL}
             tokenKey="chef_auth_token"
             appName="Chef"
+            showHeader={false}
             onSuccess={async () => {
               await refetch();
               router.push("/");
