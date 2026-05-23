@@ -45,7 +45,7 @@ def _get_prefs(db: Session, user_id: str) -> UserPreferencesResponse:
     return UserPreferencesResponse(
         favorite_cuisines=[c.strip() for c in (row.favorite_cuisines or "").split(",") if c.strip()],
         spice_level=row.spice_level,
-        dietary_restrictions=[],
+        dietary_restrictions=[d.strip() for d in (row.dietary_restrictions or "").split(",") if d.strip()],
         vegetarian=row.vegetarian if row.vegetarian is not None else True,
         skipped_ingredients=[s.strip() for s in (row.skipped_ingredients or "").split(",") if s.strip()],
         city=row.city or "",
@@ -64,10 +64,14 @@ def recommend(
     is_demo = current_user.username == "demo"
     skipped = {s.lower() for s in prefs.skipped_ingredients}
 
+    dr_set = {d.lower() for d in prefs.dietary_restrictions}
     results = recommend_recipes(
         pantry, state, limit,
         vegetarian=prefs.vegetarian,
         skipped_ingredients=prefs.skipped_ingredients,
+        favorite_cuisines=prefs.favorite_cuisines,
+        spice_level=prefs.spice_level,
+        dietary_restrictions=prefs.dietary_restrictions,
     )
 
     # Non-demo users: augment with live TheMealDB results filtered by their preferences
@@ -75,7 +79,7 @@ def recommend(
         seen = {r.name.lower() for r in results}
         for cuisine in prefs.favorite_cuisines[:2]:
             for r in search_mealdb(cuisine, pantry):
-                if r.name.lower() not in seen and _passes_diet_response(r, prefs.vegetarian, skipped):
+                if r.name.lower() not in seen and _passes_diet_response(r, prefs.vegetarian, skipped, dr_set):
                     results.append(r)
                     seen.add(r.name.lower())
         results.sort(key=lambda r: _recipe_score(r, state), reverse=True)
@@ -104,10 +108,11 @@ def search(
     # TheMealDB: always search live if a query is given (respects prefs filter)
     if q.strip():
         skipped = {s.lower() for s in prefs.skipped_ingredients}
+        dr_set = {d.lower() for d in prefs.dietary_restrictions}
         live = search_mealdb(q.strip(), pantry)
         seen_names = {r.name.lower() for r in seed_results}
         for r in live:
-            if r.name.lower() not in seen_names and _passes_diet_response(r, prefs.vegetarian, skipped):
+            if r.name.lower() not in seen_names and _passes_diet_response(r, prefs.vegetarian, skipped, dr_set):
                 seed_results.append(r)
                 seen_names.add(r.name.lower())
 

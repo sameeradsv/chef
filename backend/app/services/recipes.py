@@ -19,23 +19,56 @@ _NON_VEG: set[str] = {
     "anchovy", "tuna", "salmon", "sardine", "crab", "lobster", "egg",
 }
 
+# Ingredients blocked by common dietary restriction labels.
+_DIET_BLOCKS: dict[str, set[str]] = {
+    "gluten-free": {"wheat", "flour", "bread", "pasta", "semolina", "barley", "rye", "maida", "atta"},
+    "dairy-free": {"milk", "cream", "cheese", "butter", "paneer", "ghee", "yogurt", "curd", "khoa", "mawa"},
+    "vegan": {"milk", "cream", "cheese", "butter", "paneer", "ghee", "yogurt", "curd", "khoa", "mawa", "honey", "egg"},
+    "nut-free": {"almond", "cashew", "peanut", "walnut", "pistachio", "pecan", "hazelnut"},
+}
 
-def _passes_diet(raw: dict, vegetarian: bool, skipped: set[str]) -> bool:
+# Estimated spice intensity by cuisine (1 = mild, 10 = very spicy).
+_CUISINE_SPICE: dict[str, int] = {
+    "indian": 8, "thai": 7, "mexican": 6, "sichuan": 9, "korean": 7,
+    "italian": 3, "japanese": 2, "continental": 3, "mediterranean": 4,
+    "chinese": 5, "french": 3, "american": 3,
+}
+
+
+def _passes_diet(
+    raw: dict,
+    vegetarian: bool,
+    skipped: set[str],
+    dietary_restrictions: set[str] | None = None,
+) -> bool:
     ings = {i["normalized_name"].lower() for i in raw.get("ingredients", [])}
     if vegetarian and ings & _NON_VEG:
         return False
     if skipped and ings & skipped:
         return False
+    for restriction in (dietary_restrictions or set()):
+        blocked = _DIET_BLOCKS.get(restriction, set())
+        if blocked and ings & blocked:
+            return False
     return True
 
 
-def _passes_diet_response(resp, vegetarian: bool, skipped: set[str]) -> bool:
+def _passes_diet_response(
+    resp,
+    vegetarian: bool,
+    skipped: set[str],
+    dietary_restrictions: set[str] | None = None,
+) -> bool:
     """Same check but for an already-built RecipeResponse object."""
     ings = {i.normalized_name.lower() for i in resp.ingredients}
     if vegetarian and ings & _NON_VEG:
         return False
     if skipped and ings & skipped:
         return False
+    for restriction in (dietary_restrictions or set()):
+        blocked = _DIET_BLOCKS.get(restriction, set())
+        if blocked and ings & blocked:
+            return False
     return True
 
 
@@ -142,12 +175,16 @@ def recommend_recipes(
     limit: int = 5,
     vegetarian: bool = True,
     skipped_ingredients: list[str] | None = None,
+    favorite_cuisines: list[str] | None = None,
+    spice_level: int = 5,
+    dietary_restrictions: list[str] | None = None,
 ) -> list[RecipeResponse]:
     recipes = load_recipes()
     skipped = {s.strip().lower() for s in (skipped_ingredients or []) if s.strip()}
-    recipes = [r for r in recipes if _passes_diet(r, vegetarian, skipped)]
+    dr_set = {d.strip().lower() for d in (dietary_restrictions or []) if d.strip()}
+    recipes = [r for r in recipes if _passes_diet(r, vegetarian, skipped, dr_set)]
+    fav_cuisines = [fc.lower() for fc in (favorite_cuisines or []) if fc.strip()]
     scored: list[tuple[float, dict]] = []
-    pantry_names = _pantry_set(pantry)
     state = state or UserStatePayload()
 
     for raw in recipes:
@@ -163,6 +200,13 @@ def recommend_recipes(
             score += 8
         if state.energy_level <= 4 and raw["difficulty"] <= 2:
             score += 12
+        # Boost recipes whose cuisine matches user's favorites
+        recipe_cuisine = raw.get("cuisine", "").lower()
+        if fav_cuisines and any(fc in recipe_cuisine or recipe_cuisine in fc for fc in fav_cuisines):
+            score += 5
+        # Penalise spice mismatch (inferred from cuisine)
+        recipe_spice = _CUISINE_SPICE.get(recipe_cuisine, 5)
+        score -= abs(spice_level - recipe_spice) * 0.8
         scored.append((score, raw))
 
     scored.sort(key=lambda x: x[0], reverse=True)

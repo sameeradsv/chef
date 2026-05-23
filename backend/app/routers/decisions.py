@@ -27,13 +27,16 @@ from app.services.recipes import (
 router = APIRouter(prefix="/decision", tags=["decisions"])
 
 
-def _diet(db: Session, user_id: str) -> tuple[bool, list[str]]:
+def _diet(db: Session, user_id: str) -> tuple[bool, list[str], list[str], int, list[str]]:
     row = db.query(UserPreferencesModel).filter(UserPreferencesModel.user_id == user_id).first()
     if not row:
-        return True, []
-    skipped = [s.strip() for s in (row.skipped_ingredients or "").split(",") if s.strip()]
+        return True, [], [], 5, []
     veg = row.vegetarian if row.vegetarian is not None else True
-    return veg, skipped
+    skipped = [s.strip() for s in (row.skipped_ingredients or "").split(",") if s.strip()]
+    cuisines = [c.strip() for c in (row.favorite_cuisines or "").split(",") if c.strip()]
+    spice = row.spice_level or 5
+    restrictions = [d.strip() for d in (row.dietary_restrictions or "").split(",") if d.strip()]
+    return veg, skipped, cuisines, spice, restrictions
 
 
 def _state(db: Session, user_id: str) -> UserStatePayload:
@@ -78,12 +81,19 @@ def cook_vs_order(
     pantry = db.query(IngredientModel).filter(IngredientModel.user_id == current_user.id).all()
     state = _state(db, current_user.id)
     profile = get_user_profile(current_user.id, db)
-    vegetarian, skipped = _diet(db, current_user.id)
+    vegetarian, skipped, fav_cuisines, spice_level, diet_restrictions = _diet(db, current_user.id)
 
     if body.recipe_id:
         recipe = get_recipe_by_id(body.recipe_id, pantry)
     else:
-        recs = recommend_recipes(pantry, state, 1, vegetarian=vegetarian, skipped_ingredients=skipped)
+        recs = recommend_recipes(
+            pantry, state, 1,
+            vegetarian=vegetarian,
+            skipped_ingredients=skipped,
+            favorite_cuisines=fav_cuisines,
+            spice_level=spice_level,
+            dietary_restrictions=diet_restrictions,
+        )
         recipe = recs[0] if recs else get_recipe_by_id("r-dal-tadka", pantry)
     if not recipe:
         from app.services.recipes import load_recipes
@@ -116,8 +126,15 @@ def recommend_meal_endpoint(
     pantry = db.query(IngredientModel).filter(IngredientModel.user_id == current_user.id).all()
     state = _state(db, current_user.id)
     profile = get_user_profile(current_user.id, db)
-    vegetarian, skipped = _diet(db, current_user.id)
-    recs = recommend_recipes(pantry, state, 1, vegetarian=vegetarian, skipped_ingredients=skipped)
+    vegetarian, skipped, fav_cuisines, spice_level, diet_restrictions = _diet(db, current_user.id)
+    recs = recommend_recipes(
+        pantry, state, 1,
+        vegetarian=vegetarian,
+        skipped_ingredients=skipped,
+        favorite_cuisines=fav_cuisines,
+        spice_level=spice_level,
+        dietary_restrictions=diet_restrictions,
+    )
     recipe = recs[0] if recs else get_recipe_by_id("r-dal-tadka", pantry)
     rest_raw = best_restaurant_for_state(state, vegetarian=vegetarian)
     restaurant = _restaurant_dto(rest_raw)
