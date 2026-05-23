@@ -43,6 +43,16 @@ class IngredientResponse(IngredientBase):
     model_config = {"from_attributes": True}
 
 
+class BarcodeResult(BaseModel):
+    barcode: str
+    product_name: str
+    ingredient_name: str
+    brand: str
+    quantity: float
+    unit: str
+    nutrition_score: float
+
+
 class RecipeIngredient(BaseModel):
     normalized_name: str
     quantity: float

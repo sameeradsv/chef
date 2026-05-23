@@ -6,12 +6,53 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.dependencies import get_current_user
 from app.models import IngredientModel, UserAccountModel
-from app.schemas import IngredientCreate, IngredientResponse, IngredientUpdate
+from app.schemas import BarcodeResult, IngredientCreate, IngredientResponse, IngredientUpdate
+from app.services.barcode import lookup_barcode
 from app.services.freshness import days_until_expiry
 from app.services.ingredients import ingredient_to_response, refresh_freshness
 from app.services.normalize import normalize_ingredient_name
 
 router = APIRouter(prefix="/ingredients", tags=["ingredients"])
+
+
+@router.get("/barcode/{barcode}", response_model=BarcodeResult)
+def barcode_lookup(
+    barcode: str,
+    current_user: UserAccountModel = Depends(get_current_user),
+):
+    result = lookup_barcode(barcode)
+    if not result:
+        raise HTTPException(status_code=404, detail="Product not found")
+
+    # Use Claude to extract the base ingredient name if available
+    ingredient_name = result["product_name"]
+    try:
+        from app.services.llm import _get_client
+        client = _get_client()
+        if client:
+            msg = client.messages.create(
+                model="claude-haiku-4-5-20251001",
+                max_tokens=20,
+                messages=[{
+                    "role": "user",
+                    "content": f"What is the primary ingredient in: '{result['product_name']}'? Reply with just the ingredient name, lowercase, 1-3 words only. Examples: 'milk', 'basmati rice', 'olive oil'."
+                }],
+            )
+            extracted = msg.content[0].text.strip().lower().strip("'\".,")
+            if extracted:
+                ingredient_name = extracted
+    except Exception:
+        pass
+
+    return BarcodeResult(
+        barcode=result["barcode"],
+        product_name=result["product_name"],
+        ingredient_name=ingredient_name,
+        brand=result["brand"],
+        quantity=result["quantity"],
+        unit=result["unit"],
+        nutrition_score=result["nutrition_score"],
+    )
 
 
 @router.get("", response_model=list[IngredientResponse])

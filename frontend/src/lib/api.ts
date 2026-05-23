@@ -66,6 +66,16 @@ export const auth = {
 
 // --- Types ---
 
+export interface BarcodeResult {
+  barcode: string;
+  product_name: string;
+  ingredient_name: string;
+  brand: string;
+  quantity: number;
+  unit: string;
+  nutrition_score: number;
+}
+
 export interface Ingredient {
   id: string;
   name: string;
@@ -201,6 +211,8 @@ export const api = {
     }),
   deleteIngredient: (id: string) =>
     request<void>(`/ingredients/${id}`, { method: "DELETE" }),
+  lookupBarcode: (barcode: string) =>
+    request<BarcodeResult>(`/ingredients/barcode/${barcode}`),
 
   // Recipes
   recommendRecipes: (limit = 5) =>

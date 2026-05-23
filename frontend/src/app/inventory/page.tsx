@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { api, type Ingredient } from "@/lib/api";
+import { api, type BarcodeResult, type Ingredient } from "@/lib/api";
+import { BarcodeScanner } from "@/components/BarcodeScanner";
 
 const CATEGORIES = ["All", "Produce", "Protein", "Dairy", "Grains", "Pantry"];
 
@@ -139,6 +140,8 @@ export default function InventoryPage() {
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<Ingredient | null>(null);
   const [form, setForm] = useState(emptyForm);
+  const [showScanner, setShowScanner] = useState(false);
+  const [scanLoading, setScanLoading] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -172,6 +175,32 @@ export default function InventoryPage() {
     setEditing(ing);
     setForm({ name: ing.name, quantity: ing.quantity, unit: ing.unit, expiry_date: ing.expiry_date?.slice(0, 10) || "", storage_type: ing.storage_type, opened: ing.opened, cost: ing.cost });
     setShowForm(true);
+  }
+
+  async function handleBarcode(barcode: string) {
+    setShowScanner(false);
+    setScanLoading(true);
+    try {
+      const result: BarcodeResult = await api.lookupBarcode(barcode);
+      setEditing(null);
+      setForm({
+        name: result.ingredient_name || result.product_name,
+        quantity: result.quantity,
+        unit: result.unit,
+        expiry_date: "",
+        storage_type: "pantry",
+        opened: false,
+        cost: 0,
+      });
+      setShowForm(true);
+    } catch {
+      // Product not found — open blank form so user can type manually
+      setEditing(null);
+      setForm(emptyForm);
+      setShowForm(true);
+    } finally {
+      setScanLoading(false);
+    }
   }
 
   async function handleDelete(id: string) {
@@ -302,22 +331,63 @@ export default function InventoryPage() {
         </ul>
       )}
 
-      {/* FAB */}
-      <button
-        type="button"
-        onClick={() => { setEditing(null); setForm(emptyForm); setShowForm(true); }}
-        className="fixed bottom-20 right-5 md:bottom-6 w-14 h-14 flex items-center justify-center text-2xl font-light transition-transform hover:scale-105 active:scale-95 z-40"
-        style={{
-          background: "rgb(var(--kitchen-accent))",
-          color: "rgb(26 18 10)",
-          borderRadius: "50%",
-          boxShadow: "0 8px 24px rgb(var(--kitchen-accent) / 0.35), 0 0 0 1px rgb(var(--kitchen-accent) / 0.4)",
-          bottom: "calc(72px + env(safe-area-inset-bottom, 0px))",
-        }}
-        aria-label="Add ingredient"
+      {/* FABs */}
+      <div
+        className="fixed right-5 flex flex-col items-center gap-3 z-40"
+        style={{ bottom: "calc(72px + env(safe-area-inset-bottom, 0px))" }}
       >
-        +
-      </button>
+        {/* Scan barcode */}
+        <button
+          type="button"
+          onClick={() => setShowScanner(true)}
+          disabled={scanLoading}
+          className="w-12 h-12 flex items-center justify-center transition-transform hover:scale-105 active:scale-95 disabled:opacity-50"
+          style={{
+            background: "rgb(var(--kitchen-surface))",
+            border: "1px solid var(--kitchen-line2)",
+            borderRadius: "50%",
+            boxShadow: "0 4px 12px rgba(0,0,0,0.2)",
+          }}
+          aria-label="Scan barcode"
+        >
+          {scanLoading ? (
+            <svg className="animate-spin" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="rgb(var(--kitchen-accent))" strokeWidth="2">
+              <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
+            </svg>
+          ) : (
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="rgb(var(--kitchen-ink2))" strokeWidth="1.8" strokeLinecap="round">
+              <path d="M3 7V5a2 2 0 012-2h2M17 3h2a2 2 0 012 2v2M21 17v2a2 2 0 01-2 2h-2M7 21H5a2 2 0 01-2-2v-2"/>
+              <line x1="8" y1="8" x2="8" y2="16"/>
+              <line x1="11" y1="8" x2="11" y2="16"/>
+              <line x1="14" y1="8" x2="14" y2="16"/>
+              <line x1="17" y1="8" x2="17" y2="16"/>
+            </svg>
+          )}
+        </button>
+        {/* Add manually */}
+        <button
+          type="button"
+          onClick={() => { setEditing(null); setForm(emptyForm); setShowForm(true); }}
+          className="w-14 h-14 flex items-center justify-center text-2xl font-light transition-transform hover:scale-105 active:scale-95"
+          style={{
+            background: "rgb(var(--kitchen-accent))",
+            color: "rgb(26 18 10)",
+            borderRadius: "50%",
+            boxShadow: "0 8px 24px rgb(var(--kitchen-accent) / 0.35), 0 0 0 1px rgb(var(--kitchen-accent) / 0.4)",
+          }}
+          aria-label="Add ingredient"
+        >
+          +
+        </button>
+      </div>
+
+      {/* Barcode scanner overlay */}
+      {showScanner && (
+        <BarcodeScanner
+          onDetected={handleBarcode}
+          onClose={() => setShowScanner(false)}
+        />
+      )}
 
       {/* Sheet */}
       {showForm && (
