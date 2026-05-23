@@ -7,12 +7,6 @@ import { api, type Ingredient, type Recipe, type RecommendMealResult } from "@/l
 import { expiryBadge } from "@/lib/utils";
 
 /* ─── Helpers ──────────────────────────────────────────────────────────── */
-function greeting() {
-  const h = new Date().getHours();
-  if (h < 12) return "Good morning";
-  if (h < 17) return "Good afternoon";
-  return "Good evening";
-}
 
 function todayLabel() {
   return new Intl.DateTimeFormat("en", { weekday: "short", month: "short", day: "numeric" }).format(new Date());
@@ -278,7 +272,7 @@ export default function DashboardPage() {
           className="font-display font-normal mt-1"
           style={{ fontSize: 26, letterSpacing: "-0.02em", lineHeight: 1.1 }}
         >
-          {greeting()},{" "}
+          Hello,{" "}
           <em className="not-italic text-kitchen-accent">{username ?? "chef"}</em>.
         </h1>
       </div>

@@ -125,7 +125,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
             className="text-xs text-kitchen-muted hover:text-kitchen-danger transition-colors font-mono"
             style={{ letterSpacing: "0.05em" }}
           >
-            SIGN OUT
+            {username === "demo" ? "EXIT DEMO" : "SIGN OUT"}
           </button>
         </div>
       </aside>
