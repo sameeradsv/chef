@@ -19,7 +19,7 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [backendStatus, setBackendStatus] = useState<BackendStatus>("checking");
-  const [showLocal, setShowLocal] = useState(!CORTEX_URL);
+  const [showLocal, setShowLocal] = useState(true);
   const isLogin = mode === "login";
 
   useEffect(() => {
@@ -108,15 +108,10 @@ export default function LoginPage() {
           className="mt-5 font-display font-normal leading-tight"
           style={{ fontSize: 28, letterSpacing: "-0.025em" }}
         >
-          {showLocal
-            ? (isLogin ? <>Your <em className="not-italic text-kitchen-accent">kitchen</em>.</> : <>Cook with <em className="not-italic text-kitchen-accent">intent</em>.</>)
-            : <>One account. <em className="not-italic text-kitchen-accent">Every app</em>.</>
-          }
+          {isLogin ? <>Your <em className="not-italic text-kitchen-accent">kitchen</em>.</> : <>Cook with <em className="not-italic text-kitchen-accent">intent</em>.</>}
         </h1>
         <p className="mt-1.5 text-kitchen-muted text-[13px] mx-auto" style={{ maxWidth: 280, lineHeight: 1.4 }}>
-          {showLocal
-            ? (isLogin ? "Sign in to pick up where you left off." : "Track your pantry, decide what to eat, skip the indecision.")
-            : "Your Cortex account works across Canopy, Chef, and Circuit."}
+          {isLogin ? "Sign in to pick up where you left off." : "Track your pantry, decide what to eat, skip the indecision."}
         </p>
       </div>
 
@@ -147,6 +142,7 @@ export default function LoginPage() {
       {/* Cortex sign-in section */}
       {CORTEX_URL && !showLocal && (
         <div className="relative flex-1 flex flex-col justify-center px-5 overflow-y-auto max-w-sm mx-auto w-full min-h-0">
+          <p className="text-[12px] text-kitchen-muted mb-4">One account across Canopy, Chef, and Circuit.</p>
           <CortexSignIn
             cortexApiBase={CORTEX_URL}
             tokenKey="chef_auth_token"
