@@ -7,7 +7,7 @@ from app.database import get_db
 from app.dependencies import get_current_user
 from app.models import IngredientModel, UserAccountModel, UserPreferencesModel, UserStateModel
 from app.schemas import RecipeResponse, UserPreferencesResponse, UserStatePayload
-from app.services.mealdb import search_mealdb
+from app.services.mealdb import generate_recipes
 from app.services.recipes import (
     _passes_diet_response,
     _recipe_score,
@@ -74,14 +74,20 @@ def recommend(
         dietary_restrictions=prefs.dietary_restrictions,
     )
 
-    # Non-demo users: augment with live TheMealDB results filtered by their preferences
-    if not is_demo and prefs.favorite_cuisines:
+    # Non-demo users: augment with Claude-generated recipes using full preference context
+    if not is_demo:
         seen = {r.name.lower() for r in results}
-        for cuisine in prefs.favorite_cuisines[:2]:
-            for r in search_mealdb(cuisine, pantry):
-                if r.name.lower() not in seen and _passes_diet_response(r, prefs.vegetarian, skipped, dr_set):
-                    results.append(r)
-                    seen.add(r.name.lower())
+        for r in generate_recipes(
+            cuisines=prefs.favorite_cuisines[:2] or None,
+            pantry=pantry,
+            spice_level=prefs.spice_level,
+            dietary_restrictions=prefs.dietary_restrictions or None,
+            vegetarian=prefs.vegetarian,
+            count=limit,
+        ):
+            if r.name.lower() not in seen and _passes_diet_response(r, prefs.vegetarian, skipped, dr_set):
+                results.append(r)
+                seen.add(r.name.lower())
         results.sort(key=lambda r: _recipe_score(r, state), reverse=True)
         results = results[:limit]
 
@@ -105,13 +111,19 @@ def search(
         skipped_ingredients=prefs.skipped_ingredients,
     )
 
-    # TheMealDB: always search live if a query is given (respects prefs filter)
+    # Claude: augment search results with generated recipes matching the query and prefs
     if q.strip():
         skipped = {s.lower() for s in prefs.skipped_ingredients}
         dr_set = {d.lower() for d in prefs.dietary_restrictions}
-        live = search_mealdb(q.strip(), pantry)
         seen_names = {r.name.lower() for r in seed_results}
-        for r in live:
+        for r in generate_recipes(
+            query=q.strip(),
+            pantry=pantry,
+            spice_level=prefs.spice_level,
+            dietary_restrictions=prefs.dietary_restrictions or None,
+            vegetarian=prefs.vegetarian,
+            count=6,
+        ):
             if r.name.lower() not in seen_names and _passes_diet_response(r, prefs.vegetarian, skipped, dr_set):
                 seed_results.append(r)
                 seen_names.add(r.name.lower())
