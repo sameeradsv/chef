@@ -2,6 +2,6 @@
   <rect width="512" height="512" rx="96" fill="#0f0e0c"/>
   <circle cx="256" cy="268" r="118" fill="#e8a54b" stroke="#b87d2e" stroke-width="12"/>
   <circle cx="256" cy="268" r="78" fill="#0f0e0c" opacity="0.35"/>
-  <path d="M374 168 L462 80" stroke="#f5efe6" stroke-width="28" stroke-linecap="round"/>
+  <path d="M374 168 L440 102" stroke="#f5efe6" stroke-width="28" stroke-linecap="round"/>
   <ellipse cx="256" cy="268" rx="42" ry="18" fill="#f5efe6" opacity="0.2"/>
 </svg>
