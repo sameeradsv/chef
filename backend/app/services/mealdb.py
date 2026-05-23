@@ -1,10 +1,13 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import uuid
 
 import httpx
+
+logger = logging.getLogger(__name__)
 
 from app.schemas import RecipeIngredient, RecipeResponse
 
@@ -188,7 +191,9 @@ def generate_recipes(
             pantry_names.add(n)
 
     client = _get_client()
-    if client:
+    if not client:
+        logger.warning("generate_recipes: no Anthropic client (ANTHROPIC_API_KEY missing or invalid)")
+    else:
         prompt = _build_prompt(
             query=query,
             cuisines=cuisines or [],
@@ -212,8 +217,9 @@ def generate_recipes(
             results = _parse_recipes(message.content[0].text, pantry_names)
             if results:
                 return results
-        except Exception:
-            pass
+            logger.warning("generate_recipes: Claude returned no parseable recipes, falling back to TheMealDB")
+        except Exception as e:
+            logger.error("generate_recipes: Claude call failed — %s: %s", type(e).__name__, e)
 
     # TheMealDB fallback: search by query or first preferred cuisine
     fallback_query = query or (cuisines[0] if cuisines else "")
