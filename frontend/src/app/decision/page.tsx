@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { api, type CookVsOrderResult, type DecisionOption, type UserState } from "@/lib/api";
+import { api, type CookVsOrderResult, type DecisionOption, type UserState, getToken } from "@/lib/api";
 import { formatCurrency } from "@/lib/utils";
 
 const defaultState: UserState = {
@@ -14,6 +14,74 @@ const defaultState: UserState = {
   willingness_to_cook: 5,
   stress_level: 5,
 };
+
+// ── Cross-app energy pre-fill ─────────────────────────────────────────────────
+
+const CORTEX_URL  = (process.env.NEXT_PUBLIC_CORTEX_URL  ?? "").replace(/\/$/, "");
+const CIRCUIT_URL = (process.env.NEXT_PUBLIC_CIRCUIT_URL ?? "").replace(/\/$/, "");
+const CANOPY_URL  = (process.env.NEXT_PUBLIC_CANOPY_URL  ?? "").replace(/\/$/, "");
+const CHEF_URL    = (process.env.NEXT_PUBLIC_API_URL     ?? "http://localhost:8000").replace(/\/$/, "");
+
+interface EnergySummary { drain_so_far: number; drain_ahead: number; source: string }
+
+async function fetchEnergy(baseUrl: string, path: string, token: string): Promise<EnergySummary | null> {
+  try {
+    const res = await fetch(`${baseUrl}${path}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
+/** Returns true only if the current token is a Cortex account token. */
+async function isCortexAccount(token: string): Promise<boolean> {
+  if (!CORTEX_URL) return false;
+  try {
+    const res = await fetch(`${CORTEX_URL}/auth/me`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+async function gatherEnergyState(): Promise<{ state: Partial<UserState>; sources: string[] }> {
+  const token = getToken();
+  if (!token) return { state: {}, sources: [] };
+
+  // Only pre-fill when the user has a Cortex account.
+  // Local Chef accounts skip this entirely — decision page works as before.
+  const cortex = await isCortexAccount(token);
+  if (!cortex) return { state: {}, sources: [] };
+
+  const [circuit, canopy, chef] = await Promise.all([
+    CIRCUIT_URL ? fetchEnergy(CIRCUIT_URL, "/api/sync/energy", token) : null,
+    CANOPY_URL  ? fetchEnergy(CANOPY_URL,  "/api/sync/energy", token) : null,
+    fetchEnergy(CHEF_URL, "/sync/energy", token),
+  ]);
+
+  const sources: string[] = [];
+  let drainSoFar = 0;
+  let drainAhead = 0;
+
+  if (circuit) { drainSoFar += circuit.drain_so_far; drainAhead += circuit.drain_ahead; sources.push("Circuit"); }
+  if (canopy)  { drainSoFar += canopy.drain_so_far;  drainAhead += canopy.drain_ahead;  sources.push("Canopy"); }
+  if (chef)    { drainSoFar += chef.drain_so_far; sources.push("Chef"); }
+
+  if (sources.length === 0) return { state: {}, sources: [] };
+
+  drainSoFar = Math.min(drainSoFar, 1);
+  drainAhead = Math.min(drainAhead, 1);
+
+  const energy_level        = Math.max(1, Math.min(10, Math.round((1 - drainSoFar) * 10)));
+  const willingness_to_cook = Math.max(1, Math.min(10, Math.round(Math.max(0, 1 - drainSoFar - drainAhead * 0.4) * 10)));
+
+  return { state: { energy_level, willingness_to_cook }, sources };
+}
 
 function MonoLabel({ children, className = "" }: { children: React.ReactNode; className?: string }) {
   return (
@@ -273,6 +341,7 @@ export default function DecisionPage() {
   const [status, setStatus] = useState<"loading" | "waking" | "ready">("loading");
   const [selected, setSelected] = useState<string | null>(null);
   const [attempt, setAttempt] = useState(0);
+  const [energySources, setEnergySources] = useState<string[]>([]);
 
   async function runDecision(updatedState?: UserState) {
     setLoading(true);
@@ -292,9 +361,30 @@ export default function DecisionPage() {
     }
   }
 
+  // Initial load: pre-fill energy from Circuit + Canopy + Chef, then run decision
   useEffect(() => {
+    let cancelled = false;
+    async function init() {
+      const { state: prefill, sources } = await gatherEnergyState();
+      if (cancelled) return;
+      if (sources.length > 0) {
+        const filled = { ...defaultState, ...prefill };
+        setState(filled);
+        setEnergySources(sources);
+        await runDecision(filled);
+      } else {
+        await runDecision();
+      }
+    }
+    init();
+    return () => { cancelled = true; };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Manual retry (waking state or explicit retry button)
+  useEffect(() => {
+    if (attempt === 0) return; // skip — handled by init above
     runDecision();
-  }, [attempt]);
+  }, [attempt]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Auto-retry every 12s while waking
   useEffect(() => {
@@ -373,6 +463,17 @@ export default function DecisionPage() {
               onSelect={() => setSelected(opt.mode === selected ? null : opt.mode)}
             />
           ))}
+        </div>
+      )}
+
+      {/* Energy attribution */}
+      {energySources.length > 0 && (
+        <div
+          className="flex items-center gap-2 px-3 py-2 text-[11px] font-mono text-kitchen-muted"
+          style={{ border: "1px solid var(--kitchen-line)", borderRadius: "var(--radius-btn)", background: "rgb(var(--kitchen-surface))" }}
+        >
+          <span style={{ color: "rgb(var(--kitchen-accent))" }}>◎</span>
+          Energy auto-filled from {energySources.join(" · ")}
         </div>
       )}
 

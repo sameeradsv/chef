@@ -8,6 +8,7 @@ from app.routers import decisions, ingredients, recipes, user
 from app.routers.auth import router as auth_router
 from app.routers.grocery import router as grocery_router
 from app.routers.history import router as history_router
+from app.routers.sync import router as sync_router
 from app.seed import seed_database
 
 app = FastAPI(
@@ -36,6 +37,7 @@ app.include_router(decisions.router)
 app.include_router(user.router)
 app.include_router(history_router)
 app.include_router(grocery_router)
+app.include_router(sync_router)
 
 
 @app.on_event("startup")

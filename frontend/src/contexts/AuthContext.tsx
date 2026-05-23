@@ -35,6 +35,7 @@ interface ChefAuthContextValue {
   login: (username: string, passcode: string) => Promise<void>;
   register: (username: string, passcode: string) => Promise<void>;
   logout: () => Promise<void>;
+  refetch: () => Promise<void>;
 }
 
 const ChefAuthContext = createContext<ChefAuthContextValue>({} as ChefAuthContextValue);
@@ -70,6 +71,7 @@ function ChefAuthBridge({ children }: { children: React.ReactNode }) {
         login,
         register,
         logout,
+        refetch,
       }}
     >
       {children}

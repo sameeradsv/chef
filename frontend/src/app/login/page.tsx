@@ -2,14 +2,16 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { CortexSignIn } from "@shared/cortex";
 import { useAuth } from "@/contexts/AuthContext";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "") ?? "http://localhost:8000";
+const CORTEX_URL = (process.env.NEXT_PUBLIC_CORTEX_URL ?? "").replace(/\/$/, "");
 
 type BackendStatus = "checking" | "ok" | "waking" | "unreachable";
 
 export default function LoginPage() {
-  const { isAuthenticated, login, register } = useAuth();
+  const { isAuthenticated, login, register, refetch } = useAuth();
   const router = useRouter();
   const [mode, setMode] = useState<"login" | "register">("login");
   const [username, setUsername] = useState("");
@@ -17,6 +19,7 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [backendStatus, setBackendStatus] = useState<BackendStatus>("checking");
+  const [showLocal, setShowLocal] = useState(!CORTEX_URL);
   const isLogin = mode === "login";
 
   useEffect(() => {
@@ -40,7 +43,7 @@ export default function LoginPage() {
     return () => { cancelled = true; };
   }, []);
 
-  async function handleSubmit(e: React.FormEvent) {
+  async function handleLocalSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
     setLoading(true);
@@ -105,16 +108,15 @@ export default function LoginPage() {
           className="mt-5 font-display font-normal leading-tight"
           style={{ fontSize: 28, letterSpacing: "-0.025em" }}
         >
-          {isLogin ? (
-            <>Your <em className="not-italic text-kitchen-accent">kitchen</em>.</>
-          ) : (
-            <>Cook with <em className="not-italic text-kitchen-accent">intent</em>.</>
-          )}
+          {showLocal
+            ? (isLogin ? <>Your <em className="not-italic text-kitchen-accent">kitchen</em>.</> : <>Cook with <em className="not-italic text-kitchen-accent">intent</em>.</>)
+            : <>One account. <em className="not-italic text-kitchen-accent">Every app</em>.</>
+          }
         </h1>
-        <p className="mt-1.5 text-kitchen-muted text-[13px] mx-auto" style={{ maxWidth: 260, lineHeight: 1.4 }}>
-          {isLogin
-            ? "Sign in to pick up where you left off."
-            : "Track your pantry, decide what to eat, skip the indecision."}
+        <p className="mt-1.5 text-kitchen-muted text-[13px] mx-auto" style={{ maxWidth: 280, lineHeight: 1.4 }}>
+          {showLocal
+            ? (isLogin ? "Sign in to pick up where you left off." : "Track your pantry, decide what to eat, skip the indecision.")
+            : "Your Cortex account works across Canopy, Chef, and Circuit."}
         </p>
       </div>
 
@@ -135,99 +137,141 @@ export default function LoginPage() {
               className="w-1.5 h-1.5 rounded-full flex-shrink-0"
               style={{ background: "currentColor", animation: backendStatus === "checking" ? "pulse 1.5s ease-in-out infinite" : "none" }}
             />
-            {backendStatus === "checking"   && "Connecting to server…"}
-            {backendStatus === "waking"     && "Server waking up — first login may take ~30s"}
+            {backendStatus === "checking"    && "Connecting to server…"}
+            {backendStatus === "waking"      && "Server waking up — first login may take ~30s"}
             {backendStatus === "unreachable" && "Server unreachable — check your connection"}
           </div>
         </div>
       )}
 
-      {/* Form — flex-1 so it fills remaining space, overflow-y-auto as safety net */}
-      <form
-        onSubmit={handleSubmit}
-        className="relative flex-1 flex flex-col justify-center px-5 gap-3 overflow-y-auto max-w-sm mx-auto w-full min-h-0"
-      >
-        {[
-          { id: "username", label: "USERNAME", type: "text",     value: username, placeholder: "e.g. jordan",             setter: setUsername, autoComplete: "username" },
-          { id: "passcode", label: "PASSCODE", type: "password", value: passcode, placeholder: isLogin ? "Your password" : "At least 4 characters", setter: setPasscode, autoComplete: isLogin ? "current-password" : "new-password" },
-        ].map(({ id, label, type, value, placeholder, setter, autoComplete }) => (
-          <div key={id}>
-            <label htmlFor={id} className="block text-[10px] text-kitchen-muted font-mono mb-1.5" style={{ letterSpacing: "0.15em" }}>
-              {label}
-            </label>
-            <input
-              id={id}
-              type={type}
-              value={value}
-              onChange={(e) => setter(e.target.value)}
-              required
-              autoComplete={autoComplete}
-              placeholder={placeholder}
-              className="w-full bg-kitchen-card text-kitchen-text placeholder:text-kitchen-muted text-sm px-3.5 py-3 outline-none focus:ring-1 ring-kitchen-accent/60 transition-shadow"
-              style={{ border: "1px solid var(--kitchen-line2)", borderRadius: "var(--radius-btn)", fontFamily: "var(--chef-font-sans)" }}
-            />
-          </div>
-        ))}
-
-        {isLogin && (
-          <div className="flex justify-end -mt-1.5">
-            <button type="button" className="text-xs text-kitchen-muted hover:text-kitchen-text transition-colors">
-              Forgot password?
-            </button>
-          </div>
-        )}
-
-        {error && (
-          <p
-            className="text-xs text-kitchen-danger px-3.5 py-2"
-            style={{ background: "rgb(var(--kitchen-danger) / 0.08)", border: "1px solid rgb(var(--kitchen-danger) / 0.2)", borderRadius: "var(--radius-btn)" }}
-          >
-            {error}
-          </p>
-        )}
-
-        <button
-          type="submit"
-          disabled={loading}
-          className="w-full py-3 text-sm font-medium bg-kitchen-accent disabled:opacity-50 transition-opacity hover:opacity-90"
-          style={{ borderRadius: "var(--radius-btn)", color: "rgb(26 18 10)" }}
-        >
-          {loading ? "Please wait…" : isLogin ? "Sign in →" : "Create account →"}
-        </button>
-
-        <div className="flex items-center gap-3">
-          <div className="flex-1 h-px" style={{ background: "var(--kitchen-line)" }} />
-          <span className="text-[10px] text-kitchen-muted font-mono tracking-[0.1em]">OR</span>
-          <div className="flex-1 h-px" style={{ background: "var(--kitchen-line)" }} />
+      {/* Cortex sign-in section */}
+      {CORTEX_URL && !showLocal && (
+        <div className="relative flex-1 flex flex-col justify-center px-5 overflow-y-auto max-w-sm mx-auto w-full min-h-0">
+          <CortexSignIn
+            cortexApiBase={CORTEX_URL}
+            tokenKey="chef_auth_token"
+            appName="Chef"
+            onSuccess={async () => {
+              await refetch();
+              router.push("/");
+            }}
+            onLocalMode={() => setShowLocal(true)}
+            classNames={{
+              title: "text-sm font-medium text-kitchen-text",
+              subtitle: "text-[12px] text-kitchen-muted font-mono",
+              field: "block",
+              label: "block text-[10px] text-kitchen-muted font-mono mb-1.5 tracking-[0.15em]",
+              input: "w-full bg-kitchen-card text-kitchen-text placeholder:text-kitchen-muted text-sm px-3.5 py-3 outline-none focus:ring-1 ring-kitchen-accent/60 transition-shadow",
+              submitBtn: "w-full py-3 text-sm font-medium bg-kitchen-accent disabled:opacity-50 transition-opacity hover:opacity-90",
+              toggleBtn: "text-[11px] text-kitchen-muted hover:text-kitchen-text transition-colors",
+              localBtn: "text-[12px] text-kitchen-muted hover:text-kitchen-text transition-colors",
+              error: "text-xs text-kitchen-danger px-3.5 py-2",
+            }}
+          />
         </div>
+      )}
 
-        <button
-          type="button"
-          onClick={handleDemo}
-          disabled={loading}
-          className="w-full py-2.5 text-sm text-kitchen-accent disabled:opacity-50 transition-opacity hover:opacity-80"
-          style={{
-            border: "1.5px dashed rgb(var(--kitchen-accent2))",
-            background: "rgb(var(--kitchen-accent) / 0.05)",
-            borderRadius: "var(--radius-btn)",
-          }}
+      {/* Local login form */}
+      {showLocal && (
+        <form
+          onSubmit={handleLocalSubmit}
+          className="relative flex-1 flex flex-col justify-center px-5 gap-3 overflow-y-auto max-w-sm mx-auto w-full min-h-0"
         >
-          Try the demo — no sign‑up
-        </button>
-      </form>
+          {[
+            { id: "username", label: "USERNAME", type: "text",     value: username, placeholder: "e.g. jordan",             setter: setUsername, autoComplete: "username" },
+            { id: "passcode", label: "PASSCODE", type: "password", value: passcode, placeholder: isLogin ? "Your password" : "At least 4 characters", setter: setPasscode, autoComplete: isLogin ? "current-password" : "new-password" },
+          ].map(({ id, label, type, value, placeholder, setter, autoComplete }) => (
+            <div key={id}>
+              <label htmlFor={id} className="block text-[10px] text-kitchen-muted font-mono mb-1.5" style={{ letterSpacing: "0.15em" }}>
+                {label}
+              </label>
+              <input
+                id={id}
+                type={type}
+                value={value}
+                onChange={(e) => setter(e.target.value)}
+                required
+                autoComplete={autoComplete}
+                placeholder={placeholder}
+                className="w-full bg-kitchen-card text-kitchen-text placeholder:text-kitchen-muted text-sm px-3.5 py-3 outline-none focus:ring-1 ring-kitchen-accent/60 transition-shadow"
+                style={{ border: "1px solid var(--kitchen-line2)", borderRadius: "var(--radius-btn)", fontFamily: "var(--chef-font-sans)" }}
+              />
+            </div>
+          ))}
+
+          {error && (
+            <p
+              className="text-xs text-kitchen-danger px-3.5 py-2"
+              style={{ background: "rgb(var(--kitchen-danger) / 0.08)", border: "1px solid rgb(var(--kitchen-danger) / 0.2)", borderRadius: "var(--radius-btn)" }}
+            >
+              {error}
+            </p>
+          )}
+
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full py-3 text-sm font-medium bg-kitchen-accent disabled:opacity-50 transition-opacity hover:opacity-90"
+            style={{ borderRadius: "var(--radius-btn)", color: "rgb(26 18 10)" }}
+          >
+            {loading ? "Please wait…" : isLogin ? "Sign in →" : "Create account →"}
+          </button>
+
+          <div className="flex items-center gap-3">
+            <div className="flex-1 h-px" style={{ background: "var(--kitchen-line)" }} />
+            <span className="text-[10px] text-kitchen-muted font-mono tracking-[0.1em]">OR</span>
+            <div className="flex-1 h-px" style={{ background: "var(--kitchen-line)" }} />
+          </div>
+
+          <button
+            type="button"
+            onClick={handleDemo}
+            disabled={loading}
+            className="w-full py-2.5 text-sm text-kitchen-accent disabled:opacity-50 transition-opacity hover:opacity-80"
+            style={{
+              border: "1.5px dashed rgb(var(--kitchen-accent2))",
+              background: "rgb(var(--kitchen-accent) / 0.05)",
+              borderRadius: "var(--radius-btn)",
+            }}
+          >
+            Try the demo — no sign‑up
+          </button>
+
+          {CORTEX_URL && (
+            <button
+              type="button"
+              onClick={() => setShowLocal(false)}
+              className="text-[11px] text-kitchen-muted hover:text-kitchen-text transition-colors text-center"
+            >
+              ← Use Cortex account instead
+            </button>
+          )}
+        </form>
+      )}
 
       {/* Footer */}
       <div
         className="text-center py-3.5 text-[13px] text-kitchen-muted flex-shrink-0"
         style={{ borderTop: "1px solid var(--kitchen-line)", background: "rgb(var(--kitchen-surface))" }}
       >
-        {isLogin ? "New here? " : "Have an account? "}
+        {showLocal
+          ? (isLogin ? "New here? " : "Have an account? ")
+          : "Chef-only account? "}
         <button
           type="button"
-          onClick={() => { setMode(isLogin ? "register" : "login"); setError(null); }}
+          onClick={() => {
+            if (showLocal) {
+              setMode(isLogin ? "register" : "login");
+              setError(null);
+            } else {
+              setShowLocal(true);
+            }
+          }}
           className="text-kitchen-accent hover:opacity-80 transition-opacity"
         >
-          {isLogin ? "Create account" : "Sign in"}
+          {showLocal
+            ? (isLogin ? "Create account" : "Sign in")
+            : "Use just Chef →"}
         </button>
       </div>
     </div>
