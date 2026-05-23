@@ -72,6 +72,14 @@ export default function HistoryPage() {
   const [logSatisfaction, setLogSatisfaction] = useState<number | undefined>();
   const [submitting, setSubmitting]   = useState(false);
 
+  // Edit state
+  const [editingId, setEditingId]         = useState<string | null>(null);
+  const [editDecision, setEditDecision]   = useState<"cook" | "order" | "eat_out">("cook");
+  const [editRecipe, setEditRecipe]       = useState("");
+  const [editCuisine, setEditCuisine]     = useState("");
+  const [editSatisfaction, setEditSatisfaction] = useState<number | undefined>();
+  const [editSaving, setEditSaving]       = useState(false);
+
   useEffect(() => {
     api.getHistory(100)
       .then(setEntries)
@@ -92,15 +100,56 @@ export default function HistoryPage() {
       setEntries((prev) => [entry, ...prev]);
       setShowLog(false);
       setLogRecipe(""); setLogCuisine(""); setLogSatisfaction(undefined);
-    } catch (e: unknown) {
+    } catch {
       setError("Failed to save. Please try again.");
     } finally {
       setSubmitting(false);
     }
   }
 
-  function updateSatisfaction(id: string, satisfaction: number) {
+  function startEdit(entry: HistoryEntry) {
+    setEditingId(entry.id);
+    setEditDecision(entry.decision);
+    setEditRecipe(entry.recipe_name ?? "");
+    setEditCuisine(entry.cuisine ?? "");
+    setEditSatisfaction(entry.satisfaction ?? undefined);
+  }
+
+  async function handleEditSave(id: string) {
+    setEditSaving(true);
+    try {
+      const updated = await api.updateHistory(id, {
+        decision: editDecision,
+        recipe_name: editRecipe.trim() || undefined,
+        cuisine: editCuisine.trim() || undefined,
+        satisfaction: editSatisfaction,
+      });
+      setEntries((prev) => prev.map((e) => (e.id === id ? updated : e)));
+      setEditingId(null);
+    } catch {
+      setError("Failed to update. Please try again.");
+    } finally {
+      setEditSaving(false);
+    }
+  }
+
+  async function handleDelete(id: string) {
+    setEntries((prev) => prev.filter((e) => e.id !== id));
+    try {
+      await api.deleteHistory(id);
+    } catch {
+      setError("Failed to delete. Please try again.");
+      api.getHistory(100).then(setEntries).catch(() => null);
+    }
+  }
+
+  async function updateSatisfaction(id: string, satisfaction: number) {
     setEntries((prev) => prev.map((e) => (e.id === id ? { ...e, satisfaction } : e)));
+    try {
+      await api.updateHistory(id, { satisfaction });
+    } catch {
+      // non-critical, leave optimistic update in place
+    }
   }
 
   const visible = filterEntries(entries, timeFilter);
@@ -278,35 +327,124 @@ export default function HistoryPage() {
         <ul className="space-y-2">
           {visible.map((entry) => {
             const meta = MODE_META[entry.decision] ?? { label: entry.decision.toUpperCase(), color: "rgb(var(--kitchen-ink3))" };
+            const isEditing = editingId === entry.id;
             return (
               <li
                 key={entry.id}
-                className="flex items-start gap-3 px-4 py-3"
+                className="px-4 py-3"
                 style={{ border: "1px solid var(--kitchen-line)", borderRadius: "var(--radius-card)", background: "rgb(var(--kitchen-card))" }}
               >
-                {/* Swatch */}
-                <div
-                  className="flex-shrink-0 w-10 h-10 rounded-lg"
-                  style={{ background: `${meta.color.replace("rgb", "rgba").replace(")", " / 0.12)")}` }}
-                />
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-mono tracking-[0.12em] uppercase" style={{ color: meta.color }}>{meta.label}</span>
-                    <MonoLabel className="text-kitchen-muted">· {formatDate(entry.timestamp)}</MonoLabel>
+                {isEditing ? (
+                  <div className="space-y-3">
+                    <MonoLabel className="text-kitchen-muted">EDIT ENTRY</MonoLabel>
+                    <div className="flex gap-2 mt-1">
+                      {(["cook", "order", "eat_out"] as const).map((m) => (
+                        <button
+                          key={m}
+                          type="button"
+                          onClick={() => setEditDecision(m)}
+                          className="flex-1 py-1.5 text-xs font-mono transition-all"
+                          style={{
+                            borderRadius: "var(--radius-btn)",
+                            border: editDecision === m ? "1px solid rgb(var(--kitchen-accent) / 0.5)" : "1px solid var(--kitchen-line2)",
+                            background: editDecision === m ? "rgb(var(--kitchen-accent) / 0.1)" : "transparent",
+                            color: editDecision === m ? "rgb(var(--kitchen-accent))" : "rgb(var(--kitchen-ink3))",
+                            letterSpacing: "0.08em",
+                          }}
+                        >
+                          {m.replace("_", " ").toUpperCase()}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <input
+                        value={editRecipe}
+                        onChange={(e) => setEditRecipe(e.target.value)}
+                        placeholder="Meal (optional)"
+                        className={inputCls}
+                        style={inputStyle}
+                      />
+                      <input
+                        value={editCuisine}
+                        onChange={(e) => setEditCuisine(e.target.value)}
+                        placeholder="Cuisine (optional)"
+                        className={inputCls}
+                        style={inputStyle}
+                      />
+                    </div>
+                    <StarRating value={editSatisfaction} onChange={setEditSatisfaction} />
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleEditSave(entry.id)}
+                        disabled={editSaving}
+                        className="px-3 py-1.5 text-xs font-medium disabled:opacity-50 transition-opacity hover:opacity-90"
+                        style={{ background: "rgb(var(--kitchen-accent))", color: "rgb(26 18 10)", borderRadius: "var(--radius-btn)" }}
+                      >
+                        {editSaving ? "Saving…" : "Save"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setEditingId(null)}
+                        className="px-3 py-1.5 text-xs text-kitchen-muted hover:text-kitchen-text transition-colors"
+                        style={{ border: "1px solid var(--kitchen-line2)", borderRadius: "var(--radius-btn)" }}
+                      >
+                        Cancel
+                      </button>
+                    </div>
                   </div>
-                  {entry.recipe_name && (
-                    <p className="text-sm font-display font-normal text-kitchen-text mt-0.5 truncate">{entry.recipe_name}</p>
-                  )}
-                  {entry.cuisine && (
-                    <MonoLabel className="text-kitchen-muted">{entry.cuisine}</MonoLabel>
-                  )}
-                  <div className="mt-1.5">
-                    <StarRating
-                      value={entry.satisfaction ?? undefined}
-                      onChange={(n) => updateSatisfaction(entry.id, n)}
+                ) : (
+                  <div className="flex items-start gap-3">
+                    {/* Swatch */}
+                    <div
+                      className="flex-shrink-0 w-10 h-10 rounded-lg"
+                      style={{ background: `${meta.color.replace("rgb", "rgba").replace(")", " / 0.12)")}` }}
                     />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] font-mono tracking-[0.12em] uppercase" style={{ color: meta.color }}>{meta.label}</span>
+                        <MonoLabel className="text-kitchen-muted">· {formatDate(entry.timestamp)}</MonoLabel>
+                      </div>
+                      {entry.recipe_name && (
+                        <p className="text-sm font-display font-normal text-kitchen-text mt-0.5 truncate">{entry.recipe_name}</p>
+                      )}
+                      {entry.cuisine && (
+                        <MonoLabel className="text-kitchen-muted">{entry.cuisine}</MonoLabel>
+                      )}
+                      <div className="mt-1.5">
+                        <StarRating
+                          value={entry.satisfaction ?? undefined}
+                          onChange={(n) => updateSatisfaction(entry.id, n)}
+                        />
+                      </div>
+                    </div>
+                    {/* Edit / Delete */}
+                    <div className="flex gap-1 flex-shrink-0 mt-0.5">
+                      <button
+                        type="button"
+                        onClick={() => startEdit(entry)}
+                        className="w-7 h-7 flex items-center justify-center rounded-lg text-kitchen-muted hover:text-kitchen-text transition-colors"
+                        style={{ border: "1px solid var(--kitchen-line)" }}
+                        aria-label="Edit"
+                      >
+                        <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M8.5 1.5l2 2L4 10H2v-2L8.5 1.5z"/>
+                        </svg>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDelete(entry.id)}
+                        className="w-7 h-7 flex items-center justify-center rounded-lg text-kitchen-muted hover:text-kitchen-danger transition-colors"
+                        style={{ border: "1px solid var(--kitchen-line)" }}
+                        aria-label="Delete"
+                      >
+                        <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M2 3h8M5 3V2h2v1M4 3v6.5a.5.5 0 00.5.5h3a.5.5 0 00.5-.5V3"/>
+                        </svg>
+                      </button>
+                    </div>
                   </div>
-                </div>
+                )}
               </li>
             );
           })}

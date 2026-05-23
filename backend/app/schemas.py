@@ -189,6 +189,13 @@ class CookingHistoryCreate(BaseModel):
     satisfaction: Optional[int] = Field(None, ge=1, le=5)
 
 
+class CookingHistoryUpdate(BaseModel):
+    decision: Optional[Literal["cook", "order", "eat_out"]] = None
+    recipe_name: Optional[str] = None
+    cuisine: Optional[str] = None
+    satisfaction: Optional[int] = Field(None, ge=1, le=5)
+
+
 class CookingHistoryResponse(BaseModel):
     id: str
     decision: str
