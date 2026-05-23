@@ -240,37 +240,28 @@ export default function LoginPage() {
               onClick={() => setShowLocal(false)}
               className="text-[11px] text-kitchen-muted hover:text-kitchen-text transition-colors text-center"
             >
-              ← Use Cortex account instead
+              Use Cortex account instead →
             </button>
           )}
         </form>
       )}
 
       {/* Footer */}
-      <div
-        className="text-center py-3.5 text-[13px] text-kitchen-muted flex-shrink-0"
-        style={{ borderTop: "1px solid var(--kitchen-line)", background: "rgb(var(--kitchen-surface))" }}
-      >
-        {showLocal
-          ? (isLogin ? "New here? " : "Have an account? ")
-          : "Chef-only account? "}
-        <button
-          type="button"
-          onClick={() => {
-            if (showLocal) {
-              setMode(isLogin ? "register" : "login");
-              setError(null);
-            } else {
-              setShowLocal(true);
-            }
-          }}
-          className="text-kitchen-accent hover:opacity-80 transition-opacity"
+      {showLocal && (
+        <div
+          className="text-center py-3.5 text-[13px] text-kitchen-muted flex-shrink-0"
+          style={{ borderTop: "1px solid var(--kitchen-line)", background: "rgb(var(--kitchen-surface))" }}
         >
-          {showLocal
-            ? (isLogin ? "Create account" : "Sign in")
-            : "Use just Chef →"}
-        </button>
-      </div>
+          {isLogin ? "New here? " : "Have an account? "}
+          <button
+            type="button"
+            onClick={() => { setMode(isLogin ? "register" : "login"); setError(null); }}
+            className="text-kitchen-accent hover:opacity-80 transition-opacity"
+          >
+            {isLogin ? "Create account" : "Sign in"}
+          </button>
+        </div>
+      )}
     </div>
   );
 }
