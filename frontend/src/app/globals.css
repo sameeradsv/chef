@@ -81,11 +81,14 @@
   html {
     font-family: var(--chef-font-sans), system-ui, sans-serif;
     -webkit-text-size-adjust: 100%;
+    overflow-x: hidden;
   }
   body {
     background-color: rgb(var(--kitchen-bg));
     color: rgb(var(--kitchen-ink));
     min-height: 100dvh;
+    overflow-x: hidden;
+    width: 100%;
   }
 }
 
