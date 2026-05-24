@@ -131,7 +131,7 @@ function TonightCard({ meal, recipe }: { meal: RecommendMealResult; recipe?: Rec
             </Link>
           )}
           <Link
-            href="/decision"
+            href={meal.mode === "cook" && meal.recipe ? `/decision?recipe=${meal.recipe.id}` : "/decision"}
             className="px-3.5 py-2.5 text-sm text-kitchen-text transition-colors hover:text-kitchen-accent"
             style={{
               border: "1px solid var(--kitchen-line2)",
@@ -222,39 +222,38 @@ export default function DashboardPage() {
   const [expiring, setExpiring] = useState<Ingredient[]>([]);
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [meal, setMeal] = useState<RecommendMealResult | null>(null);
-  const [status, setStatus] = useState<"loading" | "waking" | "error" | "ok">("loading");
+  const [status, setStatus] = useState<"checkin" | "loading" | "waking" | "error" | "ok">("checkin");
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [attempt, setAttempt] = useState(0);
+  const [mood, setMood] = useState("");
 
-  useEffect(() => {
-    let cancelled = false;
+  async function loadRecommendations(craving: string) {
     setStatus("loading");
-    async function load() {
-      try {
-        const [exp, rec, recMeal] = await Promise.all([
-          api.getIngredients({ expiring_soon: true }),
-          api.recommendRecipes(5),
-          api.recommendMeal(),
-        ]);
-        if (cancelled) return;
-        setExpiring(exp);
-        setRecipes(rec);
-        setMeal(recMeal);
-        setStatus("ok");
-      } catch (e) {
-        if (cancelled) return;
-        const msg = e instanceof Error ? e.message : "Failed to load";
-        if (msg.toLowerCase().includes("fetch") || msg.toLowerCase().includes("load")) {
-          setStatus("waking");
-        } else {
-          setStatus("error");
-          setErrorMsg(msg);
-        }
+    try {
+      if (craving.trim()) {
+        const current = await api.getUserState().catch(() => null);
+        const base = current ?? { energy_level: 5, time_available_minutes: 30, budget_today: 300, health_priority: 5, craving: "", willingness_to_cook: 5, stress_level: 5 };
+        await api.setUserState({ ...base, craving: craving.trim() });
+      }
+      const [exp, rec, recMeal] = await Promise.all([
+        api.getIngredients({ expiring_soon: true }),
+        api.recommendRecipes(5),
+        api.recommendMeal(),
+      ]);
+      setExpiring(exp);
+      setRecipes(rec);
+      setMeal(recMeal);
+      setStatus("ok");
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Failed to load";
+      if (msg.toLowerCase().includes("fetch") || msg.toLowerCase().includes("load")) {
+        setStatus("waking");
+      } else {
+        setStatus("error");
+        setErrorMsg(msg);
       }
     }
-    load();
-    return () => { cancelled = true; };
-  }, [attempt]);
+  }
 
   // Auto-retry every 12s while waking
   useEffect(() => {
@@ -262,6 +261,11 @@ export default function DashboardPage() {
     const t = setTimeout(() => setAttempt((n) => n + 1), 12000);
     return () => clearTimeout(t);
   }, [status, attempt]);
+
+  useEffect(() => {
+    if (attempt === 0) return;
+    loadRecommendations(mood);
+  }, [attempt]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div className="space-y-5">
@@ -278,7 +282,44 @@ export default function DashboardPage() {
       </div>
 
       {/* Main content */}
-      {status === "loading" ? (
+      {status === "checkin" ? (
+        <div
+          className="p-5 space-y-4"
+          style={{ border: "1px solid var(--kitchen-line2)", borderRadius: "var(--radius-card)", background: "rgb(var(--kitchen-card))" }}
+        >
+          <div>
+            <MonoLabel className="text-kitchen-muted block mb-1">HOW ARE YOU FEELING?</MonoLabel>
+            <p className="text-xs text-kitchen-muted mb-3">Any cravings or mood? This shapes your recommendations.</p>
+            <input
+              value={mood}
+              onChange={(e) => setMood(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") loadRecommendations(mood); }}
+              placeholder="e.g. something light, spicy, comfort food…"
+              autoFocus
+              className="w-full text-sm px-3 py-2.5 bg-kitchen-surface text-kitchen-text placeholder:text-kitchen-muted outline-none focus:ring-1 ring-kitchen-accent/50"
+              style={{ border: "1px solid var(--kitchen-line2)", borderRadius: "var(--radius-btn)" }}
+            />
+          </div>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => loadRecommendations(mood)}
+              className="flex-1 py-2.5 text-sm font-medium transition-opacity hover:opacity-90"
+              style={{ background: "rgb(var(--kitchen-accent))", color: "rgb(26 18 10)", borderRadius: "var(--radius-btn)" }}
+            >
+              Show me what to eat →
+            </button>
+            <button
+              type="button"
+              onClick={() => loadRecommendations("")}
+              className="px-4 py-2.5 text-sm text-kitchen-muted transition-colors hover:text-kitchen-text"
+              style={{ border: "1px solid var(--kitchen-line2)", borderRadius: "var(--radius-btn)" }}
+            >
+              Skip
+            </button>
+          </div>
+        </div>
+      ) : status === "loading" ? (
         <div className="space-y-4">
           <LoadingShimmer className="h-56" />
           <LoadingShimmer className="h-24" />
@@ -370,6 +411,14 @@ export default function DashboardPage() {
               </Link>
             ))}
           </div>
+
+          <button
+            type="button"
+            onClick={() => { setMood(""); setStatus("checkin"); }}
+            className="w-full text-xs text-kitchen-muted font-mono hover:text-kitchen-accent transition-colors py-1"
+          >
+            ↻ CHANGE MOOD / REFRESH
+          </button>
         </>
       )}
     </div>

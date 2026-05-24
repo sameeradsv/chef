@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { api, type CookVsOrderResult, type DecisionOption, type UserState, getToken } from "@/lib/api";
 import { formatCurrency } from "@/lib/utils";
 
@@ -424,7 +425,9 @@ function ContextDrawer({
 }
 
 /* ─── Page ─────────────────────────────────────────────────────────────── */
-export default function DecisionPage() {
+function DecisionPageInner() {
+  const searchParams = useSearchParams();
+  const recipeId = searchParams.get("recipe") ?? undefined;
   const [result, setResult] = useState<CookVsOrderResult | null>(null);
   const [state, setState] = useState<UserState>(defaultState);
   const [loading, setLoading] = useState(false);
@@ -440,7 +443,7 @@ export default function DecisionPage() {
     setStatus("loading");
     try {
       if (updatedState) await api.setUserState(updatedState);
-      const data = await api.cookVsOrder(people ?? peopleCount);
+      const data = await api.cookVsOrder(people ?? peopleCount, recipeId);
       setResult(data);
       setSelected(data.recommendation);
       setStatus("ready");
@@ -654,5 +657,13 @@ export default function DecisionPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function DecisionPage() {
+  return (
+    <Suspense>
+      <DecisionPageInner />
+    </Suspense>
   );
 }

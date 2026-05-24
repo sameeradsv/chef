@@ -228,6 +228,7 @@ export const api = {
   getRecipe: (id: string) => request<Recipe>(`/recipes/${id}`),
 
   // User state
+  getUserState: () => request<UserState>("/user/state"),
   setUserState: (state: UserState) =>
     request<UserState & { updated_at?: string }>("/user/state", {
       method: "POST",
@@ -243,10 +244,10 @@ export const api = {
     }),
 
   // Decisions
-  cookVsOrder: (people_count?: number) =>
+  cookVsOrder: (people_count?: number, recipe_id?: string) =>
     request<CookVsOrderResult>("/decision/cook-vs-order", {
       method: "POST",
-      body: JSON.stringify({ people_count }),
+      body: JSON.stringify({ people_count, ...(recipe_id ? { recipe_id } : {}) }),
     }),
   recommendMeal: () =>
     request<RecommendMealResult>("/decision/recommend-meal", {

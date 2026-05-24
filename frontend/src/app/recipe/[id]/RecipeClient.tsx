@@ -216,7 +216,7 @@ export function RecipeClient({ id }: { id: string }) {
       {/* Bottom action */}
       <div className="flex gap-2 pb-4">
         <Link
-          href="/decision"
+          href={`/decision?recipe=${recipe.id}`}
           className="flex-1 py-3 text-sm font-medium text-center transition-opacity hover:opacity-90"
           style={{
             background: "rgb(var(--kitchen-accent))",
@@ -224,7 +224,7 @@ export function RecipeClient({ id }: { id: string }) {
             borderRadius: "var(--radius-btn)",
           }}
         >
-          Cook · {totalTime}m total
+          Compare this →
         </Link>
         <div
           className="px-4 py-3 text-sm text-kitchen-accent font-mono text-center"

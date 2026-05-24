@@ -42,6 +42,29 @@ def set_user_state(
     )
 
 
+@router.get("/state", response_model=UserStateResponse)
+def get_user_state(
+    db: Session = Depends(get_db),
+    current_user: UserAccountModel = Depends(get_current_user),
+):
+    row = (
+        db.query(UserStateModel)
+        .filter(UserStateModel.user_id == current_user.id)
+        .first()
+    )
+    if not row:
+        return UserStateResponse()
+    return UserStateResponse(
+        energy_level=row.energy_level,
+        time_available_minutes=row.time_available_minutes,
+        budget_today=row.budget_today,
+        health_priority=row.health_priority,
+        craving=row.craving,
+        willingness_to_cook=row.willingness_to_cook,
+        stress_level=row.stress_level,
+    )
+
+
 @router.get("/preferences", response_model=UserPreferencesResponse)
 def get_preferences(
     db: Session = Depends(get_db),
