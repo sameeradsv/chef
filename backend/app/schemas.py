@@ -102,6 +102,7 @@ class UserPreferencesResponse(BaseModel):
     skipped_ingredients: List[str] = Field(default_factory=list)
     city: str = ""
     people_count: int = 2
+    cooking_skill: int = 3
 
 
 class UserPreferencesPayload(BaseModel):
@@ -112,6 +113,7 @@ class UserPreferencesPayload(BaseModel):
     skipped_ingredients: Optional[str] = None
     city: Optional[str] = None
     people_count: Optional[int] = Field(None, ge=1, le=20)
+    cooking_skill: Optional[int] = Field(None, ge=1, le=5)
 
 
 class RestaurantOption(BaseModel):

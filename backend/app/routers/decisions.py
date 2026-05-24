@@ -29,10 +29,10 @@ from app.services.restaurants import best_ai_restaurant, generate_restaurant_sug
 router = APIRouter(prefix="/decision", tags=["decisions"])
 
 
-def _diet(db: Session, user_id: str) -> tuple[bool, list[str], list[str], int, list[str], int, str]:
+def _diet(db: Session, user_id: str) -> tuple[bool, list[str], list[str], int, list[str], int, str, int]:
     row = db.query(UserPreferencesModel).filter(UserPreferencesModel.user_id == user_id).first()
     if not row:
-        return True, [], [], 5, [], 2, ""
+        return True, [], [], 5, [], 2, "", 3
     veg = row.vegetarian if row.vegetarian is not None else True
     skipped = [s.strip() for s in (row.skipped_ingredients or "").split(",") if s.strip()]
     cuisines = [c.strip() for c in (row.favorite_cuisines or "").split(",") if c.strip()]
@@ -40,7 +40,8 @@ def _diet(db: Session, user_id: str) -> tuple[bool, list[str], list[str], int, l
     restrictions = [d.strip() for d in (row.dietary_restrictions or "").split(",") if d.strip()]
     people = row.people_count if row.people_count is not None else 2
     city = row.city or ""
-    return veg, skipped, cuisines, spice, restrictions, people, city
+    skill = row.cooking_skill if row.cooking_skill is not None else 3
+    return veg, skipped, cuisines, spice, restrictions, people, city, skill
 
 
 def _state(db: Session, user_id: str) -> UserStatePayload:
@@ -85,7 +86,7 @@ def cook_vs_order(
     pantry = db.query(IngredientModel).filter(IngredientModel.user_id == current_user.id).all()
     state = _state(db, current_user.id)
     profile = get_user_profile(current_user.id, db)
-    vegetarian, skipped, fav_cuisines, spice_level, diet_restrictions, pref_people, city = _diet(db, current_user.id)
+    vegetarian, skipped, fav_cuisines, spice_level, diet_restrictions, pref_people, city, cooking_skill = _diet(db, current_user.id)
     people_count = body.people_count if body.people_count is not None else pref_people
     meal_type = current_meal_type()
 
@@ -130,6 +131,7 @@ def cook_vs_order(
         _expiring_names(pantry),
         profile,
         people_count,
+        cooking_skill,
     )
     result.narrative = generate_decision_narrative(result)
     return result
@@ -143,7 +145,7 @@ def recommend_meal_endpoint(
     pantry = db.query(IngredientModel).filter(IngredientModel.user_id == current_user.id).all()
     state = _state(db, current_user.id)
     profile = get_user_profile(current_user.id, db)
-    vegetarian, skipped, fav_cuisines, spice_level, diet_restrictions, pref_people, city = _diet(db, current_user.id)
+    vegetarian, skipped, fav_cuisines, spice_level, diet_restrictions, pref_people, city, cooking_skill = _diet(db, current_user.id)
     meal_type = current_meal_type()
     recs = recommend_recipes(
         pantry, state, 1,
@@ -175,6 +177,7 @@ def recommend_meal_endpoint(
         _expiring_names(pantry),
         profile,
         pref_people,
+        cooking_skill,
     )
     result.narrative = generate_decision_narrative(result)
     return result

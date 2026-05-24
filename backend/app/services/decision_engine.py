@@ -57,11 +57,18 @@ def score_cook(
     pantry_urgency: float,
     order_cost: float,
     people_count: int = 2,
+    cooking_skill: int = 3,
 ) -> DecisionOption:
     serves = max(getattr(recipe, "serves", 2), 1)
     scale = people_count / serves
     scaled_cost = recipe.estimated_cost * scale
     scaled_order_cost = order_cost * (people_count / 2)
+
+    # Missing ingredients: estimate procurement cost + effort
+    missing_ings = [ing for ing in recipe.ingredients if not ing.in_pantry]
+    missing_count = len(missing_ings)
+    missing_cost = missing_count * 45  # ₹45 per missing ingredient (typical grocery estimate)
+    scaled_cost += missing_cost * scale
 
     total_time = recipe.prep_time_minutes + recipe.cook_time_minutes + recipe.cleanup_effort * 2
     if people_count > 4:
@@ -76,6 +83,13 @@ def score_cook(
         effort_cost += 5
     cleanup = (recipe.cleanup_effort / 5) * 5
 
+    # Skill mismatch penalty: recipe harder than cook's skill level
+    skill_gap = max(0, recipe.difficulty - cooking_skill)
+    skill_penalty = skill_gap * 1.5
+
+    # Sourcing penalty: missing ingredients require extra effort
+    sourcing_penalty = min(5.0, missing_count * 0.8)
+
     factors = {
         "ingredient_expiry_urgency": round(pantry_urgency, 2),
         "health_score": round(health, 2),
@@ -83,9 +97,16 @@ def score_cook(
         "effort_cost": round(-effort_cost, 2),
         "cleanup_effort": round(-cleanup, 2),
     }
-    score = pantry_urgency + health + cost_savings - effort_cost - cleanup
+    if skill_penalty > 0:
+        factors["skill_mismatch"] = round(-skill_penalty, 2)
+    if sourcing_penalty > 0:
+        factors["missing_ingredients"] = round(-sourcing_penalty, 2)
+
+    score = pantry_urgency + health + cost_savings - effort_cost - cleanup - skill_penalty - sourcing_penalty
     if recipe.uses_expiring:
         score += 2
+
+    missing_names = [ing.normalized_name.replace("_", " ") for ing in missing_ings[:5]]
 
     return DecisionOption(
         mode="cook",
@@ -96,7 +117,12 @@ def score_cook(
         effort_label=_effort_label(recipe.difficulty + recipe.cleanup_effort / 2),
         effort_score=recipe.difficulty + recipe.cleanup_effort / 2,
         factors=factors,
-        details={"recipe_id": recipe.id, "recipe_name": recipe.name},
+        details={
+            "recipe_id": recipe.id,
+            "recipe_name": recipe.name,
+            "missing_ingredients": missing_names,
+            "missing_count": missing_count,
+        },
     )
 
 
@@ -249,9 +275,10 @@ def compare_options(
     expiring_names: list[str],
     profile: Optional[UserProfileResponse] = None,
     people_count: int = 2,
+    cooking_skill: int = 3,
 ) -> CookVsOrderResponse:
     pantry_urgency = pantry_expiry_urgency(pantry_ingredients)
-    cook_opt = score_cook(recipe, state, pantry_urgency, restaurant.total_cost, people_count)
+    cook_opt = score_cook(recipe, state, pantry_urgency, restaurant.total_cost, people_count, cooking_skill)
     order_opt = score_order(restaurant, state, state.craving, people_count)
     eat_opt = score_eat_out(restaurant, state, state.craving, people_count)
     cook_opt, order_opt = _apply_personalization(cook_opt, order_opt, profile, recipe.cuisine)
@@ -282,8 +309,9 @@ def recommend_meal(
     expiring_names: list[str],
     profile: Optional[UserProfileResponse] = None,
     people_count: int = 2,
+    cooking_skill: int = 3,
 ) -> RecommendMealResponse:
-    comparison = compare_options(recipe, restaurant, state, pantry_ingredients, expiring_names, profile, people_count)
+    comparison = compare_options(recipe, restaurant, state, pantry_ingredients, expiring_names, profile, people_count, cooking_skill)
     winner = comparison.options[0]
     label = winner.label
     if winner.mode == "cook" and recipe:

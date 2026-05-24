@@ -222,18 +222,20 @@ export default function DashboardPage() {
   const [expiring, setExpiring] = useState<Ingredient[]>([]);
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [meal, setMeal] = useState<RecommendMealResult | null>(null);
-  const [status, setStatus] = useState<"checkin" | "loading" | "waking" | "error" | "ok">("checkin");
+  const [status, setStatus] = useState<"loading" | "waking" | "error" | "ok">("loading");
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [attempt, setAttempt] = useState(0);
   const [mood, setMood] = useState("");
+  const [moodApplied, setMoodApplied] = useState(false);
 
-  async function loadRecommendations(craving: string) {
+  async function loadRecommendations(craving?: string) {
     setStatus("loading");
     try {
-      if (craving.trim()) {
+      if (craving?.trim()) {
         const current = await api.getUserState().catch(() => null);
         const base = current ?? { energy_level: 5, time_available_minutes: 30, budget_today: 300, health_priority: 5, craving: "", willingness_to_cook: 5, stress_level: 5 };
         await api.setUserState({ ...base, craving: craving.trim() });
+        setMoodApplied(true);
       }
       const [exp, rec, recMeal] = await Promise.all([
         api.getIngredients({ expiring_soon: true }),
@@ -254,6 +256,9 @@ export default function DashboardPage() {
       }
     }
   }
+
+  // Load immediately on mount
+  useEffect(() => { loadRecommendations(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Auto-retry every 12s while waking
   useEffect(() => {
@@ -281,45 +286,33 @@ export default function DashboardPage() {
         </h1>
       </div>
 
+      {/* Mood / craving input — optional, non-blocking */}
+      <div className="flex gap-2">
+        <input
+          value={mood}
+          onChange={(e) => { setMood(e.target.value); setMoodApplied(false); }}
+          onKeyDown={(e) => { if (e.key === "Enter" && mood.trim()) loadRecommendations(mood); }}
+          placeholder="Any cravings? (optional — shapes recommendations)"
+          className="flex-1 text-sm px-3 py-2.5 bg-kitchen-card text-kitchen-text placeholder:text-kitchen-muted outline-none focus:ring-1 ring-kitchen-accent/50"
+          style={{ border: "1px solid var(--kitchen-line2)", borderRadius: "var(--radius-btn)" }}
+        />
+        {mood.trim() && !moodApplied && (
+          <button
+            type="button"
+            onClick={() => loadRecommendations(mood)}
+            className="px-3 text-sm font-mono text-kitchen-accent transition-opacity hover:opacity-70 flex-shrink-0"
+            style={{ border: "1px solid rgb(var(--kitchen-accent) / 0.3)", borderRadius: "var(--radius-btn)" }}
+          >
+            Apply
+          </button>
+        )}
+        {moodApplied && (
+          <span className="px-3 py-2.5 text-xs font-mono text-kitchen-muted flex items-center flex-shrink-0">applied ✓</span>
+        )}
+      </div>
+
       {/* Main content */}
-      {status === "checkin" ? (
-        <div
-          className="p-5 space-y-4"
-          style={{ border: "1px solid var(--kitchen-line2)", borderRadius: "var(--radius-card)", background: "rgb(var(--kitchen-card))" }}
-        >
-          <div>
-            <MonoLabel className="text-kitchen-muted block mb-1">HOW ARE YOU FEELING?</MonoLabel>
-            <p className="text-xs text-kitchen-muted mb-3">Any cravings or mood? This shapes your recommendations.</p>
-            <input
-              value={mood}
-              onChange={(e) => setMood(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter") loadRecommendations(mood); }}
-              placeholder="e.g. something light, spicy, comfort food…"
-              autoFocus
-              className="w-full text-sm px-3 py-2.5 bg-kitchen-surface text-kitchen-text placeholder:text-kitchen-muted outline-none focus:ring-1 ring-kitchen-accent/50"
-              style={{ border: "1px solid var(--kitchen-line2)", borderRadius: "var(--radius-btn)" }}
-            />
-          </div>
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={() => loadRecommendations(mood)}
-              className="flex-1 py-2.5 text-sm font-medium transition-opacity hover:opacity-90"
-              style={{ background: "rgb(var(--kitchen-accent))", color: "rgb(26 18 10)", borderRadius: "var(--radius-btn)" }}
-            >
-              Show me what to eat →
-            </button>
-            <button
-              type="button"
-              onClick={() => loadRecommendations("")}
-              className="px-4 py-2.5 text-sm text-kitchen-muted transition-colors hover:text-kitchen-text"
-              style={{ border: "1px solid var(--kitchen-line2)", borderRadius: "var(--radius-btn)" }}
-            >
-              Skip
-            </button>
-          </div>
-        </div>
-      ) : status === "loading" ? (
+      {status === "loading" ? (
         <div className="space-y-4">
           <LoadingShimmer className="h-56" />
           <LoadingShimmer className="h-24" />
@@ -414,10 +407,10 @@ export default function DashboardPage() {
 
           <button
             type="button"
-            onClick={() => { setMood(""); setStatus("checkin"); }}
+            onClick={() => loadRecommendations(mood)}
             className="w-full text-xs text-kitchen-muted font-mono hover:text-kitchen-accent transition-colors py-1"
           >
-            ↻ CHANGE MOOD / REFRESH
+            ↻ REFRESH
           </button>
         </>
       )}

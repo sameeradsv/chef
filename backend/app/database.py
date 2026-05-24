@@ -61,6 +61,9 @@ def _migrate_sqlite() -> None:
         if "people_count" not in existing:
             conn.execute(text("ALTER TABLE user_preferences ADD COLUMN people_count INTEGER DEFAULT 2"))
             conn.commit()
+        if "cooking_skill" not in existing:
+            conn.execute(text("ALTER TABLE user_preferences ADD COLUMN cooking_skill INTEGER DEFAULT 3"))
+            conn.commit()
 
 
 def _migrate_postgres() -> None:
@@ -83,6 +86,9 @@ def _migrate_postgres() -> None:
             conn.commit()
         if "people_count" not in existing_prefs:
             conn.execute(text("ALTER TABLE user_preferences ADD COLUMN people_count INTEGER DEFAULT 2"))
+            conn.commit()
+        if "cooking_skill" not in existing_prefs:
+            conn.execute(text("ALTER TABLE user_preferences ADD COLUMN cooking_skill INTEGER DEFAULT 3"))
             conn.commit()
         existing_accounts = {c["name"] for c in inspector.get_columns("user_accounts")}
         if "cortex_user_id" not in existing_accounts:

@@ -127,6 +127,7 @@ export default function SettingsPage() {
   const [customSkip, setCustomSkip] = useState("");
   const [city, setCity] = useState("");
   const [peopleCount, setPeopleCount] = useState(2);
+  const [cookingSkill, setCookingSkill] = useState(3);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -145,6 +146,7 @@ export default function SettingsPage() {
         setSkipped(p.skipped_ingredients ?? []);
         setCity(p.city ?? "");
         setPeopleCount(p.people_count ?? 2);
+        setCookingSkill(p.cooking_skill ?? 3);
       })
       .catch(() => setError("Could not load preferences. Try refreshing."))
       .finally(() => setLoading(false));
@@ -174,6 +176,7 @@ export default function SettingsPage() {
         skipped_ingredients: skipped.join(","),
         city: city.trim(),
         people_count: peopleCount,
+        cooking_skill: cookingSkill,
       });
       setPrefs(updated);
       setSaved(true);
@@ -428,6 +431,22 @@ export default function SettingsPage() {
               <p className="text-[11px] text-kitchen-muted mt-1">Scales cost and time estimates in recommendations</p>
             </div>
 
+            {/* Cooking skill */}
+            <div>
+              <div className="flex justify-between mb-1.5">
+                <MonoLabel className="text-kitchen-muted">COOKING SKILL</MonoLabel>
+                <MonoLabel className="text-kitchen-accent">
+                  {["", "Beginner", "Casual", "Confident", "Skilled", "Expert"][cookingSkill]}
+                </MonoLabel>
+              </div>
+              <input type="range" min={1} max={5} value={cookingSkill} onChange={(e) => setCookingSkill(Number(e.target.value))} className="w-full accent-kitchen-accent" />
+              <div className="flex justify-between">
+                <span className="text-[11px] text-kitchen-muted">Beginner</span>
+                <span className="text-[11px] text-kitchen-muted">Expert</span>
+              </div>
+              <p className="text-[11px] text-kitchen-muted mt-1">Complex recipes are penalised if they exceed your skill level</p>
+            </div>
+
             {error && <p className="text-xs text-kitchen-danger">{error}</p>}
             <button
               type="submit"
@@ -451,6 +470,7 @@ export default function SettingsPage() {
             )}
             <SettingsRow label="Spice level" value={`${prefs.spice_level} / 10`} />
             <SettingsRow label="Cooking for" value={`${prefs.people_count ?? 2} ${(prefs.people_count ?? 2) === 1 ? "person" : "people"}`} />
+            <SettingsRow label="Cooking skill" value={["", "Beginner", "Casual", "Confident", "Skilled", "Expert"][prefs.cooking_skill ?? 3]} />
             {prefs.city && <SettingsRow label="Location" value={prefs.city} />}
           </>
         )}

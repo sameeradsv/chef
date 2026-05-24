@@ -155,6 +155,16 @@ async function gatherEnergyState(): Promise<{ state: Partial<UserState>; sources
   return { state: { energy_level, willingness_to_cook }, sources };
 }
 
+function inferEnergyFromTime(): number {
+  const h = new Date().getHours();
+  if (h >= 6  && h < 9)  return 7;
+  if (h >= 9  && h < 12) return 8;
+  if (h >= 12 && h < 15) return 6;
+  if (h >= 15 && h < 18) return 5;
+  if (h >= 18 && h < 21) return 7;
+  return 4;
+}
+
 function MonoLabel({ children, className = "" }: { children: React.ReactNode; className?: string }) {
   return (
     <span className={`text-[10px] font-mono tracking-[0.12em] uppercase ${className}`}>
@@ -298,17 +308,25 @@ function ScoreCard({
             ))}
           </div>
           {option.mode === "cook" && (
-            <Link
-              href="/recipe"
-              className="block text-center text-xs font-mono text-kitchen-accent mt-3 py-2.5"
-              style={{
-                border: "1px solid rgb(var(--kitchen-accent) / 0.3)",
-                borderRadius: "var(--radius-btn)",
-              }}
-              onClick={(e) => e.stopPropagation()}
-            >
-              Browse recipes →
-            </Link>
+            <div className="mt-3 space-y-2">
+              {(option.details?.missing_ingredients as string[] | undefined)?.length ? (
+                <div
+                  className="px-3 py-2 text-[11px] font-mono"
+                  style={{ background: "rgb(var(--kitchen-warn) / 0.08)", border: "1px solid rgb(var(--kitchen-warn) / 0.2)", borderRadius: "var(--radius-btn)" }}
+                >
+                  <span style={{ color: "rgb(var(--kitchen-warn))" }}>Need to order: </span>
+                  <span className="text-kitchen-muted">{(option.details.missing_ingredients as string[]).join(", ")}</span>
+                </div>
+              ) : null}
+              <Link
+                href="/recipe"
+                className="block text-center text-xs font-mono text-kitchen-accent py-2.5"
+                style={{ border: "1px solid rgb(var(--kitchen-accent) / 0.3)", borderRadius: "var(--radius-btn)" }}
+                onClick={(e) => e.stopPropagation()}
+              >
+                Browse recipes →
+              </Link>
+            </div>
           )}
         </div>
       )}
@@ -431,7 +449,7 @@ function DecisionPageInner() {
   const [result, setResult] = useState<CookVsOrderResult | null>(null);
   const [state, setState] = useState<UserState>(defaultState);
   const [loading, setLoading] = useState(false);
-  const [status, setStatus] = useState<"checkin" | "loading" | "waking" | "ready">("checkin");
+  const [status, setStatus] = useState<"loading" | "waking" | "ready">("loading");
   const [selected, setSelected] = useState<string | null>(null);
   const [attempt, setAttempt] = useState(0);
   const [energySources, setEnergySources] = useState<string[]>([]);
@@ -457,21 +475,25 @@ function DecisionPageInner() {
     }
   }
 
-  async function handleCheckIn(mood: string, people: number) {
-    setPeopleCount(people);
-    const { state: prefill, sources } = await gatherEnergyState();
-    const filled = { ...defaultState, ...prefill, ...(mood ? { craving: mood } : {}) };
-    setState(filled);
-    if (sources.length > 0) setEnergySources(sources);
-    await runDecision(filled, people);
-  }
-
-  // Load default people count from preferences on mount
+  // On mount: infer energy from time of day, gather cross-app data, load prefs, run comparison
   useEffect(() => {
-    api.getPreferences().then((p) => {
-      setDefaultPeople(p.people_count ?? 2);
-      setPeopleCount(p.people_count ?? 2);
-    }).catch(() => {});
+    async function init() {
+      const inferredEnergy = inferEnergyFromTime();
+      const { state: prefill, sources } = await gatherEnergyState();
+      // Cross-app energy wins over time inference; time inference wins over default
+      const merged: UserState = { ...defaultState, energy_level: inferredEnergy, ...prefill };
+      setState(merged);
+      if (sources.length > 0) setEnergySources(sources);
+      let people = 2;
+      try {
+        const prefs = await api.getPreferences();
+        people = prefs.people_count ?? 2;
+        setDefaultPeople(people);
+        setPeopleCount(people);
+      } catch { /* use default */ }
+      await runDecision(merged, people);
+    }
+    init();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Manual retry (waking state or explicit retry button)
@@ -488,20 +510,6 @@ function DecisionPageInner() {
   }, [status, attempt]);
 
   if (status === "checkin") {
-    return (
-      <div className="space-y-4 pt-2">
-        <div>
-          <h1 className="font-display font-normal" style={{ fontSize: 28, letterSpacing: "-0.025em" }}>
-            What&apos;s the{" "}
-            <em className="not-italic text-kitchen-accent">move</em>?
-          </h1>
-          <p className="text-sm text-kitchen-muted mt-1">Let&apos;s figure out the best food decision right now.</p>
-        </div>
-        <CheckInCard onSubmit={handleCheckIn} defaultPeople={defaultPeople} />
-      </div>
-    );
-  }
-
   if (status === "loading" && !result) {
     return (
       <div className="space-y-4 pt-2">
@@ -625,7 +633,7 @@ function DecisionPageInner() {
           style={{ border: "1px solid var(--kitchen-line)", borderRadius: "var(--radius-btn)", background: "rgb(var(--kitchen-surface))" }}
         >
           <span style={{ color: "rgb(var(--kitchen-accent))" }}>◎</span>
-          Costs shown for {peopleCount} {peopleCount === 1 ? "person" : "people"} · <button type="button" className="text-kitchen-accent hover:opacity-70" onClick={() => setStatus("checkin")}>change</button>
+          Costs shown for {peopleCount} {peopleCount === 1 ? "person" : "people"} · adjust in context above
         </div>
       )}
 
@@ -650,9 +658,9 @@ function DecisionPageInner() {
               border: "1px solid var(--kitchen-line2)",
               borderRadius: "var(--radius-btn)",
             }}
-            onClick={() => setStatus("checkin")}
+            onClick={() => runDecision()}
           >
-            Redo
+            Refresh
           </button>
         </div>
       )}
