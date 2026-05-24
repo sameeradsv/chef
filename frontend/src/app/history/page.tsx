@@ -46,6 +46,12 @@ function StarRating({ value, onChange }: { value?: number; onChange?: (n: number
   );
 }
 
+function localDatetimeValue(iso?: string) {
+  const d = iso ? new Date(iso) : new Date();
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
 const TIME_FILTERS = ["Week", "Month", "Year", "All"] as const;
 type TimeFilter = typeof TIME_FILTERS[number];
 
@@ -70,6 +76,7 @@ export default function HistoryPage() {
   const [logRecipe, setLogRecipe]     = useState("");
   const [logCuisine, setLogCuisine]   = useState("");
   const [logSatisfaction, setLogSatisfaction] = useState<number | undefined>();
+  const [logTimestamp, setLogTimestamp] = useState(() => localDatetimeValue());
   const [submitting, setSubmitting]   = useState(false);
 
   // Edit state
@@ -78,6 +85,7 @@ export default function HistoryPage() {
   const [editRecipe, setEditRecipe]       = useState("");
   const [editCuisine, setEditCuisine]     = useState("");
   const [editSatisfaction, setEditSatisfaction] = useState<number | undefined>();
+  const [editTimestamp, setEditTimestamp] = useState("");
   const [editSaving, setEditSaving]       = useState(false);
 
   useEffect(() => {
@@ -96,10 +104,11 @@ export default function HistoryPage() {
         recipe_name: logRecipe.trim() || undefined,
         cuisine: logCuisine.trim() || undefined,
         satisfaction: logSatisfaction,
+        timestamp: new Date(logTimestamp).toISOString(),
       });
       setEntries((prev) => [entry, ...prev]);
       setShowLog(false);
-      setLogRecipe(""); setLogCuisine(""); setLogSatisfaction(undefined);
+      setLogRecipe(""); setLogCuisine(""); setLogSatisfaction(undefined); setLogTimestamp(localDatetimeValue());
     } catch {
       setError("Failed to save. Please try again.");
     } finally {
@@ -113,6 +122,7 @@ export default function HistoryPage() {
     setEditRecipe(entry.recipe_name ?? "");
     setEditCuisine(entry.cuisine ?? "");
     setEditSatisfaction(entry.satisfaction ?? undefined);
+    setEditTimestamp(localDatetimeValue(entry.timestamp));
   }
 
   async function handleEditSave(id: string) {
@@ -123,6 +133,7 @@ export default function HistoryPage() {
         recipe_name: editRecipe.trim() || undefined,
         cuisine: editCuisine.trim() || undefined,
         satisfaction: editSatisfaction,
+        timestamp: editTimestamp ? new Date(editTimestamp).toISOString() : undefined,
       });
       setEntries((prev) => prev.map((e) => (e.id === id ? updated : e)));
       setEditingId(null);
@@ -225,6 +236,16 @@ export default function HistoryPage() {
           <div>
             <MonoLabel className="text-kitchen-muted block mb-2">SATISFACTION</MonoLabel>
             <StarRating value={logSatisfaction} onChange={setLogSatisfaction} />
+          </div>
+          <div>
+            <MonoLabel className="text-kitchen-muted block mb-1.5">DATE &amp; TIME</MonoLabel>
+            <input
+              type="datetime-local"
+              value={logTimestamp}
+              onChange={(e) => setLogTimestamp(e.target.value)}
+              className={inputCls}
+              style={inputStyle}
+            />
           </div>
           <div className="flex gap-2">
             <button
@@ -373,6 +394,16 @@ export default function HistoryPage() {
                       />
                     </div>
                     <StarRating value={editSatisfaction} onChange={setEditSatisfaction} />
+                    <div>
+                      <MonoLabel className="text-kitchen-muted block mb-1.5">DATE &amp; TIME</MonoLabel>
+                      <input
+                        type="datetime-local"
+                        value={editTimestamp}
+                        onChange={(e) => setEditTimestamp(e.target.value)}
+                        className={inputCls}
+                        style={inputStyle}
+                      />
+                    </div>
                     <div className="flex gap-2">
                       <button
                         type="button"

@@ -23,6 +23,7 @@ def log_decision(
         recipe_name=payload.recipe_name,
         cuisine=payload.cuisine,
         satisfaction=payload.satisfaction,
+        **({"timestamp": payload.timestamp} if payload.timestamp else {}),
     )
     db.add(entry)
     db.commit()

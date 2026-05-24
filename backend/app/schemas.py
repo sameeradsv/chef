@@ -197,6 +197,7 @@ class CookingHistoryCreate(BaseModel):
     recipe_name: Optional[str] = None
     cuisine: Optional[str] = None
     satisfaction: Optional[int] = Field(None, ge=1, le=5)
+    timestamp: Optional[datetime] = None
 
 
 class CookingHistoryUpdate(BaseModel):
@@ -204,6 +205,7 @@ class CookingHistoryUpdate(BaseModel):
     recipe_name: Optional[str] = None
     cuisine: Optional[str] = None
     satisfaction: Optional[int] = Field(None, ge=1, le=5)
+    timestamp: Optional[datetime] = None
 
 
 class CookingHistoryResponse(BaseModel):
