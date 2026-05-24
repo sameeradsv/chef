@@ -61,6 +61,7 @@ def get_preferences(
         vegetarian=row.vegetarian if row.vegetarian is not None else True,
         skipped_ingredients=[s.strip() for s in (row.skipped_ingredients or "").split(",") if s.strip()],
         city=row.city or "",
+        people_count=row.people_count if row.people_count is not None else 2,
     )
 
 
@@ -90,4 +91,5 @@ def update_preferences(
         vegetarian=row.vegetarian if row.vegetarian is not None else True,
         skipped_ingredients=[s.strip() for s in (row.skipped_ingredients or "").split(",") if s.strip()],
         city=row.city or "",
+        people_count=row.people_count if row.people_count is not None else 2,
     )

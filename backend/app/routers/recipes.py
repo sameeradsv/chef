@@ -11,6 +11,7 @@ from app.services.mealdb import generate_recipes
 from app.services.recipes import (
     _passes_diet_response,
     _recipe_score,
+    current_meal_type,
     get_recipe_by_id,
     recommend_recipes,
     search_recipes,
@@ -72,6 +73,7 @@ def recommend(
         favorite_cuisines=prefs.favorite_cuisines,
         spice_level=prefs.spice_level,
         dietary_restrictions=prefs.dietary_restrictions,
+        meal_type=current_meal_type(),
     )
 
     # Non-demo users: augment with Claude-generated recipes using full preference context

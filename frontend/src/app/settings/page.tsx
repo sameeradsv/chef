@@ -126,6 +126,7 @@ export default function SettingsPage() {
   const [skipped, setSkipped] = useState<string[]>([]);
   const [customSkip, setCustomSkip] = useState("");
   const [city, setCity] = useState("");
+  const [peopleCount, setPeopleCount] = useState(2);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -143,6 +144,7 @@ export default function SettingsPage() {
         setVegetarian(p.vegetarian ?? true);
         setSkipped(p.skipped_ingredients ?? []);
         setCity(p.city ?? "");
+        setPeopleCount(p.people_count ?? 2);
       })
       .catch(() => setError("Could not load preferences. Try refreshing."))
       .finally(() => setLoading(false));
@@ -171,6 +173,7 @@ export default function SettingsPage() {
         vegetarian,
         skipped_ingredients: skipped.join(","),
         city: city.trim(),
+        people_count: peopleCount,
       });
       setPrefs(updated);
       setSaved(true);
@@ -409,6 +412,22 @@ export default function SettingsPage() {
               </div>
             </div>
 
+            {/* People count */}
+            <div>
+              <div className="flex justify-between mb-1.5">
+                <MonoLabel className="text-kitchen-muted">USUALLY COOKING FOR</MonoLabel>
+                <MonoLabel className="text-kitchen-accent">
+                  {peopleCount} {peopleCount === 1 ? "person" : "people"}
+                </MonoLabel>
+              </div>
+              <input type="range" min={1} max={10} value={peopleCount} onChange={(e) => setPeopleCount(Number(e.target.value))} className="w-full accent-kitchen-accent" />
+              <div className="flex justify-between">
+                <span className="text-[11px] text-kitchen-muted">Just me</span>
+                <span className="text-[11px] text-kitchen-muted">10 people</span>
+              </div>
+              <p className="text-[11px] text-kitchen-muted mt-1">Scales cost and time estimates in recommendations</p>
+            </div>
+
             {error && <p className="text-xs text-kitchen-danger">{error}</p>}
             <button
               type="submit"
@@ -431,6 +450,7 @@ export default function SettingsPage() {
               <SettingsRow label="Cuisines" value={prefs.favorite_cuisines.slice(0, 2).join(", ") + (prefs.favorite_cuisines.length > 2 ? " +" + (prefs.favorite_cuisines.length - 2) : "")} />
             )}
             <SettingsRow label="Spice level" value={`${prefs.spice_level} / 10`} />
+            <SettingsRow label="Cooking for" value={`${prefs.people_count ?? 2} ${(prefs.people_count ?? 2) === 1 ? "person" : "people"}`} />
             {prefs.city && <SettingsRow label="Location" value={prefs.city} />}
           </>
         )}

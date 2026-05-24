@@ -56,10 +56,19 @@ def score_cook(
     state: UserStatePayload,
     pantry_urgency: float,
     order_cost: float,
+    people_count: int = 2,
 ) -> DecisionOption:
+    serves = max(getattr(recipe, "serves", 2), 1)
+    scale = people_count / serves
+    scaled_cost = recipe.estimated_cost * scale
+    scaled_order_cost = order_cost * (people_count / 2)
+
     total_time = recipe.prep_time_minutes + recipe.cook_time_minutes + recipe.cleanup_effort * 2
+    if people_count > 4:
+        total_time += (people_count - 4) * 3
+
     health = (recipe.nutrition_score / 10) * (state.health_priority / 10) * 10
-    cost_savings = max(0, (order_cost - recipe.estimated_cost) / max(order_cost, 1)) * 10
+    cost_savings = max(0, (scaled_order_cost - scaled_cost) / max(scaled_order_cost, 1)) * 10
     effort_cost = (recipe.difficulty / 5) * 4 + (recipe.cleanup_effort / 5) * 3
     effort_cost += max(0, (10 - state.energy_level) / 10) * 4
     effort_cost += max(0, (6 - state.willingness_to_cook) / 5) * 3
@@ -82,7 +91,7 @@ def score_cook(
         mode="cook",
         label=f"Cook {recipe.name}",
         score=round(score, 2),
-        cost=recipe.estimated_cost,
+        cost=round(scaled_cost, 0),
         time_minutes=total_time,
         effort_label=_effort_label(recipe.difficulty + recipe.cleanup_effort / 2),
         effort_score=recipe.difficulty + recipe.cleanup_effort / 2,
@@ -95,16 +104,18 @@ def score_order(
     restaurant: RestaurantOption,
     state: UserStatePayload,
     craving: str,
+    people_count: int = 2,
 ) -> DecisionOption:
+    scaled_cost = restaurant.total_cost * (people_count / 2)
     convenience = (10 - state.energy_level) * 0.4 + (10 - state.willingness_to_cook) * 0.3
     convenience += state.stress_level * 0.3
     craving_m = _craving_match(craving, restaurant.cuisine)
     delivery_delay = min(10, restaurant.estimated_delivery_minutes / 6)
     budget_penalty = 0.0
-    if state.budget_today > 0 and restaurant.total_cost > state.budget_today:
+    if state.budget_today > 0 and scaled_cost > state.budget_today:
         budget_penalty = 8.0
     elif state.budget_today > 0:
-        over_ratio = restaurant.total_cost / state.budget_today
+        over_ratio = scaled_cost / state.budget_today
         if over_ratio > 0.9:
             budget_penalty = 4.0
 
@@ -122,7 +133,7 @@ def score_order(
         mode="order",
         label=f"Order from {restaurant.restaurant_name}",
         score=round(score, 2),
-        cost=restaurant.total_cost,
+        cost=round(scaled_cost, 0),
         time_minutes=restaurant.estimated_delivery_minutes,
         effort_label="Very low",
         effort_score=1.5,
@@ -138,10 +149,11 @@ def score_eat_out(
     restaurant: RestaurantOption,
     state: UserStatePayload,
     craving: str,
+    people_count: int = 2,
 ) -> DecisionOption:
     travel_time = 25
     total_time = travel_time + 35
-    eat_cost = restaurant.total_cost * 1.35 + 50
+    eat_cost = (restaurant.total_cost * 1.35 + 50) * (people_count / 2)
     convenience = (10 - state.energy_level) * 0.2 + state.stress_level * 0.2
     craving_m = _craving_match(craving, restaurant.cuisine) * 0.9
     effort = 7.0 if state.energy_level < 4 else 5.0
@@ -236,11 +248,12 @@ def compare_options(
     pantry_ingredients: list,
     expiring_names: list[str],
     profile: Optional[UserProfileResponse] = None,
+    people_count: int = 2,
 ) -> CookVsOrderResponse:
     pantry_urgency = pantry_expiry_urgency(pantry_ingredients)
-    cook_opt = score_cook(recipe, state, pantry_urgency, restaurant.total_cost)
-    order_opt = score_order(restaurant, state, state.craving)
-    eat_opt = score_eat_out(restaurant, state, state.craving)
+    cook_opt = score_cook(recipe, state, pantry_urgency, restaurant.total_cost, people_count)
+    order_opt = score_order(restaurant, state, state.craving, people_count)
+    eat_opt = score_eat_out(restaurant, state, state.craving, people_count)
     cook_opt, order_opt = _apply_personalization(cook_opt, order_opt, profile, recipe.cuisine)
 
     options = [cook_opt, order_opt, eat_opt]
@@ -268,8 +281,9 @@ def recommend_meal(
     pantry_ingredients: list,
     expiring_names: list[str],
     profile: Optional[UserProfileResponse] = None,
+    people_count: int = 2,
 ) -> RecommendMealResponse:
-    comparison = compare_options(recipe, restaurant, state, pantry_ingredients, expiring_names, profile)
+    comparison = compare_options(recipe, restaurant, state, pantry_ingredients, expiring_names, profile, people_count)
     winner = comparison.options[0]
     label = winner.label
     if winner.mode == "cook" and recipe:

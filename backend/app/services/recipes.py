@@ -120,6 +120,22 @@ def _pantry_set(pantry: list) -> set[str]:
     return names
 
 
+_MEAL_HOURS: dict[str, tuple[int, int]] = {
+    "breakfast": (6, 11),
+    "lunch": (11, 16),
+    "dinner": (19, 23),
+}
+
+
+def current_meal_type() -> str:
+    from datetime import datetime
+    hour = datetime.now().hour
+    for meal, (start, end) in _MEAL_HOURS.items():
+        if start <= hour < end:
+            return meal
+    return "any"
+
+
 def _recipe_to_response(raw: dict, pantry: list | None = None) -> RecipeResponse:
     pantry_names = _pantry_set(pantry or [])
     reqs = raw.get("ingredients", [])
@@ -162,6 +178,8 @@ def _recipe_to_response(raw: dict, pantry: list | None = None) -> RecipeResponse
         estimated_cost=raw["estimated_cost"],
         requires_attention=raw.get("requires_attention", False),
         cuisine=raw["cuisine"],
+        meal_type=raw.get("meal_type", "any"),
+        serves=raw.get("serves", 2),
         pantry_match_pct=round(pct, 0),
         uses_expiring=list(dict.fromkeys(expiring_used)),
         instructions=raw.get("instructions", []),
@@ -178,6 +196,7 @@ def recommend_recipes(
     favorite_cuisines: list[str] | None = None,
     spice_level: int = 5,
     dietary_restrictions: list[str] | None = None,
+    meal_type: str | None = None,
 ) -> list[RecipeResponse]:
     recipes = load_recipes()
     skipped = {s.strip().lower() for s in (skipped_ingredients or []) if s.strip()}
@@ -207,6 +226,13 @@ def recommend_recipes(
         # Penalise spice mismatch (inferred from cuisine)
         recipe_spice = _CUISINE_SPICE.get(recipe_cuisine, 5)
         score -= abs(spice_level - recipe_spice) * 0.8
+        # Boost recipes matching current meal type
+        recipe_meal_type = raw.get("meal_type", "any")
+        effective_meal_type = meal_type or current_meal_type()
+        if recipe_meal_type == effective_meal_type:
+            score += 20
+        elif recipe_meal_type == "any":
+            score += 5
         scored.append((score, raw))
 
     scored.sort(key=lambda x: x[0], reverse=True)

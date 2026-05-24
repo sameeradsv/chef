@@ -19,24 +19,28 @@ from app.services.llm import generate_decision_narrative
 from app.services.personalization import get_user_profile
 from app.services.recipes import (
     best_restaurant_for_state,
+    current_meal_type,
     get_recipe_by_id,
     get_restaurant_by_id,
     recommend_recipes,
 )
+from app.services.restaurants import best_ai_restaurant, generate_restaurant_suggestions
 
 router = APIRouter(prefix="/decision", tags=["decisions"])
 
 
-def _diet(db: Session, user_id: str) -> tuple[bool, list[str], list[str], int, list[str]]:
+def _diet(db: Session, user_id: str) -> tuple[bool, list[str], list[str], int, list[str], int, str]:
     row = db.query(UserPreferencesModel).filter(UserPreferencesModel.user_id == user_id).first()
     if not row:
-        return True, [], [], 5, []
+        return True, [], [], 5, [], 2, ""
     veg = row.vegetarian if row.vegetarian is not None else True
     skipped = [s.strip() for s in (row.skipped_ingredients or "").split(",") if s.strip()]
     cuisines = [c.strip() for c in (row.favorite_cuisines or "").split(",") if c.strip()]
     spice = row.spice_level or 5
     restrictions = [d.strip() for d in (row.dietary_restrictions or "").split(",") if d.strip()]
-    return veg, skipped, cuisines, spice, restrictions
+    people = row.people_count if row.people_count is not None else 2
+    city = row.city or ""
+    return veg, skipped, cuisines, spice, restrictions, people, city
 
 
 def _state(db: Session, user_id: str) -> UserStatePayload:
@@ -81,7 +85,9 @@ def cook_vs_order(
     pantry = db.query(IngredientModel).filter(IngredientModel.user_id == current_user.id).all()
     state = _state(db, current_user.id)
     profile = get_user_profile(current_user.id, db)
-    vegetarian, skipped, fav_cuisines, spice_level, diet_restrictions = _diet(db, current_user.id)
+    vegetarian, skipped, fav_cuisines, spice_level, diet_restrictions, pref_people, city = _diet(db, current_user.id)
+    people_count = body.people_count if body.people_count is not None else pref_people
+    meal_type = current_meal_type()
 
     if body.recipe_id:
         recipe = get_recipe_by_id(body.recipe_id, pantry)
@@ -93,6 +99,7 @@ def cook_vs_order(
             favorite_cuisines=fav_cuisines,
             spice_level=spice_level,
             dietary_restrictions=diet_restrictions,
+            meal_type=meal_type,
         )
         recipe = recs[0] if recs else get_recipe_by_id("r-dal-tadka", pantry)
     if not recipe:
@@ -102,6 +109,15 @@ def cook_vs_order(
 
     if body.restaurant_id:
         rest_raw = get_restaurant_by_id(body.restaurant_id)
+    elif city:
+        suggestions = generate_restaurant_suggestions(
+            city=city,
+            cuisines=fav_cuisines,
+            budget=state.budget_today,
+            vegetarian=vegetarian,
+            craving=state.craving,
+        )
+        rest_raw = best_ai_restaurant(suggestions, state.craving, state.budget_today) or best_restaurant_for_state(state, vegetarian=vegetarian)
     else:
         rest_raw = best_restaurant_for_state(state, vegetarian=vegetarian)
     restaurant = _restaurant_dto(rest_raw)
@@ -113,6 +129,7 @@ def cook_vs_order(
         pantry,
         _expiring_names(pantry),
         profile,
+        people_count,
     )
     result.narrative = generate_decision_narrative(result)
     return result
@@ -126,7 +143,8 @@ def recommend_meal_endpoint(
     pantry = db.query(IngredientModel).filter(IngredientModel.user_id == current_user.id).all()
     state = _state(db, current_user.id)
     profile = get_user_profile(current_user.id, db)
-    vegetarian, skipped, fav_cuisines, spice_level, diet_restrictions = _diet(db, current_user.id)
+    vegetarian, skipped, fav_cuisines, spice_level, diet_restrictions, pref_people, city = _diet(db, current_user.id)
+    meal_type = current_meal_type()
     recs = recommend_recipes(
         pantry, state, 1,
         vegetarian=vegetarian,
@@ -134,9 +152,20 @@ def recommend_meal_endpoint(
         favorite_cuisines=fav_cuisines,
         spice_level=spice_level,
         dietary_restrictions=diet_restrictions,
+        meal_type=meal_type,
     )
     recipe = recs[0] if recs else get_recipe_by_id("r-dal-tadka", pantry)
-    rest_raw = best_restaurant_for_state(state, vegetarian=vegetarian)
+    if city:
+        suggestions = generate_restaurant_suggestions(
+            city=city,
+            cuisines=fav_cuisines,
+            budget=state.budget_today,
+            vegetarian=vegetarian,
+            craving=state.craving,
+        )
+        rest_raw = best_ai_restaurant(suggestions, state.craving, state.budget_today) or best_restaurant_for_state(state, vegetarian=vegetarian)
+    else:
+        rest_raw = best_restaurant_for_state(state, vegetarian=vegetarian)
     restaurant = _restaurant_dto(rest_raw)
     result = recommend_meal(
         recipe,
@@ -145,6 +174,7 @@ def recommend_meal_endpoint(
         pantry,
         _expiring_names(pantry),
         profile,
+        pref_people,
     )
     result.narrative = generate_decision_narrative(result)
     return result

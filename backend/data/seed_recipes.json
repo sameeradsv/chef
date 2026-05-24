@@ -1,125 +1,508 @@
 [
   {
-    "id": "r-paneer-bhurji",
-    "name": "Paneer Bhurji",
+    "id": "r-aloo-paratha",
+    "name": "Aloo Paratha + Curd + Pickle",
+    "meal_type": "breakfast",
+    "serves": 2,
     "ingredients": [
-      {"normalized_name": "paneer", "quantity": 200, "unit": "grams"},
-      {"normalized_name": "onion", "quantity": 1, "unit": "piece"},
-      {"normalized_name": "tomato", "quantity": 2, "unit": "piece"},
-      {"normalized_name": "turmeric", "quantity": 1, "unit": "tsp"},
-      {"normalized_name": "cumin", "quantity": 1, "unit": "tsp"}
+      {"normalized_name": "wheat_flour", "quantity": 200, "unit": "grams"},
+      {"normalized_name": "potato", "quantity": 3, "unit": "piece"},
+      {"normalized_name": "yogurt", "quantity": 150, "unit": "grams"},
+      {"normalized_name": "butter", "quantity": 2, "unit": "tbsp"},
+      {"normalized_name": "cumin", "quantity": 1, "unit": "tsp"},
+      {"normalized_name": "onion", "quantity": 1, "unit": "piece"}
     ],
-    "prep_time_minutes": 10,
-    "cook_time_minutes": 15,
-    "difficulty": 2,
-    "cleanup_effort": 2,
+    "prep_time_minutes": 20,
+    "cook_time_minutes": 20,
+    "difficulty": 3,
+    "cleanup_effort": 3,
     "nutrition_score": 7,
     "comfort_score": 9,
-    "estimated_cost": 80,
+    "estimated_cost": 120,
     "requires_attention": true,
     "cuisine": "Indian",
     "instructions": [
-      "Crumble paneer and set aside.",
-      "Sauté onions until golden, add tomatoes and spices.",
-      "Add paneer, cook 5 minutes, garnish with coriander."
+      "Boil and mash potatoes with cumin, onion, and spices for filling.",
+      "Stuff wheat dough balls with filling, roll into parathas.",
+      "Cook each paratha on a tawa with butter until golden on both sides.",
+      "Serve hot with chilled curd and pickle on the side."
     ]
   },
   {
-    "id": "r-dal-tadka",
-    "name": "Dal Tadka",
+    "id": "r-poha",
+    "name": "Poha with Peanuts + Masala Chai",
+    "meal_type": "breakfast",
+    "serves": 2,
     "ingredients": [
-      {"normalized_name": "lentil", "quantity": 150, "unit": "grams"},
+      {"normalized_name": "poha", "quantity": 200, "unit": "grams"},
+      {"normalized_name": "peanut", "quantity": 50, "unit": "grams"},
       {"normalized_name": "onion", "quantity": 1, "unit": "piece"},
-      {"normalized_name": "tomato", "quantity": 1, "unit": "piece"},
-      {"normalized_name": "garlic", "quantity": 4, "unit": "cloves"},
-      {"normalized_name": "cumin", "quantity": 1, "unit": "tsp"}
-    ],
-    "prep_time_minutes": 5,
-    "cook_time_minutes": 25,
-    "difficulty": 2,
-    "cleanup_effort": 3,
-    "nutrition_score": 8,
-    "comfort_score": 8,
-    "estimated_cost": 45,
-    "requires_attention": false,
-    "cuisine": "Indian",
-    "instructions": [
-      "Pressure cook lentils until soft.",
-      "Prepare tadka with cumin, garlic, onion, and tomato.",
-      "Mix tadka into dal and simmer 5 minutes."
-    ]
-  },
-  {
-    "id": "r-spinach-egg",
-    "name": "Spinach Egg Scramble",
-    "ingredients": [
-      {"normalized_name": "spinach", "quantity": 200, "unit": "grams"},
-      {"normalized_name": "egg", "quantity": 3, "unit": "piece"},
-      {"normalized_name": "onion", "quantity": 0.5, "unit": "piece"},
-      {"normalized_name": "garlic", "quantity": 2, "unit": "cloves"}
-    ],
-    "prep_time_minutes": 8,
-    "cook_time_minutes": 10,
-    "difficulty": 1,
-    "cleanup_effort": 2,
-    "nutrition_score": 8,
-    "comfort_score": 7,
-    "estimated_cost": 55,
-    "requires_attention": true,
-    "cuisine": "Continental",
-    "instructions": [
-      "Wilt spinach with garlic and onion.",
-      "Add beaten eggs, scramble until set.",
-      "Season with salt and pepper."
-    ]
-  },
-  {
-    "id": "r-fried-rice",
-    "name": "Vegetable Fried Rice",
-    "ingredients": [
-      {"normalized_name": "rice", "quantity": 200, "unit": "grams"},
-      {"normalized_name": "egg", "quantity": 1, "unit": "piece"},
-      {"normalized_name": "bell_pepper", "quantity": 1, "unit": "piece"},
-      {"normalized_name": "onion", "quantity": 0.5, "unit": "piece"},
-      {"normalized_name": "soy_sauce", "quantity": 2, "unit": "tbsp"}
+      {"normalized_name": "potato", "quantity": 1, "unit": "piece"},
+      {"normalized_name": "turmeric", "quantity": 0.5, "unit": "tsp"},
+      {"normalized_name": "milk", "quantity": 200, "unit": "ml"},
+      {"normalized_name": "tea", "quantity": 2, "unit": "tsp"}
     ],
     "prep_time_minutes": 10,
-    "cook_time_minutes": 12,
-    "difficulty": 2,
-    "cleanup_effort": 3,
-    "nutrition_score": 5,
-    "comfort_score": 7,
-    "estimated_cost": 60,
-    "requires_attention": true,
-    "cuisine": "Asian",
-    "instructions": [
-      "Use day-old rice for best texture.",
-      "Stir-fry vegetables, push aside, scramble egg.",
-      "Add rice and soy sauce, toss on high heat."
-    ]
-  },
-  {
-    "id": "r-yogurt-curry",
-    "name": "Quick Yogurt Curry",
-    "ingredients": [
-      {"normalized_name": "yogurt", "quantity": 200, "unit": "grams"},
-      {"normalized_name": "onion", "quantity": 1, "unit": "piece"},
-      {"normalized_name": "turmeric", "quantity": 0.5, "unit": "tsp"},
-      {"normalized_name": "cumin", "quantity": 1, "unit": "tsp"}
-    ],
-    "prep_time_minutes": 5,
     "cook_time_minutes": 15,
     "difficulty": 1,
     "cleanup_effort": 2,
     "nutrition_score": 6,
-    "comfort_score": 6,
-    "estimated_cost": 40,
+    "comfort_score": 8,
+    "estimated_cost": 65,
     "requires_attention": false,
     "cuisine": "Indian",
     "instructions": [
-      "Whisk yogurt with turmeric.",
-      "Sauté cumin and onion, lower heat.",
-      "Stir in yogurt gently without curdling."
+      "Rinse poha and set aside to soften for 5 minutes.",
+      "Fry peanuts and diced potato until crisp; add onion and cook until soft.",
+      "Add turmeric and poha, toss gently on low heat for 3 minutes.",
+      "Brew masala chai with milk and serve alongside."
+    ]
+  },
+  {
+    "id": "r-idli-sambar",
+    "name": "Idli + Sambar + Coconut Chutney",
+    "meal_type": "breakfast",
+    "serves": 2,
+    "ingredients": [
+      {"normalized_name": "rice", "quantity": 150, "unit": "grams"},
+      {"normalized_name": "urad_dal", "quantity": 75, "unit": "grams"},
+      {"normalized_name": "lentil", "quantity": 100, "unit": "grams"},
+      {"normalized_name": "tomato", "quantity": 2, "unit": "piece"},
+      {"normalized_name": "onion", "quantity": 1, "unit": "piece"},
+      {"normalized_name": "coconut", "quantity": 50, "unit": "grams"},
+      {"normalized_name": "tamarind", "quantity": 1, "unit": "tsp"}
+    ],
+    "prep_time_minutes": 15,
+    "cook_time_minutes": 25,
+    "difficulty": 2,
+    "cleanup_effort": 3,
+    "nutrition_score": 8,
+    "comfort_score": 9,
+    "estimated_cost": 80,
+    "requires_attention": false,
+    "cuisine": "South Indian",
+    "instructions": [
+      "Steam pre-soaked rice-urad batter in idli moulds for 10-12 minutes.",
+      "Pressure cook lentils; prepare sambar with tomato, onion, and tamarind.",
+      "Blend coconut with green chilli and salt for chutney.",
+      "Serve 4 hot idlis per person with sambar and chutney."
+    ]
+  },
+  {
+    "id": "r-upma",
+    "name": "Upma + Coconut Chutney",
+    "meal_type": "breakfast",
+    "serves": 2,
+    "ingredients": [
+      {"normalized_name": "semolina", "quantity": 200, "unit": "grams"},
+      {"normalized_name": "onion", "quantity": 1, "unit": "piece"},
+      {"normalized_name": "tomato", "quantity": 1, "unit": "piece"},
+      {"normalized_name": "coconut", "quantity": 50, "unit": "grams"},
+      {"normalized_name": "cumin", "quantity": 1, "unit": "tsp"},
+      {"normalized_name": "carrot", "quantity": 1, "unit": "piece"}
+    ],
+    "prep_time_minutes": 5,
+    "cook_time_minutes": 15,
+    "difficulty": 2,
+    "cleanup_effort": 2,
+    "nutrition_score": 6,
+    "comfort_score": 7,
+    "estimated_cost": 60,
+    "requires_attention": true,
+    "cuisine": "South Indian",
+    "instructions": [
+      "Dry roast semolina until light golden; keep aside.",
+      "Sauté cumin, onion, tomato, and carrot until soft.",
+      "Add 2x water, bring to boil, stir in semolina slowly to avoid lumps.",
+      "Cover and cook 3 minutes; serve with blended coconut chutney."
+    ]
+  },
+  {
+    "id": "r-spinach-egg",
+    "name": "Masala Omelette + Spinach Sauté + Toast",
+    "meal_type": "breakfast",
+    "serves": 2,
+    "ingredients": [
+      {"normalized_name": "egg", "quantity": 4, "unit": "piece"},
+      {"normalized_name": "spinach", "quantity": 150, "unit": "grams"},
+      {"normalized_name": "onion", "quantity": 1, "unit": "piece"},
+      {"normalized_name": "tomato", "quantity": 1, "unit": "piece"},
+      {"normalized_name": "bread", "quantity": 4, "unit": "slice"},
+      {"normalized_name": "butter", "quantity": 1, "unit": "tbsp"},
+      {"normalized_name": "garlic", "quantity": 2, "unit": "cloves"}
+    ],
+    "prep_time_minutes": 8,
+    "cook_time_minutes": 15,
+    "difficulty": 2,
+    "cleanup_effort": 2,
+    "nutrition_score": 8,
+    "comfort_score": 8,
+    "estimated_cost": 90,
+    "requires_attention": true,
+    "cuisine": "Continental",
+    "instructions": [
+      "Beat eggs with onion, tomato, and spices; cook into two fluffy omelettes.",
+      "Sauté spinach with garlic until wilted; season with salt and pepper.",
+      "Toast bread slices and butter them.",
+      "Serve omelette with spinach sauté and toast on the side."
+    ]
+  },
+  {
+    "id": "r-dal-tadka",
+    "name": "Dal Tadka + Jeera Rice + Onion Salad",
+    "meal_type": "lunch",
+    "serves": 2,
+    "ingredients": [
+      {"normalized_name": "lentil", "quantity": 150, "unit": "grams"},
+      {"normalized_name": "rice", "quantity": 150, "unit": "grams"},
+      {"normalized_name": "onion", "quantity": 2, "unit": "piece"},
+      {"normalized_name": "tomato", "quantity": 2, "unit": "piece"},
+      {"normalized_name": "garlic", "quantity": 4, "unit": "cloves"},
+      {"normalized_name": "cumin", "quantity": 2, "unit": "tsp"},
+      {"normalized_name": "lemon", "quantity": 1, "unit": "piece"}
+    ],
+    "prep_time_minutes": 10,
+    "cook_time_minutes": 30,
+    "difficulty": 2,
+    "cleanup_effort": 3,
+    "nutrition_score": 8,
+    "comfort_score": 9,
+    "estimated_cost": 120,
+    "requires_attention": false,
+    "cuisine": "Indian",
+    "instructions": [
+      "Pressure cook lentils until completely soft.",
+      "Cook jeera rice: fry cumin in oil, add rice and 1.5x water, simmer 15 minutes.",
+      "Prepare tadka with garlic, onion, tomato, and spices; pour over dal.",
+      "Slice raw onion with lemon and salt for salad; serve everything together."
+    ]
+  },
+  {
+    "id": "r-rajma-chawal",
+    "name": "Rajma Chawal + Raita",
+    "meal_type": "lunch",
+    "serves": 2,
+    "ingredients": [
+      {"normalized_name": "kidney_bean", "quantity": 150, "unit": "grams"},
+      {"normalized_name": "rice", "quantity": 150, "unit": "grams"},
+      {"normalized_name": "yogurt", "quantity": 150, "unit": "grams"},
+      {"normalized_name": "onion", "quantity": 2, "unit": "piece"},
+      {"normalized_name": "tomato", "quantity": 2, "unit": "piece"},
+      {"normalized_name": "garlic", "quantity": 4, "unit": "cloves"},
+      {"normalized_name": "cumin", "quantity": 1, "unit": "tsp"}
+    ],
+    "prep_time_minutes": 10,
+    "cook_time_minutes": 40,
+    "difficulty": 2,
+    "cleanup_effort": 3,
+    "nutrition_score": 9,
+    "comfort_score": 10,
+    "estimated_cost": 140,
+    "requires_attention": false,
+    "cuisine": "Indian",
+    "instructions": [
+      "Pressure cook soaked kidney beans for 4-5 whistles.",
+      "Cook a thick onion-tomato-garlic gravy; add beans and simmer 15 minutes.",
+      "Steam plain rice separately.",
+      "Whisk yogurt with cumin and salt for raita; serve all together."
+    ]
+  },
+  {
+    "id": "r-chole-bhature",
+    "name": "Chole Bhature + Onion Salad",
+    "meal_type": "lunch",
+    "serves": 2,
+    "ingredients": [
+      {"normalized_name": "chickpea", "quantity": 150, "unit": "grams"},
+      {"normalized_name": "wheat_flour", "quantity": 150, "unit": "grams"},
+      {"normalized_name": "yogurt", "quantity": 50, "unit": "grams"},
+      {"normalized_name": "onion", "quantity": 2, "unit": "piece"},
+      {"normalized_name": "tomato", "quantity": 2, "unit": "piece"},
+      {"normalized_name": "garlic", "quantity": 4, "unit": "cloves"},
+      {"normalized_name": "lemon", "quantity": 1, "unit": "piece"}
+    ],
+    "prep_time_minutes": 20,
+    "cook_time_minutes": 35,
+    "difficulty": 3,
+    "cleanup_effort": 4,
+    "nutrition_score": 7,
+    "comfort_score": 10,
+    "estimated_cost": 160,
+    "requires_attention": true,
+    "cuisine": "Indian",
+    "instructions": [
+      "Pressure cook soaked chickpeas; prepare spiced onion-tomato masala.",
+      "Knead soft bhatura dough with flour and yogurt; rest 30 minutes.",
+      "Roll bhaturas and deep fry until puffed and golden.",
+      "Serve chole with bhatura and sliced raw onion with lemon."
+    ]
+  },
+  {
+    "id": "r-veg-pulao",
+    "name": "Vegetable Pulao + Cucumber Raita",
+    "meal_type": "lunch",
+    "serves": 2,
+    "ingredients": [
+      {"normalized_name": "rice", "quantity": 200, "unit": "grams"},
+      {"normalized_name": "carrot", "quantity": 2, "unit": "piece"},
+      {"normalized_name": "peas", "quantity": 100, "unit": "grams"},
+      {"normalized_name": "onion", "quantity": 1, "unit": "piece"},
+      {"normalized_name": "yogurt", "quantity": 150, "unit": "grams"},
+      {"normalized_name": "cucumber", "quantity": 1, "unit": "piece"},
+      {"normalized_name": "cumin", "quantity": 1, "unit": "tsp"}
+    ],
+    "prep_time_minutes": 10,
+    "cook_time_minutes": 25,
+    "difficulty": 2,
+    "cleanup_effort": 2,
+    "nutrition_score": 7,
+    "comfort_score": 8,
+    "estimated_cost": 110,
+    "requires_attention": false,
+    "cuisine": "Indian",
+    "instructions": [
+      "Sauté cumin and onion; add carrots, peas, and spices.",
+      "Add washed rice and 1.5x water; cook covered on low heat 18 minutes.",
+      "Grate cucumber into whisked yogurt; add cumin and salt for raita.",
+      "Serve pulao hot with chilled raita."
+    ]
+  },
+  {
+    "id": "r-paneer-bhurji",
+    "name": "Paneer Bhurji + Tawa Roti",
+    "meal_type": "dinner",
+    "serves": 2,
+    "ingredients": [
+      {"normalized_name": "paneer", "quantity": 200, "unit": "grams"},
+      {"normalized_name": "wheat_flour", "quantity": 150, "unit": "grams"},
+      {"normalized_name": "onion", "quantity": 1, "unit": "piece"},
+      {"normalized_name": "tomato", "quantity": 2, "unit": "piece"},
+      {"normalized_name": "turmeric", "quantity": 1, "unit": "tsp"},
+      {"normalized_name": "cumin", "quantity": 1, "unit": "tsp"},
+      {"normalized_name": "butter", "quantity": 1, "unit": "tbsp"}
+    ],
+    "prep_time_minutes": 10,
+    "cook_time_minutes": 25,
+    "difficulty": 2,
+    "cleanup_effort": 3,
+    "nutrition_score": 8,
+    "comfort_score": 9,
+    "estimated_cost": 150,
+    "requires_attention": true,
+    "cuisine": "Indian",
+    "instructions": [
+      "Crumble paneer and keep aside.",
+      "Sauté onions golden, add tomatoes and spices; cook until oil separates.",
+      "Add paneer and cook 5 minutes; garnish with coriander.",
+      "Knead roti dough, roll, and cook on a dry tawa with butter."
+    ]
+  },
+  {
+    "id": "r-paneer-butter-masala",
+    "name": "Paneer Butter Masala + Butter Roti + Dal Soup",
+    "meal_type": "dinner",
+    "serves": 2,
+    "ingredients": [
+      {"normalized_name": "paneer", "quantity": 250, "unit": "grams"},
+      {"normalized_name": "tomato", "quantity": 4, "unit": "piece"},
+      {"normalized_name": "cream", "quantity": 100, "unit": "ml"},
+      {"normalized_name": "butter", "quantity": 3, "unit": "tbsp"},
+      {"normalized_name": "wheat_flour", "quantity": 150, "unit": "grams"},
+      {"normalized_name": "lentil", "quantity": 80, "unit": "grams"},
+      {"normalized_name": "onion", "quantity": 2, "unit": "piece"},
+      {"normalized_name": "garlic", "quantity": 4, "unit": "cloves"}
+    ],
+    "prep_time_minutes": 15,
+    "cook_time_minutes": 40,
+    "difficulty": 4,
+    "cleanup_effort": 4,
+    "nutrition_score": 7,
+    "comfort_score": 10,
+    "estimated_cost": 230,
+    "requires_attention": true,
+    "cuisine": "Indian",
+    "instructions": [
+      "Blend roasted onion, tomato, garlic into a smooth gravy base.",
+      "Cook gravy with butter and spices; add paneer cubes and cream.",
+      "Simmer 10 minutes until gravy is rich and paneer is soft.",
+      "Make butter rotis on tawa; pressure cook dal thin for a light soup."
+    ]
+  },
+  {
+    "id": "r-khichdi",
+    "name": "Khichdi + Papad + Pickle",
+    "meal_type": "dinner",
+    "serves": 2,
+    "ingredients": [
+      {"normalized_name": "rice", "quantity": 150, "unit": "grams"},
+      {"normalized_name": "moong_dal", "quantity": 100, "unit": "grams"},
+      {"normalized_name": "turmeric", "quantity": 0.5, "unit": "tsp"},
+      {"normalized_name": "ghee", "quantity": 2, "unit": "tbsp"},
+      {"normalized_name": "cumin", "quantity": 1, "unit": "tsp"}
+    ],
+    "prep_time_minutes": 5,
+    "cook_time_minutes": 25,
+    "difficulty": 1,
+    "cleanup_effort": 2,
+    "nutrition_score": 8,
+    "comfort_score": 9,
+    "estimated_cost": 90,
+    "requires_attention": false,
+    "cuisine": "Indian",
+    "instructions": [
+      "Rinse rice and dal together; pressure cook with turmeric and salt until mushy.",
+      "Finish with a ghee and cumin tadka poured over the top.",
+      "Roast papadums on an open flame or microwave 45 seconds.",
+      "Serve khichdi with papad and a small portion of mango pickle."
+    ]
+  },
+  {
+    "id": "r-palak-dal-roti",
+    "name": "Palak Dal + Tawa Roti + Onion Raita",
+    "meal_type": "dinner",
+    "serves": 2,
+    "ingredients": [
+      {"normalized_name": "spinach", "quantity": 200, "unit": "grams"},
+      {"normalized_name": "lentil", "quantity": 120, "unit": "grams"},
+      {"normalized_name": "wheat_flour", "quantity": 150, "unit": "grams"},
+      {"normalized_name": "yogurt", "quantity": 150, "unit": "grams"},
+      {"normalized_name": "onion", "quantity": 2, "unit": "piece"},
+      {"normalized_name": "garlic", "quantity": 3, "unit": "cloves"},
+      {"normalized_name": "cumin", "quantity": 1, "unit": "tsp"}
+    ],
+    "prep_time_minutes": 10,
+    "cook_time_minutes": 35,
+    "difficulty": 3,
+    "cleanup_effort": 3,
+    "nutrition_score": 9,
+    "comfort_score": 8,
+    "estimated_cost": 110,
+    "requires_attention": false,
+    "cuisine": "Indian",
+    "instructions": [
+      "Pressure cook lentils; blanch and puree spinach.",
+      "Combine spinach puree with dal; temper with garlic and cumin.",
+      "Roll and cook rotis on a dry tawa; finish with a drop of ghee.",
+      "Chop onion finely into whisked yogurt with cumin for raita."
+    ]
+  },
+  {
+    "id": "r-fried-rice",
+    "name": "Vegetable Fried Rice + Veg Manchurian",
+    "meal_type": "any",
+    "serves": 2,
+    "ingredients": [
+      {"normalized_name": "rice", "quantity": 200, "unit": "grams"},
+      {"normalized_name": "carrot", "quantity": 2, "unit": "piece"},
+      {"normalized_name": "cabbage", "quantity": 100, "unit": "grams"},
+      {"normalized_name": "onion", "quantity": 1, "unit": "piece"},
+      {"normalized_name": "garlic", "quantity": 4, "unit": "cloves"},
+      {"normalized_name": "soy_sauce", "quantity": 3, "unit": "tbsp"},
+      {"normalized_name": "bell_pepper", "quantity": 1, "unit": "piece"}
+    ],
+    "prep_time_minutes": 15,
+    "cook_time_minutes": 20,
+    "difficulty": 3,
+    "cleanup_effort": 3,
+    "nutrition_score": 5,
+    "comfort_score": 9,
+    "estimated_cost": 130,
+    "requires_attention": true,
+    "cuisine": "Asian",
+    "instructions": [
+      "Use day-old cooked rice for best stir-fry texture.",
+      "Stir-fry all vegetables on high heat with garlic and soy sauce; add rice.",
+      "Shape grated carrot-cabbage mixture into balls and pan-fry for Manchurian.",
+      "Toss Manchurian balls in a sweet-spicy sauce; serve alongside fried rice."
+    ]
+  },
+  {
+    "id": "r-yogurt-curry",
+    "name": "Kadhi Pakora + Jeera Rice",
+    "meal_type": "lunch",
+    "serves": 2,
+    "ingredients": [
+      {"normalized_name": "yogurt", "quantity": 300, "unit": "grams"},
+      {"normalized_name": "chickpea_flour", "quantity": 100, "unit": "grams"},
+      {"normalized_name": "rice", "quantity": 150, "unit": "grams"},
+      {"normalized_name": "onion", "quantity": 1, "unit": "piece"},
+      {"normalized_name": "turmeric", "quantity": 0.5, "unit": "tsp"},
+      {"normalized_name": "cumin", "quantity": 2, "unit": "tsp"}
+    ],
+    "prep_time_minutes": 15,
+    "cook_time_minutes": 30,
+    "difficulty": 3,
+    "cleanup_effort": 3,
+    "nutrition_score": 7,
+    "comfort_score": 9,
+    "estimated_cost": 100,
+    "requires_attention": true,
+    "cuisine": "Indian",
+    "instructions": [
+      "Whisk yogurt with chickpea flour and turmeric; thin with water and simmer 20 minutes.",
+      "Make onion pakoras with chickpea flour batter; fry until golden.",
+      "Drop pakoras into the simmering kadhi; temper with cumin tadka.",
+      "Cook jeera rice; serve alongside the kadhi."
+    ]
+  },
+  {
+    "id": "r-pasta",
+    "name": "Pasta Primavera + Garlic Bread",
+    "meal_type": "dinner",
+    "serves": 2,
+    "ingredients": [
+      {"normalized_name": "pasta", "quantity": 200, "unit": "grams"},
+      {"normalized_name": "bell_pepper", "quantity": 2, "unit": "piece"},
+      {"normalized_name": "tomato", "quantity": 3, "unit": "piece"},
+      {"normalized_name": "garlic", "quantity": 5, "unit": "cloves"},
+      {"normalized_name": "bread", "quantity": 4, "unit": "slice"},
+      {"normalized_name": "butter", "quantity": 2, "unit": "tbsp"},
+      {"normalized_name": "cream", "quantity": 50, "unit": "ml"}
+    ],
+    "prep_time_minutes": 10,
+    "cook_time_minutes": 25,
+    "difficulty": 2,
+    "cleanup_effort": 3,
+    "nutrition_score": 6,
+    "comfort_score": 8,
+    "estimated_cost": 200,
+    "requires_attention": false,
+    "cuisine": "Italian",
+    "instructions": [
+      "Boil pasta in salted water until al dente; reserve 1/4 cup pasta water.",
+      "Sauté garlic, bell pepper; add crushed tomatoes and cream; simmer 10 minutes.",
+      "Toss pasta in sauce with a splash of pasta water until coated.",
+      "Spread garlic butter on bread slices and toast in pan until golden."
+    ]
+  },
+  {
+    "id": "r-egg-curry-rice",
+    "name": "Egg Curry + Steamed Rice + Salad",
+    "meal_type": "dinner",
+    "serves": 2,
+    "ingredients": [
+      {"normalized_name": "egg", "quantity": 4, "unit": "piece"},
+      {"normalized_name": "rice", "quantity": 150, "unit": "grams"},
+      {"normalized_name": "tomato", "quantity": 3, "unit": "piece"},
+      {"normalized_name": "onion", "quantity": 2, "unit": "piece"},
+      {"normalized_name": "garlic", "quantity": 3, "unit": "cloves"},
+      {"normalized_name": "turmeric", "quantity": 1, "unit": "tsp"},
+      {"normalized_name": "cucumber", "quantity": 1, "unit": "piece"}
+    ],
+    "prep_time_minutes": 10,
+    "cook_time_minutes": 25,
+    "difficulty": 2,
+    "cleanup_effort": 3,
+    "nutrition_score": 8,
+    "comfort_score": 9,
+    "estimated_cost": 150,
+    "requires_attention": false,
+    "cuisine": "Indian",
+    "instructions": [
+      "Hard boil eggs; halve and lightly fry until golden on cut side.",
+      "Cook a thick onion-tomato-garlic gravy with spices.",
+      "Add eggs to gravy and simmer 10 minutes.",
+      "Steam rice; slice cucumber and onion for salad; serve together."
     ]
   }
 ]

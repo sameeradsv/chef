@@ -9,12 +9,12 @@ _client = None
 def _get_client():
     global _client
     if _client is None:
-        api_key = os.getenv("ANTHROPIC_API_KEY")
+        api_key = os.getenv("GROQ_API_KEY")
         if not api_key:
             return None
         try:
-            import anthropic
-            _client = anthropic.Anthropic(api_key=api_key)
+            from groq import Groq
+            _client = Groq(api_key=api_key)
         except Exception:
             return None
     return _client
@@ -27,7 +27,6 @@ def generate_decision_narrative(result: Any) -> str:
         return ""
 
     try:
-        # Build a structured summary of the decision to pass to the model
         rec = getattr(result, "recommendation", "")
         reasoning = getattr(result, "reasoning", [])
         options = getattr(result, "options", [])
@@ -47,16 +46,21 @@ def generate_decision_narrative(result: Any) -> str:
             "Focus on the top 1-2 reasons. Use ₹ for currency. Be direct and helpful."
         )
 
-        message = client.messages.create(
-            model="claude-haiku-4-5-20251001",
+        response = _client.chat.completions.create(
+            model="llama-3.1-8b-instant",
             max_tokens=150,
-            system=(
-                "You are Chef, a kitchen decision assistant. "
-                "Explain food decisions concisely and honestly. "
-                "Prefer reducing food waste when relevant."
-            ),
-            messages=[{"role": "user", "content": prompt}],
+            messages=[
+                {
+                    "role": "system",
+                    "content": (
+                        "You are Chef, a kitchen decision assistant. "
+                        "Explain food decisions concisely and honestly. "
+                        "Prefer reducing food waste when relevant."
+                    ),
+                },
+                {"role": "user", "content": prompt},
+            ],
         )
-        return message.content[0].text.strip()
+        return response.choices[0].message.content.strip()
     except Exception:
         return ""

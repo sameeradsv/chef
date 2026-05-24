@@ -15,6 +15,77 @@ const defaultState: UserState = {
   stress_level: 5,
 };
 
+function CheckInCard({
+  onSubmit,
+  defaultPeople,
+}: {
+  onSubmit: (mood: string, people: number) => void;
+  defaultPeople: number;
+}) {
+  const [mood, setMood] = useState("");
+  const [people, setPeople] = useState(defaultPeople);
+
+  return (
+    <div
+      className="p-5 space-y-5"
+      style={{
+        border: "1px solid var(--kitchen-line2)",
+        borderRadius: "var(--radius-card)",
+        background: "rgb(var(--kitchen-card))",
+      }}
+    >
+      <div>
+        <MonoLabel className="text-kitchen-muted block mb-1">HOW ARE YOU FEELING?</MonoLabel>
+        <p className="text-xs text-kitchen-muted mb-3">Any cravings or mood? (optional)</p>
+        <input
+          value={mood}
+          onChange={(e) => setMood(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter") onSubmit(mood, people); }}
+          placeholder="e.g. something light, spicy, comfort food…"
+          autoFocus
+          className="w-full text-sm px-3 py-2.5 bg-kitchen-surface text-kitchen-text placeholder:text-kitchen-muted outline-none focus:ring-1 ring-kitchen-accent/50"
+          style={{ border: "1px solid var(--kitchen-line2)", borderRadius: "var(--radius-btn)" }}
+        />
+      </div>
+
+      <div>
+        <div className="flex justify-between mb-1.5">
+          <MonoLabel className="text-kitchen-muted">COOKING FOR</MonoLabel>
+          <MonoLabel className="text-kitchen-accent">
+            {people} {people === 1 ? "person" : "people"}
+          </MonoLabel>
+        </div>
+        <input
+          type="range"
+          min={1}
+          max={10}
+          value={people}
+          onChange={(e) => setPeople(Number(e.target.value))}
+          className="w-full accent-kitchen-accent"
+          style={{ height: 2 }}
+        />
+        <div className="flex justify-between mt-0.5">
+          <span className="text-[11px] text-kitchen-muted">Just me</span>
+          <span className="text-[11px] text-kitchen-muted">10 people</span>
+        </div>
+      </div>
+
+      <button
+        type="button"
+        onClick={() => onSubmit(mood, people)}
+        className="w-full py-3 text-sm font-medium transition-opacity hover:opacity-90"
+        style={{
+          background: "rgb(var(--kitchen-accent))",
+          color: "rgb(26 18 10)",
+          borderRadius: "var(--radius-btn)",
+        }}
+      >
+        Get recommendations →
+      </button>
+    </div>
+  );
+}
+
 // ── Cross-app energy pre-fill ─────────────────────────────────────────────────
 
 const CORTEX_URL  = (process.env.NEXT_PUBLIC_CORTEX_URL  ?? "").replace(/\/$/, "");
@@ -249,11 +320,15 @@ function ContextDrawer({
   onChange,
   onApply,
   loading,
+  people,
+  onPeopleChange,
 }: {
   state: UserState;
   onChange: (k: keyof UserState, v: number | string) => void;
-  onApply: () => void;
+  onApply: (people: number) => void;
   loading: boolean;
+  people: number;
+  onPeopleChange: (n: number) => void;
 }) {
   const [open, setOpen] = useState(false);
 
@@ -305,18 +380,33 @@ function ContextDrawer({
             </div>
           ))}
           <div>
-            <MonoLabel className="text-kitchen-muted block mb-1.5">CRAVING</MonoLabel>
+            <MonoLabel className="text-kitchen-muted block mb-1.5">CRAVING / MOOD</MonoLabel>
             <input
               value={state.craving}
               onChange={(e) => onChange("craving", e.target.value)}
-              placeholder="e.g. spicy, Indian…"
+              placeholder="e.g. spicy, something light, comfort food…"
               className="w-full text-sm px-3 py-2 bg-kitchen-surface text-kitchen-text placeholder:text-kitchen-muted outline-none focus:ring-1 ring-kitchen-accent/50"
               style={{ border: "1px solid var(--kitchen-line2)", borderRadius: "var(--radius-btn)" }}
             />
           </div>
+          <div>
+            <div className="flex justify-between mb-1.5">
+              <MonoLabel className="text-kitchen-muted">COOKING FOR</MonoLabel>
+              <MonoLabel className="text-kitchen-accent">{people} {people === 1 ? "person" : "people"}</MonoLabel>
+            </div>
+            <input
+              type="range"
+              min={1}
+              max={10}
+              value={people}
+              onChange={(e) => onPeopleChange(Number(e.target.value))}
+              className="w-full accent-kitchen-accent"
+              style={{ height: 2 }}
+            />
+          </div>
           <button
             type="button"
-            onClick={() => { onApply(); setOpen(false); }}
+            onClick={() => { onApply(people); setOpen(false); }}
             disabled={loading}
             className="w-full py-2.5 text-sm font-medium disabled:opacity-50 transition-opacity hover:opacity-90"
             style={{
@@ -338,16 +428,19 @@ export default function DecisionPage() {
   const [result, setResult] = useState<CookVsOrderResult | null>(null);
   const [state, setState] = useState<UserState>(defaultState);
   const [loading, setLoading] = useState(false);
-  const [status, setStatus] = useState<"loading" | "waking" | "ready">("loading");
+  const [status, setStatus] = useState<"checkin" | "loading" | "waking" | "ready">("checkin");
   const [selected, setSelected] = useState<string | null>(null);
   const [attempt, setAttempt] = useState(0);
   const [energySources, setEnergySources] = useState<string[]>([]);
+  const [peopleCount, setPeopleCount] = useState(2);
+  const [defaultPeople, setDefaultPeople] = useState(2);
 
-  async function runDecision(updatedState?: UserState) {
+  async function runDecision(updatedState?: UserState, people?: number) {
     setLoading(true);
+    setStatus("loading");
     try {
       if (updatedState) await api.setUserState(updatedState);
-      const data = await api.cookVsOrder();
+      const data = await api.cookVsOrder(people ?? peopleCount);
       setResult(data);
       setSelected(data.recommendation);
       setStatus("ready");
@@ -361,28 +454,26 @@ export default function DecisionPage() {
     }
   }
 
-  // Initial load: pre-fill energy from Circuit + Canopy + Chef, then run decision
+  async function handleCheckIn(mood: string, people: number) {
+    setPeopleCount(people);
+    const { state: prefill, sources } = await gatherEnergyState();
+    const filled = { ...defaultState, ...prefill, ...(mood ? { craving: mood } : {}) };
+    setState(filled);
+    if (sources.length > 0) setEnergySources(sources);
+    await runDecision(filled, people);
+  }
+
+  // Load default people count from preferences on mount
   useEffect(() => {
-    let cancelled = false;
-    async function init() {
-      const { state: prefill, sources } = await gatherEnergyState();
-      if (cancelled) return;
-      if (sources.length > 0) {
-        const filled = { ...defaultState, ...prefill };
-        setState(filled);
-        setEnergySources(sources);
-        await runDecision(filled);
-      } else {
-        await runDecision();
-      }
-    }
-    init();
-    return () => { cancelled = true; };
+    api.getPreferences().then((p) => {
+      setDefaultPeople(p.people_count ?? 2);
+      setPeopleCount(p.people_count ?? 2);
+    }).catch(() => {});
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Manual retry (waking state or explicit retry button)
   useEffect(() => {
-    if (attempt === 0) return; // skip — handled by init above
+    if (attempt === 0) return;
     runDecision();
   }, [attempt]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -392,6 +483,21 @@ export default function DecisionPage() {
     const t = setTimeout(() => setAttempt((n) => n + 1), 12000);
     return () => clearTimeout(t);
   }, [status, attempt]);
+
+  if (status === "checkin") {
+    return (
+      <div className="space-y-4 pt-2">
+        <div>
+          <h1 className="font-display font-normal" style={{ fontSize: 28, letterSpacing: "-0.025em" }}>
+            What&apos;s the{" "}
+            <em className="not-italic text-kitchen-accent">move</em>?
+          </h1>
+          <p className="text-sm text-kitchen-muted mt-1">Let&apos;s figure out the best food decision right now.</p>
+        </div>
+        <CheckInCard onSubmit={handleCheckIn} defaultPeople={defaultPeople} />
+      </div>
+    );
+  }
 
   if (status === "loading" && !result) {
     return (
@@ -481,8 +587,10 @@ export default function DecisionPage() {
       <ContextDrawer
         state={state}
         onChange={(k, v) => setState((s) => ({ ...s, [k]: v }))}
-        onApply={() => runDecision(state)}
+        onApply={(people) => { setPeopleCount(people); runDecision(state, people); }}
         loading={loading}
+        people={peopleCount}
+        onPeopleChange={setPeopleCount}
       />
 
       {/* Reasoning */}
@@ -507,6 +615,17 @@ export default function DecisionPage() {
         </div>
       )}
 
+      {/* People count badge */}
+      {result && (
+        <div
+          className="flex items-center gap-2 px-3 py-2 text-[11px] font-mono text-kitchen-muted"
+          style={{ border: "1px solid var(--kitchen-line)", borderRadius: "var(--radius-btn)", background: "rgb(var(--kitchen-surface))" }}
+        >
+          <span style={{ color: "rgb(var(--kitchen-accent))" }}>◎</span>
+          Costs shown for {peopleCount} {peopleCount === 1 ? "person" : "people"} · <button type="button" className="text-kitchen-accent hover:opacity-70" onClick={() => setStatus("checkin")}>change</button>
+        </div>
+      )}
+
       {/* Log CTA */}
       {result && (
         <div className="flex gap-2 pt-1">
@@ -528,8 +647,9 @@ export default function DecisionPage() {
               border: "1px solid var(--kitchen-line2)",
               borderRadius: "var(--radius-btn)",
             }}
+            onClick={() => setStatus("checkin")}
           >
-            Skip
+            Redo
           </button>
         </div>
       )}

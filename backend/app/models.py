@@ -84,6 +84,7 @@ class UserPreferencesModel(Base):
     vegetarian: Mapped[bool] = mapped_column(Boolean, default=True)
     skipped_ingredients: Mapped[str] = mapped_column(Text, default="")
     city: Mapped[Optional[str]] = mapped_column(String(100), default="", nullable=True)
+    people_count: Mapped[Optional[int]] = mapped_column(Integer, default=2, nullable=True)
 
 
 class CookingHistoryModel(Base):

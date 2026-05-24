@@ -72,6 +72,8 @@ class RecipeResponse(BaseModel):
     estimated_cost: float
     requires_attention: bool
     cuisine: str
+    meal_type: str = "any"
+    serves: int = 2
     pantry_match_pct: float = 0
     uses_expiring: List[str] = Field(default_factory=list)
     instructions: List[str] = Field(default_factory=list)
@@ -99,6 +101,7 @@ class UserPreferencesResponse(BaseModel):
     vegetarian: bool = True
     skipped_ingredients: List[str] = Field(default_factory=list)
     city: str = ""
+    people_count: int = 2
 
 
 class UserPreferencesPayload(BaseModel):
@@ -108,6 +111,7 @@ class UserPreferencesPayload(BaseModel):
     vegetarian: Optional[bool] = None
     skipped_ingredients: Optional[str] = None
     city: Optional[str] = None
+    people_count: Optional[int] = Field(None, ge=1, le=20)
 
 
 class RestaurantOption(BaseModel):
@@ -137,6 +141,7 @@ class DecisionOption(BaseModel):
 class CookVsOrderRequest(BaseModel):
     recipe_id: Optional[str] = None
     restaurant_id: Optional[str] = None
+    people_count: Optional[int] = Field(None, ge=1, le=20)
 
 
 class CookVsOrderResponse(BaseModel):

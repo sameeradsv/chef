@@ -107,6 +107,8 @@ export interface Recipe {
   estimated_cost: number;
   requires_attention: boolean;
   cuisine: string;
+  meal_type: string;
+  serves: number;
   pantry_match_pct: number;
   uses_expiring: string[];
   instructions: string[];
@@ -168,6 +170,7 @@ export interface UserPreferences {
   vegetarian: boolean;
   skipped_ingredients: string[];
   city: string;
+  people_count: number;
 }
 
 export interface GroceryItem {
@@ -233,17 +236,17 @@ export const api = {
 
   // User preferences
   getPreferences: () => request<UserPreferences>("/user/preferences"),
-  updatePreferences: (data: { favorite_cuisines?: string; spice_level?: number; dietary_restrictions?: string; vegetarian?: boolean; skipped_ingredients?: string; city?: string }) =>
+  updatePreferences: (data: { favorite_cuisines?: string; spice_level?: number; dietary_restrictions?: string; vegetarian?: boolean; skipped_ingredients?: string; city?: string; people_count?: number }) =>
     request<UserPreferences>("/user/preferences", {
       method: "PUT",
       body: JSON.stringify(data),
     }),
 
   // Decisions
-  cookVsOrder: () =>
+  cookVsOrder: (people_count?: number) =>
     request<CookVsOrderResult>("/decision/cook-vs-order", {
       method: "POST",
-      body: JSON.stringify({}),
+      body: JSON.stringify({ people_count }),
     }),
   recommendMeal: () =>
     request<RecommendMealResult>("/decision/recommend-meal", {
