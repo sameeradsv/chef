@@ -88,6 +88,22 @@ class UserPreferencesModel(Base):
     cooking_skill: Mapped[Optional[int]] = mapped_column(Integer, default=3, nullable=True)
 
 
+class DiscardedIngredientModel(Base):
+    __tablename__ = "discarded_ingredients"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    user_id: Mapped[str] = mapped_column(String(36), ForeignKey("user_accounts.id"), nullable=False, index=True)
+    ingredient_name: Mapped[str] = mapped_column(String(200))
+    normalized_name: Mapped[str] = mapped_column(String(200), index=True)
+    quantity: Mapped[float] = mapped_column(Float, default=0)
+    unit: Mapped[str] = mapped_column(String(50), default="grams")
+    cost: Mapped[float] = mapped_column(Float, default=0)
+    buy_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
+    expiry_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
+    discard_reason: Mapped[str] = mapped_column(String(50), default="expired")
+    discarded_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
 class CookingHistoryModel(Base):
     __tablename__ = "cooking_history"
 

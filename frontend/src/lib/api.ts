@@ -174,6 +174,26 @@ export interface UserPreferences {
   cooking_skill: number;
 }
 
+export interface DiscardedIngredient {
+  id: string;
+  ingredient_name: string;
+  normalized_name: string;
+  quantity: number;
+  unit: string;
+  cost: number;
+  buy_date?: string;
+  expiry_date?: string;
+  discard_reason: string;
+  discarded_at: string;
+}
+
+export interface WasteSummaryItem {
+  normalized_name: string;
+  ingredient_name: string;
+  discard_count: number;
+  total_cost: number;
+}
+
 export interface GroceryItem {
   id: string;
   ingredient_name: string;
@@ -215,6 +235,15 @@ export const api = {
     }),
   deleteIngredient: (id: string) =>
     request<void>(`/ingredients/${id}`, { method: "DELETE" }),
+  discardIngredient: (id: string, reason: string) =>
+    request<DiscardedIngredient>(`/ingredients/${id}/discard`, {
+      method: "POST",
+      body: JSON.stringify({ reason }),
+    }),
+  getDiscardedIngredients: () =>
+    request<DiscardedIngredient[]>("/ingredients/discarded"),
+  getWasteSummary: () =>
+    request<WasteSummaryItem[]>("/ingredients/waste-summary"),
   lookupBarcode: (barcode: string) =>
     request<BarcodeResult>(`/ingredients/barcode/${barcode}`),
 

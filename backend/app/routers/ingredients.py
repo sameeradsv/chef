@@ -5,8 +5,8 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.dependencies import get_current_user
-from app.models import IngredientModel, UserAccountModel
-from app.schemas import BarcodeResult, IngredientCreate, IngredientResponse, IngredientUpdate
+from app.models import DiscardedIngredientModel, IngredientModel, UserAccountModel
+from app.schemas import BarcodeResult, DiscardRequest, DiscardedIngredientResponse, IngredientCreate, IngredientResponse, IngredientUpdate, WasteSummaryItem
 from app.services.barcode import lookup_barcode
 from app.services.freshness import days_until_expiry
 from app.services.ingredients import ingredient_to_response, refresh_freshness
@@ -144,3 +144,80 @@ def delete_ingredient(
         raise HTTPException(status_code=404, detail="Ingredient not found")
     db.delete(ing)
     db.commit()
+
+
+@router.post("/{ingredient_id}/discard", response_model=DiscardedIngredientResponse, status_code=201)
+def discard_ingredient(
+    ingredient_id: str,
+    payload: DiscardRequest,
+    db: Session = Depends(get_db),
+    current_user: UserAccountModel = Depends(get_current_user),
+):
+    ing = (
+        db.query(IngredientModel)
+        .filter(IngredientModel.id == ingredient_id, IngredientModel.user_id == current_user.id)
+        .first()
+    )
+    if not ing:
+        raise HTTPException(status_code=404, detail="Ingredient not found")
+    record = DiscardedIngredientModel(
+        user_id=current_user.id,
+        ingredient_name=ing.name,
+        normalized_name=ing.normalized_name,
+        quantity=ing.quantity,
+        unit=ing.unit,
+        cost=ing.cost or 0.0,
+        buy_date=ing.buy_date,
+        expiry_date=ing.expiry_date,
+        discard_reason=payload.reason,
+    )
+    db.add(record)
+    db.delete(ing)
+    db.commit()
+    db.refresh(record)
+    return record
+
+
+@router.get("/discarded", response_model=list[DiscardedIngredientResponse])
+def list_discarded(
+    db: Session = Depends(get_db),
+    current_user: UserAccountModel = Depends(get_current_user),
+):
+    rows = (
+        db.query(DiscardedIngredientModel)
+        .filter(DiscardedIngredientModel.user_id == current_user.id)
+        .order_by(DiscardedIngredientModel.discarded_at.desc())
+        .limit(100)
+        .all()
+    )
+    return rows
+
+
+@router.get("/waste-summary", response_model=list[WasteSummaryItem])
+def waste_summary(
+    db: Session = Depends(get_db),
+    current_user: UserAccountModel = Depends(get_current_user),
+):
+    from sqlalchemy import func
+    rows = (
+        db.query(
+            DiscardedIngredientModel.normalized_name,
+            func.max(DiscardedIngredientModel.ingredient_name).label("ingredient_name"),
+            func.count().label("discard_count"),
+            func.sum(DiscardedIngredientModel.cost).label("total_cost"),
+        )
+        .filter(DiscardedIngredientModel.user_id == current_user.id)
+        .group_by(DiscardedIngredientModel.normalized_name)
+        .order_by(func.count().desc())
+        .limit(10)
+        .all()
+    )
+    return [
+        WasteSummaryItem(
+            normalized_name=r.normalized_name,
+            ingredient_name=r.ingredient_name,
+            discard_count=r.discard_count,
+            total_cost=float(r.total_cost or 0),
+        )
+        for r in rows
+    ]

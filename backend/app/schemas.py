@@ -53,6 +53,32 @@ class BarcodeResult(BaseModel):
     nutrition_score: float
 
 
+class DiscardRequest(BaseModel):
+    reason: str = "expired"  # expired | spoiled | other
+
+
+class DiscardedIngredientResponse(BaseModel):
+    id: str
+    ingredient_name: str
+    normalized_name: str
+    quantity: float
+    unit: str
+    cost: float
+    buy_date: Optional[date]
+    expiry_date: Optional[date]
+    discard_reason: str
+    discarded_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class WasteSummaryItem(BaseModel):
+    normalized_name: str
+    ingredient_name: str
+    discard_count: int
+    total_cost: float
+
+
 class RecipeIngredient(BaseModel):
     normalized_name: str
     quantity: float
