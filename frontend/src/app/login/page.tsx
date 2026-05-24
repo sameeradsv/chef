@@ -19,7 +19,8 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [backendStatus, setBackendStatus] = useState<BackendStatus>("checking");
-  const [showLocal, setShowLocal] = useState(true);
+  // Show Cortex first when configured; fall back to local-only if not
+  const [showLocal, setShowLocal] = useState(!CORTEX_URL);
   const isLogin = mode === "login";
 
   useEffect(() => {
@@ -240,7 +241,7 @@ export default function LoginPage() {
               onClick={() => setShowLocal(false)}
               className="text-[11px] text-kitchen-muted hover:text-kitchen-text transition-colors text-center"
             >
-              Use Cortex account instead →
+              ← Back to Cortex sign-in
             </button>
           )}
         </form>
