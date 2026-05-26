@@ -46,7 +46,6 @@ function SettingsRow({
 const THEMES: { id: Theme; name: string; bg: string; accent: string; ink: string }[] = [
   { id: "hearth",  name: "Hearth",  bg: "#0e0c0a", accent: "#e4a050", ink: "#f4ece0" },
   { id: "mise",    name: "Mise",    bg: "#f3ece1", accent: "#b8533a", ink: "#1f1a14" },
-  { id: "pantry",  name: "Pantry",  bg: "#f5f5f4", accent: "#2a6fdb", ink: "#0c0d0e" },
 ];
 
 function ThemePickerCard({ theme, setTheme }: { theme: Theme; setTheme: (t: Theme) => void }) {
@@ -236,19 +235,6 @@ export default function SettingsPage() {
       {/* Theme picker */}
       <ThemePickerCard theme={theme} setTheme={setTheme} />
 
-      {/* Appearance section */}
-      <div
-        className="overflow-hidden mt-4"
-        style={{
-          border: "1px solid var(--kitchen-line)",
-          borderRadius: "var(--radius-card)",
-          background: "rgb(var(--kitchen-card))",
-        }}
-      >
-        <SectionHeader>APPEARANCE</SectionHeader>
-        <SettingsRow label="Theme" value={theme.charAt(0).toUpperCase() + theme.slice(1)} onClick={() => {}} />
-        <SettingsRow label="Density" value="Standard" />
-      </div>
 
       {/* Preferences */}
       <div

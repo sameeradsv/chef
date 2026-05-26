@@ -53,9 +53,24 @@ def _get_prefs(db: Session, user_id: str) -> UserPreferencesResponse:
     )
 
 
+@router.get("/suggest", response_model=dict)
+def suggest(
+    meal_type: str = Query("dinner"),
+    db: Session = Depends(get_db),
+    current_user: UserAccountModel = Depends(get_current_user),
+):
+    from app.services.llm import generate_meal_suggestion
+    pantry = _get_pantry(db, current_user.id)
+    state = _get_state(db, current_user.id)
+    pantry_names = [getattr(p, "name", "") for p in pantry if getattr(p, "name", "")]
+    suggestion = generate_meal_suggestion(meal_type, pantry_names, state.energy_level)
+    return {"suggestion": suggestion}
+
+
 @router.get("/recommend", response_model=list[RecipeResponse])
 def recommend(
     limit: int = Query(5, ge=1, le=20),
+    meal_type: str | None = Query(None),
     db: Session = Depends(get_db),
     current_user: UserAccountModel = Depends(get_current_user),
 ):
@@ -73,7 +88,7 @@ def recommend(
         favorite_cuisines=prefs.favorite_cuisines,
         spice_level=prefs.spice_level,
         dietary_restrictions=prefs.dietary_restrictions,
-        meal_type=current_meal_type(),
+        meal_type=meal_type or current_meal_type(),
     )
 
     # Non-demo users: augment with Claude-generated recipes using full preference context

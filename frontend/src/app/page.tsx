@@ -12,6 +12,21 @@ function todayLabel() {
   return new Intl.DateTimeFormat("en", { weekday: "short", month: "short", day: "numeric" }).format(new Date());
 }
 
+const MEAL_TYPES = ["breakfast", "lunch", "snacks", "dinner"] as const;
+type MealType = typeof MEAL_TYPES[number];
+
+function detectMealType(): MealType {
+  const h = new Date().getHours();
+  if (h >= 6 && h < 11) return "breakfast";
+  if (h >= 11 && h < 16) return "lunch";
+  if (h >= 16 && h < 19) return "snacks";
+  return "dinner";
+}
+
+function mealPickLabel(meal: MealType): string {
+  return `${meal.toUpperCase()}'S PICK`;
+}
+
 function expiryText(days?: number | null): string {
   if (days == null) return "";
   if (days < 0) return "expired";
@@ -37,7 +52,7 @@ function MonoLabel({ children, className = "" }: { children: React.ReactNode; cl
   );
 }
 
-function TonightCard({ meal, recipe }: { meal: RecommendMealResult; recipe?: Recipe }) {
+function TonightCard({ meal, recipe, pickLabel }: { meal: RecommendMealResult; recipe?: Recipe; pickLabel: string }) {
   const name = meal.mode === "cook" && meal.recipe
     ? meal.recipe.name
     : meal.recommendation;
@@ -84,7 +99,7 @@ function TonightCard({ meal, recipe }: { meal: RecommendMealResult; recipe?: Rec
           }}
         >
           <span className="animate-pulse-dot">●</span>
-          TONIGHT&apos;S PICK
+          {pickLabel}
         </div>
         <MonoLabel className="text-kitchen-text/70">
           {meal.mode.toUpperCase().replace("_", " ")} · {meal.mode === "cook" && meal.recipe ? Math.round(meal.recipe.pantry_match_pct * 0.88) : "—"}
@@ -227,6 +242,33 @@ export default function DashboardPage() {
   const [attempt, setAttempt] = useState(0);
   const [mood, setMood] = useState("");
   const [moodApplied, setMoodApplied] = useState(false);
+  const [mealType, setMealType] = useState<MealType>(detectMealType);
+  const [suggestion, setSuggestion] = useState<string>("");
+  const [recipeTabLoading, setRecipeTabLoading] = useState(false);
+
+  async function loadSuggestion(mt: MealType) {
+    setSuggestion("");
+    try {
+      const { suggestion: s } = await api.getMealSuggestion(mt);
+      setSuggestion(s);
+    } catch { /* silent — LLM optional */ }
+  }
+
+  async function loadRecipesForMeal(mt: MealType) {
+    setRecipeTabLoading(true);
+    try {
+      const rec = await api.recommendRecipes(5, mt);
+      setRecipes(rec);
+    } catch { /* keep previous */ } finally {
+      setRecipeTabLoading(false);
+    }
+    loadSuggestion(mt);
+  }
+
+  function handleMealTypeChange(mt: MealType) {
+    setMealType(mt);
+    loadRecipesForMeal(mt);
+  }
 
   async function loadRecommendations(craving?: string) {
     setStatus("loading");
@@ -237,15 +279,18 @@ export default function DashboardPage() {
         await api.setUserState({ ...base, craving: craving.trim() });
         setMoodApplied(true);
       }
+      const detected = detectMealType();
+      setMealType(detected);
       const [exp, rec, recMeal] = await Promise.all([
         api.getIngredients({ expiring_soon: true }),
-        api.recommendRecipes(5),
+        api.recommendRecipes(5, detected),
         api.recommendMeal(),
       ]);
       setExpiring(exp);
       setRecipes(rec);
       setMeal(recMeal);
       setStatus("ok");
+      loadSuggestion(detected);
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Failed to load";
       if (msg.toLowerCase().includes("fetch") || msg.toLowerCase().includes("load")) {
@@ -363,23 +408,55 @@ export default function DashboardPage() {
         </div>
       ) : (
         <>
-          {meal && <TonightCard meal={meal} />}
+          {meal && <TonightCard meal={meal} pickLabel={mealPickLabel(mealType)} />}
 
           {expiring.length > 0 && <ExpiringCard items={expiring} />}
 
-          {recipes.length > 0 && (
-            <div>
-              <div className="flex justify-between items-center mb-3">
-                <MonoLabel>QUICK PICKS</MonoLabel>
-                <Link href="/recipe" className="text-xs text-kitchen-accent font-mono">ALL →</Link>
+          {/* Meal type tabs + quick picks */}
+          <div>
+            {/* Tabs */}
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex gap-1">
+                {MEAL_TYPES.map((mt) => (
+                  <button
+                    key={mt}
+                    type="button"
+                    onClick={() => handleMealTypeChange(mt)}
+                    className="px-2.5 py-1 text-[10px] font-mono tracking-[0.1em] transition-all"
+                    style={{
+                      borderRadius: 999,
+                      border: mealType === mt ? "1px solid rgb(var(--kitchen-accent) / 0.5)" : "1px solid var(--kitchen-line)",
+                      background: mealType === mt ? "rgb(var(--kitchen-accent) / 0.1)" : "transparent",
+                      color: mealType === mt ? "rgb(var(--kitchen-accent))" : "rgb(var(--kitchen-ink3))",
+                    }}
+                  >
+                    {mt.toUpperCase()}
+                  </button>
+                ))}
               </div>
+              <Link href="/recipe" className="text-xs text-kitchen-accent font-mono">ALL →</Link>
+            </div>
+
+            {/* LLM suggestion */}
+            {suggestion && (
+              <p className="text-xs text-kitchen-muted mb-3 leading-relaxed" style={{ fontStyle: "italic" }}>
+                {suggestion}
+              </p>
+            )}
+
+            {/* Recipe cards */}
+            {recipeTabLoading ? (
+              <div className="flex gap-3 overflow-hidden">
+                {[1, 2, 3].map((i) => <div key={i} className="loading-shimmer h-36 w-36 flex-shrink-0 rounded-card" />)}
+              </div>
+            ) : recipes.length > 0 ? (
               <div className="flex gap-3 overflow-x-auto pb-1 -mx-[22px] px-[22px]">
                 {recipes.map((r) => (
                   <QuickRecipeCard key={r.id} recipe={r} />
                 ))}
               </div>
-            </div>
-          )}
+            ) : null}
+          </div>
 
           {/* Quick nav cards */}
           <div className="grid grid-cols-2 gap-3 pt-1">

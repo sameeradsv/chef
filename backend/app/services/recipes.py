@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import random
 from datetime import date
 from pathlib import Path
 
@@ -236,6 +237,7 @@ def recommend_recipes(
             score += 20
         elif recipe_meal_type == "any":
             score += 5
+        score += random.uniform(-1.2, 1.2)
         scored.append((score, raw))
 
     scored.sort(key=lambda x: x[0], reverse=True)

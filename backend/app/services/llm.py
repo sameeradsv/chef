@@ -20,6 +20,31 @@ def _get_client():
     return _client
 
 
+def generate_meal_suggestion(meal_type: str, pantry_names: list[str], energy_level: int) -> str:
+    """Return a one-sentence contextual suggestion for the given meal type. Returns '' if unavailable."""
+    client = _get_client()
+    if not client:
+        return ""
+    try:
+        pantry_str = ", ".join(pantry_names[:8]) if pantry_names else "various ingredients"
+        prompt = (
+            f"Meal: {meal_type}\nEnergy: {energy_level}/10\nPantry: {pantry_str}\n\n"
+            f"Write exactly one concise, warm sentence suggesting what to cook for {meal_type} "
+            "using what's available. Be specific about an ingredient or dish. No preamble."
+        )
+        response = client.chat.completions.create(
+            model="llama-3.1-8b-instant",
+            max_tokens=80,
+            messages=[
+                {"role": "system", "content": "You are Chef, a kitchen assistant. Give brief, helpful meal suggestions."},
+                {"role": "user", "content": prompt},
+            ],
+        )
+        return response.choices[0].message.content.strip()
+    except Exception:
+        return ""
+
+
 def generate_decision_narrative(result: Any) -> str:
     """Generate a 2-3 sentence narrative explaining the decision. Returns '' if API unavailable."""
     client = _get_client()

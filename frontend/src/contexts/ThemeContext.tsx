@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useEffect, useState } from "react";
 
-export type Theme = "mise" | "pantry" | "hearth";
+export type Theme = "mise" | "hearth";
 
 const ThemeContext = createContext<{
   theme: Theme;
@@ -13,7 +13,8 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [theme, setThemeState] = useState<Theme>("hearth");
 
   useEffect(() => {
-    const saved = (localStorage.getItem("chef-theme") as Theme) || "hearth";
+    const raw = localStorage.getItem("chef-theme");
+    const saved: Theme = (raw === "mise" || raw === "hearth") ? raw : "hearth";
     setThemeState(saved);
     document.documentElement.setAttribute("data-theme", saved);
   }, []);

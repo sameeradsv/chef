@@ -97,7 +97,7 @@ export interface Ingredient {
 export interface Recipe {
   id: string;
   name: string;
-  ingredients: { normalized_name: string; quantity: number; unit: string }[];
+  ingredients: { normalized_name: string; quantity: number; unit: string; in_pantry: boolean }[];
   prep_time_minutes: number;
   cook_time_minutes: number;
   difficulty: number;
@@ -268,8 +268,13 @@ export const api = {
     request<BarcodeResult>(`/ingredients/barcode/${barcode}`),
 
   // Recipes
-  recommendRecipes: (limit = 5) =>
-    request<Recipe[]>(`/recipes/recommend?limit=${limit}`),
+  recommendRecipes: (limit = 5, meal_type?: string) => {
+    const params = new URLSearchParams({ limit: String(limit) });
+    if (meal_type) params.set("meal_type", meal_type);
+    return request<Recipe[]>(`/recipes/recommend?${params}`);
+  },
+  getMealSuggestion: (meal_type: string) =>
+    request<{ suggestion: string }>(`/recipes/suggest?meal_type=${meal_type}`),
   searchRecipes: (q: string, cuisine?: string) => {
     const params = new URLSearchParams({ q });
     if (cuisine) params.set("cuisine", cuisine);
