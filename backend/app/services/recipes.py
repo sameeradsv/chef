@@ -168,7 +168,10 @@ def _recipe_to_response(raw: dict, pantry: list | None = None) -> RecipeResponse
     return RecipeResponse(
         id=raw["id"],
         name=raw["name"],
-        ingredients=[RecipeIngredient(**i) for i in reqs],
+        ingredients=[
+            RecipeIngredient(**i, in_pantry=(i.get("normalized_name", "") in pantry_names))
+            for i in reqs
+        ],
         prep_time_minutes=raw["prep_time_minutes"],
         cook_time_minutes=raw["cook_time_minutes"],
         difficulty=raw["difficulty"],

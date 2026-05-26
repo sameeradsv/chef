@@ -44,12 +44,19 @@ const YouIcon = () => (
   </svg>
 );
 
+const ChatIcon = () => (
+  <svg viewBox="0 0 24 24" strokeWidth={1.7} fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+  </svg>
+);
+
 const TABS = [
   { href: "/",          label: "Home",    Icon: HomeIcon    },
   { href: "/inventory", label: "Pantry",  Icon: PantryIcon  },
   { href: "/decision",  label: "Decide",  Icon: DecideIcon  },
   { href: "/grocery",   label: "Grocery", Icon: GroceryIcon },
   { href: "/history",   label: "History", Icon: HistoryIcon },
+  { href: "/chat",      label: "Chat",    Icon: ChatIcon    },
   { href: "/settings",  label: "You",     Icon: YouIcon     },
 ];
 

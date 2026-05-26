@@ -16,77 +16,6 @@ const defaultState: UserState = {
   stress_level: 5,
 };
 
-function CheckInCard({
-  onSubmit,
-  defaultPeople,
-}: {
-  onSubmit: (mood: string, people: number) => void;
-  defaultPeople: number;
-}) {
-  const [mood, setMood] = useState("");
-  const [people, setPeople] = useState(defaultPeople);
-
-  return (
-    <div
-      className="p-5 space-y-5"
-      style={{
-        border: "1px solid var(--kitchen-line2)",
-        borderRadius: "var(--radius-card)",
-        background: "rgb(var(--kitchen-card))",
-      }}
-    >
-      <div>
-        <MonoLabel className="text-kitchen-muted block mb-1">HOW ARE YOU FEELING?</MonoLabel>
-        <p className="text-xs text-kitchen-muted mb-3">Any cravings or mood? (optional)</p>
-        <input
-          value={mood}
-          onChange={(e) => setMood(e.target.value)}
-          onKeyDown={(e) => { if (e.key === "Enter") onSubmit(mood, people); }}
-          placeholder="e.g. something light, spicy, comfort food…"
-          autoFocus
-          className="w-full text-sm px-3 py-2.5 bg-kitchen-surface text-kitchen-text placeholder:text-kitchen-muted outline-none focus:ring-1 ring-kitchen-accent/50"
-          style={{ border: "1px solid var(--kitchen-line2)", borderRadius: "var(--radius-btn)" }}
-        />
-      </div>
-
-      <div>
-        <div className="flex justify-between mb-1.5">
-          <MonoLabel className="text-kitchen-muted">COOKING FOR</MonoLabel>
-          <MonoLabel className="text-kitchen-accent">
-            {people} {people === 1 ? "person" : "people"}
-          </MonoLabel>
-        </div>
-        <input
-          type="range"
-          min={1}
-          max={10}
-          value={people}
-          onChange={(e) => setPeople(Number(e.target.value))}
-          className="w-full accent-kitchen-accent"
-          style={{ height: 2 }}
-        />
-        <div className="flex justify-between mt-0.5">
-          <span className="text-[11px] text-kitchen-muted">Just me</span>
-          <span className="text-[11px] text-kitchen-muted">10 people</span>
-        </div>
-      </div>
-
-      <button
-        type="button"
-        onClick={() => onSubmit(mood, people)}
-        className="w-full py-3 text-sm font-medium transition-opacity hover:opacity-90"
-        style={{
-          background: "rgb(var(--kitchen-accent))",
-          color: "rgb(26 18 10)",
-          borderRadius: "var(--radius-btn)",
-        }}
-      >
-        Get recommendations →
-      </button>
-    </div>
-  );
-}
-
 // ── Cross-app energy pre-fill ─────────────────────────────────────────────────
 
 const CORTEX_URL  = (process.env.NEXT_PUBLIC_CORTEX_URL  ?? "").replace(/\/$/, "");
@@ -309,13 +238,13 @@ function ScoreCard({
           </div>
           {option.mode === "cook" && (
             <div className="mt-3 space-y-2">
-              {(option.details?.missing_ingredients as string[] | undefined)?.length ? (
+              {(option.details?.missing_ingredients as unknown as string[] | undefined)?.length ? (
                 <div
                   className="px-3 py-2 text-[11px] font-mono"
                   style={{ background: "rgb(var(--kitchen-warn) / 0.08)", border: "1px solid rgb(var(--kitchen-warn) / 0.2)", borderRadius: "var(--radius-btn)" }}
                 >
                   <span style={{ color: "rgb(var(--kitchen-warn))" }}>Need to order: </span>
-                  <span className="text-kitchen-muted">{(option.details.missing_ingredients as string[]).join(", ")}</span>
+                  <span className="text-kitchen-muted">{(option.details.missing_ingredients as unknown as string[]).join(", ")}</span>
                 </div>
               ) : null}
               <Link
@@ -334,13 +263,15 @@ function ScoreCard({
   );
 }
 
-function ContextDrawer({
+function ContextSheet({
   state,
   onChange,
   onApply,
   loading,
   people,
   onPeopleChange,
+  defaultPeople,
+  onClose,
 }: {
   state: UserState;
   onChange: (k: keyof UserState, v: number | string) => void;
@@ -348,56 +279,51 @@ function ContextDrawer({
   loading: boolean;
   people: number;
   onPeopleChange: (n: number) => void;
+  defaultPeople: number;
+  onClose: () => void;
 }) {
-  const [open, setOpen] = useState(false);
-
   const sliders: { key: keyof UserState; label: string; min: number; max: number; step?: number; suffix?: string }[] = [
-    { key: "energy_level",          label: "Energy",             min: 1,  max: 10 },
-    { key: "willingness_to_cook",   label: "Willing to cook",    min: 1,  max: 10 },
-    { key: "time_available_minutes",label: "Time available",     min: 10, max: 120, step: 5, suffix: "min" },
-    { key: "budget_today",          label: "Budget",             min: 50, max: 800, step: 10, suffix: "₹" },
+    { key: "energy_level",           label: "Energy",         min: 1,  max: 10 },
+    { key: "time_available_minutes", label: "Time available", min: 10, max: 120, step: 5, suffix: "min" },
+    { key: "budget_today",           label: "Budget",         min: 50, max: 800, step: 10, suffix: "₹" },
   ];
 
   return (
     <div
-      className="overflow-hidden transition-all"
-      style={{
-        border: "1px solid var(--kitchen-line2)",
-        borderRadius: "var(--radius-card)",
-        background: "rgb(var(--kitchen-card))",
-      }}
+      className="fixed inset-0 z-50 flex items-end justify-center"
+      style={{ background: "rgba(0,0,0,0.45)", backdropFilter: "blur(3px)" }}
+      onClick={(e) => e.target === e.currentTarget && onClose()}
     >
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        className="w-full flex items-center justify-between px-4 py-3.5"
+      <div
+        className="w-full max-w-md max-h-[80dvh] overflow-y-auto animate-fade-in"
+        style={{
+          background: "rgb(var(--kitchen-bg))",
+          borderRadius: "var(--radius-card) var(--radius-card) 0 0",
+          borderTop: "1px solid var(--kitchen-line2)",
+          padding: "20px 22px calc(20px + env(safe-area-inset-bottom, 0px))",
+        }}
       >
-        <MonoLabel className="text-kitchen-muted">YOUR CONTEXT</MonoLabel>
-        <span className="text-kitchen-muted text-sm">{open ? "▲" : "▼"}</span>
-      </button>
+        <div className="flex items-center justify-between mb-5">
+          <MonoLabel className="text-kitchen-muted">ADJUST CONTEXT</MonoLabel>
+          <button type="button" onClick={onClose} className="text-kitchen-muted hover:text-kitchen-text w-8 h-8 flex items-center justify-center text-lg">×</button>
+        </div>
 
-      {open && (
-        <div className="px-4 pb-4 space-y-4 animate-fade-in" style={{ borderTop: "1px solid var(--kitchen-line)" }}>
+        <div className="space-y-5">
           {sliders.map(({ key, label, min, max, step = 1, suffix }) => (
             <div key={key}>
               <div className="flex justify-between mb-1.5">
                 <MonoLabel className="text-kitchen-muted">{label.toUpperCase()}</MonoLabel>
-                <MonoLabel className="text-kitchen-accent">
-                  {state[key]}{suffix ?? ""}
-                </MonoLabel>
+                <MonoLabel className="text-kitchen-accent">{state[key]}{suffix ?? ""}</MonoLabel>
               </div>
               <input
-                type="range"
-                min={min}
-                max={max}
-                step={step}
+                type="range" min={min} max={max} step={step}
                 value={Number(state[key])}
                 onChange={(e) => onChange(key, Number(e.target.value))}
-                className="w-full accent-kitchen-accent"
-                style={{ height: 2 }}
+                className="w-full accent-kitchen-accent" style={{ height: 2 }}
               />
             </div>
           ))}
+
           <div>
             <MonoLabel className="text-kitchen-muted block mb-1.5">CRAVING / MOOD</MonoLabel>
             <input
@@ -408,36 +334,40 @@ function ContextDrawer({
               style={{ border: "1px solid var(--kitchen-line2)", borderRadius: "var(--radius-btn)" }}
             />
           </div>
+
           <div>
             <div className="flex justify-between mb-1.5">
               <MonoLabel className="text-kitchen-muted">COOKING FOR</MonoLabel>
-              <MonoLabel className="text-kitchen-accent">{people} {people === 1 ? "person" : "people"}</MonoLabel>
+              <div className="flex items-center gap-2">
+                <MonoLabel className="text-kitchen-accent">{people} {people === 1 ? "person" : "people"}</MonoLabel>
+                {people !== defaultPeople && (
+                  <button
+                    type="button"
+                    onClick={() => onPeopleChange(defaultPeople)}
+                    className="text-[10px] font-mono text-kitchen-muted hover:text-kitchen-accent transition-colors"
+                    title={`Reset to saved default (${defaultPeople})`}
+                  >↺</button>
+                )}
+              </div>
             </div>
             <input
-              type="range"
-              min={1}
-              max={10}
-              value={people}
+              type="range" min={1} max={10} value={people}
               onChange={(e) => onPeopleChange(Number(e.target.value))}
-              className="w-full accent-kitchen-accent"
-              style={{ height: 2 }}
+              className="w-full accent-kitchen-accent" style={{ height: 2 }}
             />
           </div>
+
           <button
             type="button"
-            onClick={() => { onApply(people); setOpen(false); }}
+            onClick={() => { onApply(people); onClose(); }}
             disabled={loading}
-            className="w-full py-2.5 text-sm font-medium disabled:opacity-50 transition-opacity hover:opacity-90"
-            style={{
-              background: "rgb(var(--kitchen-accent))",
-              color: "rgb(26 18 10)",
-              borderRadius: "var(--radius-btn)",
-            }}
+            className="w-full py-3 text-sm font-medium disabled:opacity-50 transition-opacity hover:opacity-90"
+            style={{ background: "rgb(var(--kitchen-accent))", color: "rgb(26 18 10)", borderRadius: "var(--radius-btn)" }}
           >
             {loading ? "Updating…" : "Update comparison"}
           </button>
         </div>
-      )}
+      </div>
     </div>
   );
 }
@@ -455,6 +385,7 @@ function DecisionPageInner() {
   const [energySources, setEnergySources] = useState<string[]>([]);
   const [peopleCount, setPeopleCount] = useState(2);
   const [defaultPeople, setDefaultPeople] = useState(2);
+  const [showContext, setShowContext] = useState(false);
 
   async function runDecision(updatedState?: UserState, people?: number) {
     setLoading(true);
@@ -475,15 +406,24 @@ function DecisionPageInner() {
     }
   }
 
-  // On mount: infer energy from time of day, gather cross-app data, load prefs, run comparison
+  // On mount: load saved state + infer energy + cross-app data, then run comparison
   useEffect(() => {
     async function init() {
+      // 1. Load previously saved user state (willingness_to_cook, craving, budget, etc.)
+      let saved: UserState = defaultState;
+      try {
+        const s = await api.getUserState();
+        saved = { ...defaultState, ...s };
+      } catch { /* use defaults */ }
+
+      // 2. Override energy: time-of-day inference, then cross-app data wins if available
       const inferredEnergy = inferEnergyFromTime();
       const { state: prefill, sources } = await gatherEnergyState();
-      // Cross-app energy wins over time inference; time inference wins over default
-      const merged: UserState = { ...defaultState, energy_level: inferredEnergy, ...prefill };
+      const merged: UserState = { ...saved, energy_level: inferredEnergy, ...prefill };
       setState(merged);
       if (sources.length > 0) setEnergySources(sources);
+
+      // 3. Load people count preference
       let people = 2;
       try {
         const prefs = await api.getPreferences();
@@ -491,6 +431,7 @@ function DecisionPageInner() {
         setDefaultPeople(people);
         setPeopleCount(people);
       } catch { /* use default */ }
+
       await runDecision(merged, people);
     }
     init();
@@ -509,7 +450,6 @@ function DecisionPageInner() {
     return () => clearTimeout(t);
   }, [status, attempt]);
 
-  if (status === "checkin") {
   if (status === "loading" && !result) {
     return (
       <div className="space-y-4 pt-2">
@@ -568,6 +508,43 @@ function DecisionPageInner() {
         )}
       </div>
 
+      {/* Cook inclination quick-select */}
+      <div>
+        <MonoLabel className="text-kitchen-muted block mb-2">UP FOR COOKING?</MonoLabel>
+        <div className="flex gap-2">
+          {([
+            { label: "Not really", value: 2 },
+            { label: "Maybe",      value: 5 },
+            { label: "Let's go",   value: 9 },
+          ] as const).map(({ label, value }) => {
+            const w = state.willingness_to_cook;
+            const active = value === 2 ? w <= 3 : value === 5 ? w >= 4 && w <= 7 : w >= 8;
+            return (
+              <button
+                key={label}
+                type="button"
+                disabled={loading}
+                onClick={() => {
+                  const updated = { ...state, willingness_to_cook: value };
+                  setState(updated);
+                  runDecision(updated, peopleCount);
+                }}
+                className="flex-1 py-2 text-xs font-mono transition-all disabled:opacity-50"
+                style={{
+                  borderRadius: "var(--radius-btn)",
+                  border: active ? "1px solid rgb(var(--kitchen-accent) / 0.5)" : "1px solid var(--kitchen-line2)",
+                  background: active ? "rgb(var(--kitchen-accent) / 0.1)" : "transparent",
+                  color: active ? "rgb(var(--kitchen-accent))" : "rgb(var(--kitchen-ink3))",
+                  letterSpacing: "0.06em",
+                }}
+              >
+                {label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
       {/* Score cards */}
       {result && (
         <div className="space-y-2.5">
@@ -583,26 +560,45 @@ function DecisionPageInner() {
         </div>
       )}
 
-      {/* Energy attribution */}
-      {energySources.length > 0 && (
-        <div
-          className="flex items-center gap-2 px-3 py-2 text-[11px] font-mono text-kitchen-muted"
-          style={{ border: "1px solid var(--kitchen-line)", borderRadius: "var(--radius-btn)", background: "rgb(var(--kitchen-surface))" }}
-        >
-          <span style={{ color: "rgb(var(--kitchen-accent))" }}>◎</span>
-          Energy auto-filled from {energySources.join(" · ")}
+      {/* Context meta row */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2 min-w-0">
+          {energySources.length > 0 && (
+            <div
+              className="flex items-center gap-1.5 px-2.5 py-1.5 text-[10px] font-mono text-kitchen-muted truncate"
+              style={{ border: "1px solid var(--kitchen-line)", borderRadius: "var(--radius-btn)", background: "rgb(var(--kitchen-surface))" }}
+            >
+              <span style={{ color: "rgb(var(--kitchen-accent))" }}>◎</span>
+              Energy from {energySources.join(" · ")}
+            </div>
+          )}
         </div>
-      )}
+        <button
+          type="button"
+          onClick={() => setShowContext(true)}
+          className="flex-shrink-0 flex items-center gap-1.5 px-2.5 py-1.5 text-[10px] font-mono text-kitchen-muted hover:text-kitchen-accent transition-colors"
+          style={{ border: "1px solid var(--kitchen-line2)", borderRadius: "var(--radius-btn)" }}
+        >
+          <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+            <circle cx="6" cy="6" r="1.5"/><path d="M6 1v1.5M6 9.5V11M1 6h1.5M9.5 6H11M2.4 2.4l1.1 1.1M8.5 8.5l1.1 1.1M9.6 2.4l-1.1 1.1M3.5 8.5l-1.1 1.1"/>
+          </svg>
+          Adjust
+        </button>
+      </div>
 
-      {/* Context / sliders */}
-      <ContextDrawer
-        state={state}
-        onChange={(k, v) => setState((s) => ({ ...s, [k]: v }))}
-        onApply={(people) => { setPeopleCount(people); runDecision(state, people); }}
-        loading={loading}
-        people={peopleCount}
-        onPeopleChange={setPeopleCount}
-      />
+      {/* Context sheet (modal) */}
+      {showContext && (
+        <ContextSheet
+          state={state}
+          onChange={(k, v) => setState((s) => ({ ...s, [k]: v }))}
+          onApply={(people) => { setPeopleCount(people); runDecision(state, people); }}
+          loading={loading}
+          people={peopleCount}
+          onPeopleChange={setPeopleCount}
+          defaultPeople={defaultPeople}
+          onClose={() => setShowContext(false)}
+        />
+      )}
 
       {/* Reasoning */}
       {result && result.reasoning.length > 1 && (

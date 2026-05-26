@@ -46,7 +46,7 @@ def generate_decision_narrative(result: Any) -> str:
             "Focus on the top 1-2 reasons. Use ₹ for currency. Be direct and helpful."
         )
 
-        response = _client.chat.completions.create(
+        response = client.chat.completions.create(
             model="llama-3.1-8b-instant",
             max_tokens=150,
             messages=[

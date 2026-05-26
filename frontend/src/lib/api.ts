@@ -212,6 +212,26 @@ export interface HistoryEntry {
   satisfaction?: number;
 }
 
+export interface ParsedOrder {
+  type: "order";
+  decision: "cook" | "order" | "eat_out";
+  meal_name?: string;
+  cuisine?: string;
+  restaurant_name?: string;
+  timestamp?: string;
+}
+
+export interface ParsedIngredientItem {
+  name: string;
+  quantity?: number;
+  unit?: string;
+}
+
+export interface ParsedIngredients {
+  type: "ingredients";
+  items: ParsedIngredientItem[];
+}
+
 // --- API ---
 
 export const api = {
@@ -302,4 +322,11 @@ export const api = {
     request<HistoryEntry>(`/history/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
   deleteHistory: (id: string) =>
     request<void>(`/history/${id}`, { method: "DELETE" }),
+
+  // Vision
+  parseImage: (imageBase64: string, imageType: string, parseType: "order" | "ingredients") =>
+    request<ParsedOrder | ParsedIngredients>("/vision/parse", {
+      method: "POST",
+      body: JSON.stringify({ image_base64: imageBase64, image_type: imageType, parse_type: parseType }),
+    }),
 };

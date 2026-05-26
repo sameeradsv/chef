@@ -83,6 +83,7 @@ class RecipeIngredient(BaseModel):
     normalized_name: str
     quantity: float
     unit: str
+    in_pantry: bool = False
 
 
 class RecipeResponse(BaseModel):

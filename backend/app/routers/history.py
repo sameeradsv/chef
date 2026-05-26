@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+from datetime import datetime, timedelta
+from typing import Optional
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
@@ -72,13 +75,28 @@ def delete_entry(
 @router.get("", response_model=list[CookingHistoryResponse])
 def get_history(
     limit: int = Query(20, ge=1, le=100),
+    date: Optional[str] = Query(None, description="Filter by date: 'today' or 'YYYY-MM-DD'"),
     db: Session = Depends(get_db),
     current_user: UserAccountModel = Depends(get_current_user),
 ):
-    return (
+    q = (
         db.query(CookingHistoryModel)
         .filter(CookingHistoryModel.user_id == current_user.id)
-        .order_by(CookingHistoryModel.timestamp.desc())
-        .limit(limit)
-        .all()
     )
+
+    if date:
+        if date == "today":
+            filter_date = datetime.utcnow().date()
+        else:
+            try:
+                filter_date = datetime.strptime(date, "%Y-%m-%d").date()
+            except ValueError:
+                raise HTTPException(status_code=400, detail="date must be 'today' or 'YYYY-MM-DD'")
+        day_start = datetime(filter_date.year, filter_date.month, filter_date.day)
+        day_end = day_start + timedelta(days=1)
+        q = q.filter(
+            CookingHistoryModel.timestamp >= day_start,
+            CookingHistoryModel.timestamp < day_end,
+        )
+
+    return q.order_by(CookingHistoryModel.timestamp.desc()).limit(limit).all()

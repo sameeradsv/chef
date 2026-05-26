@@ -1,7 +1,26 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { api, type BarcodeResult, type DiscardedIngredient, type Ingredient, type WasteSummaryItem } from "@/lib/api";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { api, type BarcodeResult, type DiscardedIngredient, type Ingredient, type ParsedIngredientItem, type WasteSummaryItem } from "@/lib/api";
+
+async function fileToBase64(file: File, maxDim = 1024): Promise<{ base64: string; type: string }> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
+      const w = Math.round(img.width * scale);
+      const h = Math.round(img.height * scale);
+      const canvas = document.createElement("canvas");
+      canvas.width = w; canvas.height = h;
+      canvas.getContext("2d")!.drawImage(img, 0, 0, w, h);
+      resolve({ base64: canvas.toDataURL("image/jpeg", 0.85).split(",")[1], type: "jpeg" });
+    };
+    img.onerror = reject;
+    img.src = url;
+  });
+}
 import { BarcodeScanner } from "@/components/BarcodeScanner";
 import { formatCurrency } from "@/lib/utils";
 
@@ -232,6 +251,112 @@ function IngredientSheet({
   );
 }
 
+/* ─── Parsed ingredients bulk-add sheet ────────────────────────────────── */
+function ParsedIngredientsSheet({
+  items,
+  onAdd,
+  onClose,
+}: {
+  items: ParsedIngredientItem[];
+  onAdd: (selected: ParsedIngredientItem[]) => Promise<void>;
+  onClose: () => void;
+}) {
+  const [selected, setSelected] = useState<Set<number>>(new Set(items.map((_, i) => i)));
+  const [adding, setAdding] = useState(false);
+
+  const toggle = (i: number) =>
+    setSelected((prev) => { const s = new Set(prev); s.has(i) ? s.delete(i) : s.add(i); return s; });
+
+  async function handleAdd() {
+    const chosen = items.filter((_, i) => selected.has(i));
+    if (!chosen.length) return;
+    setAdding(true);
+    await onAdd(chosen);
+    setAdding(false);
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-60 flex items-end md:items-center justify-center"
+      style={{ background: "rgba(0,0,0,0.5)", backdropFilter: "blur(4px)" }}
+      onClick={(e) => e.target === e.currentTarget && onClose()}
+    >
+      <div
+        className="w-full max-w-md max-h-[80dvh] flex flex-col animate-fade-in"
+        style={{
+          background: "rgb(var(--kitchen-bg))",
+          borderRadius: "var(--radius-card) var(--radius-card) 0 0",
+          borderTop: "1px solid var(--kitchen-line2)",
+        }}
+      >
+        <div className="flex items-center justify-between px-5 pt-5 pb-3">
+          <div>
+            <h2 className="font-display text-lg">Add from image</h2>
+            <p className="text-xs text-kitchen-muted mt-0.5">{items.length} ingredient{items.length !== 1 ? "s" : ""} detected — select to add</p>
+          </div>
+          <button type="button" onClick={onClose} className="text-kitchen-muted hover:text-kitchen-text w-8 h-8 flex items-center justify-center text-lg">×</button>
+        </div>
+
+        <ul className="overflow-y-auto flex-1 px-5 pb-2 space-y-2">
+          {items.map((item, i) => (
+            <li key={i}>
+              <button
+                type="button"
+                onClick={() => toggle(i)}
+                className="w-full flex items-center gap-3 px-3 py-2.5 text-left transition-all"
+                style={{
+                  border: selected.has(i) ? "1px solid rgb(var(--kitchen-accent) / 0.5)" : "1px solid var(--kitchen-line2)",
+                  borderRadius: "var(--radius-btn)",
+                  background: selected.has(i) ? "rgb(var(--kitchen-accent) / 0.07)" : "rgb(var(--kitchen-card))",
+                }}
+              >
+                <div
+                  className="w-4 h-4 rounded border-2 flex items-center justify-center flex-shrink-0"
+                  style={{ borderColor: selected.has(i) ? "rgb(var(--kitchen-accent))" : "var(--kitchen-line2)" }}
+                >
+                  {selected.has(i) && (
+                    <svg width="10" height="8" viewBox="0 0 10 8" fill="none" stroke="rgb(var(--kitchen-accent))" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M1 4l2.5 2.5L9 1" />
+                    </svg>
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm text-kitchen-text capitalize">{item.name}</p>
+                  {(item.quantity || item.unit) && (
+                    <MonoLabel className="text-kitchen-muted">
+                      {item.quantity ? `${item.quantity} ` : ""}{item.unit ?? ""}
+                    </MonoLabel>
+                  )}
+                </div>
+              </button>
+            </li>
+          ))}
+        </ul>
+
+        <div className="px-5 py-4 flex gap-2" style={{ borderTop: "1px solid var(--kitchen-line)" }}>
+          <button
+            type="button"
+            onClick={handleAdd}
+            disabled={adding || selected.size === 0}
+            className="flex-1 py-3 text-sm font-medium disabled:opacity-50 transition-opacity hover:opacity-90"
+            style={{ background: "rgb(var(--kitchen-accent))", color: "rgb(26 18 10)", borderRadius: "var(--radius-btn)" }}
+          >
+            {adding ? "Adding…" : `Add ${selected.size} item${selected.size !== 1 ? "s" : ""}`}
+          </button>
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-4 py-3 text-sm text-kitchen-muted transition-colors hover:text-kitchen-text"
+            style={{ border: "1px solid var(--kitchen-line2)", borderRadius: "var(--radius-btn)" }}
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ─── Waste log view ────────────────────────────────────────────────────── */
 function WasteLogView() {
   const [discarded, setDiscarded] = useState<DiscardedIngredient[]>([]);
@@ -291,7 +416,7 @@ function WasteLogView() {
               className="flex items-center justify-between px-4 py-2.5 mt-2"
               style={{ background: "rgb(var(--kitchen-warn) / 0.07)", border: "1px solid rgb(var(--kitchen-warn) / 0.2)", borderRadius: "var(--radius-btn)" }}
             >
-              <MonoLabel style={{ color: "rgb(var(--kitchen-warn))" }}>TOTAL FOOD COST WASTED</MonoLabel>
+              <span className="text-[10px] font-mono tracking-[0.12em] uppercase" style={{ color: "rgb(var(--kitchen-warn))" }}>TOTAL FOOD COST WASTED</span>
               <span className="text-sm font-mono font-medium" style={{ color: "rgb(var(--kitchen-warn))" }}>{formatCurrency(totalWasted)}</span>
             </div>
           )}
@@ -343,6 +468,10 @@ export default function InventoryPage() {
   const [scanLoading, setScanLoading] = useState(false);
   const [discarding, setDiscarding] = useState<Ingredient | null>(null);
   const [view, setView] = useState<"pantry" | "waste">("pantry");
+  const [imageParsing, setImageParsing] = useState(false);
+  const [imageError, setImageError] = useState<string | null>(null);
+  const [parsedItems, setParsedItems] = useState<ParsedIngredientItem[] | null>(null);
+  const imgFileRef = useRef<HTMLInputElement>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -413,6 +542,42 @@ export default function InventoryPage() {
     if (!discarding) return;
     await api.discardIngredient(discarding.id, reason);
     setDiscarding(null);
+    load();
+  }
+
+  async function handleIngredientImage(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = "";
+    setImageParsing(true);
+    setImageError(null);
+    try {
+      const { base64, type } = await fileToBase64(file);
+      const result = await api.parseImage(base64, type, "ingredients");
+      if (result.type === "ingredients" && result.items.length > 0) {
+        setParsedItems(result.items);
+      } else {
+        setImageError("No ingredients detected — try a clearer photo.");
+      }
+    } catch {
+      setImageError("Could not read image. Add ingredients manually.");
+    } finally {
+      setImageParsing(false);
+    }
+  }
+
+  async function handleBulkAdd(selected: ParsedIngredientItem[]) {
+    await Promise.all(
+      selected.map((item) =>
+        api.createIngredient({
+          name: item.name,
+          quantity: item.quantity ?? 0,
+          unit: item.unit ?? "grams",
+          storage_type: "pantry",
+        })
+      )
+    );
+    setParsedItems(null);
     load();
   }
 
@@ -598,12 +763,55 @@ export default function InventoryPage() {
         </>
       )}
 
+      {/* Hidden file input for image ingredient parsing */}
+      <input
+        ref={imgFileRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={handleIngredientImage}
+      />
+
       {/* FABs — only in pantry view */}
       {view === "pantry" && (
         <div
           className="fixed right-5 flex flex-col items-center gap-3 z-40"
           style={{ bottom: "calc(72px + env(safe-area-inset-bottom, 0px))" }}
         >
+          {imageError && (
+            <div
+              className="text-[10px] font-mono text-center px-2 py-1 max-w-[80px]"
+              style={{ color: "rgb(var(--kitchen-warn))", background: "rgb(var(--kitchen-surface))", borderRadius: "var(--radius-btn)", border: "1px solid rgb(var(--kitchen-warn) / 0.3)" }}
+            >
+              {imageError}
+            </div>
+          )}
+          <button
+            type="button"
+            onClick={() => { imgFileRef.current?.click(); setImageError(null); }}
+            disabled={imageParsing}
+            title="Add from photo"
+            className="w-12 h-12 flex items-center justify-center transition-transform hover:scale-105 active:scale-95 disabled:opacity-50"
+            style={{
+              background: "rgb(var(--kitchen-surface))",
+              border: "1px solid var(--kitchen-line2)",
+              borderRadius: "50%",
+              boxShadow: "0 4px 12px rgba(0,0,0,0.2)",
+            }}
+            aria-label="Add from photo"
+          >
+            {imageParsing ? (
+              <svg className="animate-spin" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="rgb(var(--kitchen-accent))" strokeWidth="2">
+                <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
+              </svg>
+            ) : (
+              <svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="rgb(var(--kitchen-ink2))" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="1" y="4" width="14" height="10" rx="1.5" />
+                <circle cx="8" cy="9" r="2.5" />
+                <path d="M5.5 4l.8-1.5h3.4L10.5 4" />
+              </svg>
+            )}
+          </button>
           <button
             type="button"
             onClick={() => setShowScanner(true)}
@@ -673,6 +881,15 @@ export default function InventoryPage() {
           ingredient={discarding}
           onConfirm={handleDiscard}
           onClose={() => setDiscarding(null)}
+        />
+      )}
+
+      {/* Parsed ingredients bulk-add sheet */}
+      {parsedItems && (
+        <ParsedIngredientsSheet
+          items={parsedItems}
+          onAdd={handleBulkAdd}
+          onClose={() => setParsedItems(null)}
         />
       )}
     </div>

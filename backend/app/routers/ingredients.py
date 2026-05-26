@@ -24,21 +24,21 @@ def barcode_lookup(
     if not result:
         raise HTTPException(status_code=404, detail="Product not found")
 
-    # Use Claude to extract the base ingredient name if available
+    # Use Groq to extract the base ingredient name if available
     ingredient_name = result["product_name"]
     try:
         from app.services.llm import _get_client
         client = _get_client()
         if client:
-            msg = client.messages.create(
-                model="claude-haiku-4-5-20251001",
+            msg = client.chat.completions.create(
+                model="llama-3.1-8b-instant",
                 max_tokens=20,
                 messages=[{
                     "role": "user",
                     "content": f"What is the primary ingredient in: '{result['product_name']}'? Reply with just the ingredient name, lowercase, 1-3 words only. Examples: 'milk', 'basmati rice', 'olive oil'."
                 }],
             )
-            extracted = msg.content[0].text.strip().lower().strip("'\".,")
+            extracted = msg.choices[0].message.content.strip().lower().strip("'\".,")
             if extracted:
                 ingredient_name = extracted
     except Exception:

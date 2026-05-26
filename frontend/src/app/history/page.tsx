@@ -1,7 +1,27 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { api, type HistoryEntry } from "@/lib/api";
+
+async function fileToBase64(file: File, maxDim = 1024): Promise<{ base64: string; type: string }> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
+      const w = Math.round(img.width * scale);
+      const h = Math.round(img.height * scale);
+      const canvas = document.createElement("canvas");
+      canvas.width = w; canvas.height = h;
+      canvas.getContext("2d")!.drawImage(img, 0, 0, w, h);
+      const dataUrl = canvas.toDataURL("image/jpeg", 0.85);
+      resolve({ base64: dataUrl.split(",")[1], type: "jpeg" });
+    };
+    img.onerror = reject;
+    img.src = url;
+  });
+}
 
 function MonoLabel({ children, className = "" }: { children: React.ReactNode; className?: string }) {
   return <span className={`text-[10px] font-mono tracking-[0.12em] uppercase ${className}`}>{children}</span>;
@@ -78,6 +98,9 @@ export default function HistoryPage() {
   const [logSatisfaction, setLogSatisfaction] = useState<number | undefined>();
   const [logTimestamp, setLogTimestamp] = useState(() => localDatetimeValue());
   const [submitting, setSubmitting]   = useState(false);
+  const [parsing, setParsing]         = useState(false);
+  const [parseError, setParseError]   = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Edit state
   const [editingId, setEditingId]         = useState<string | null>(null);
@@ -94,6 +117,29 @@ export default function HistoryPage() {
       .catch(() => setError("Could not load history."))
       .finally(() => setLoading(false));
   }, []);
+
+  async function handleScreenshot(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = "";
+    setParsing(true);
+    setParseError(null);
+    setShowLog(true);
+    try {
+      const { base64, type } = await fileToBase64(file);
+      const result = await api.parseImage(base64, type, "order");
+      if (result.type === "order") {
+        if (result.decision) setLogDecision(result.decision as "cook" | "order" | "eat_out");
+        if (result.meal_name) setLogRecipe(result.meal_name);
+        if (result.cuisine) setLogCuisine(result.cuisine);
+        if (result.timestamp) setLogTimestamp(localDatetimeValue(result.timestamp));
+      }
+    } catch {
+      setParseError("Could not read image. Fill in the details manually.");
+    } finally {
+      setParsing(false);
+    }
+  }
 
   async function handleLog(e: React.FormEvent) {
     e.preventDefault();
@@ -174,6 +220,15 @@ export default function HistoryPage() {
 
   return (
     <div className="space-y-5 pt-2">
+      {/* Hidden file input for screenshot parsing */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={handleScreenshot}
+      />
+
       {/* Header */}
       <div className="flex items-start justify-between">
         <div>
@@ -182,18 +237,40 @@ export default function HistoryPage() {
             What you&apos;ve <em className="not-italic text-kitchen-accent">cooked</em>
           </h1>
         </div>
-        <button
-          type="button"
-          onClick={() => setShowLog((v) => !v)}
-          className="px-3 py-2 text-sm font-medium transition-opacity hover:opacity-80 flex-shrink-0"
-          style={{
-            background: "rgb(var(--kitchen-accent))",
-            color: "rgb(26 18 10)",
-            borderRadius: "var(--radius-btn)",
-          }}
-        >
-          + Log
-        </button>
+        <div className="flex gap-2 flex-shrink-0">
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={parsing}
+            title="Auto-fill from screenshot"
+            className="px-3 py-2 text-sm font-medium transition-opacity hover:opacity-80 disabled:opacity-50"
+            style={{
+              border: "1px solid var(--kitchen-line2)",
+              borderRadius: "var(--radius-btn)",
+              color: "rgb(var(--kitchen-ink3))",
+            }}
+          >
+            {parsing ? "Reading…" : (
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="1" y="4" width="14" height="10" rx="1.5" />
+                <circle cx="8" cy="9" r="2.5" />
+                <path d="M5.5 4l.8-1.5h3.4L10.5 4" />
+              </svg>
+            )}
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowLog((v) => !v)}
+            className="px-3 py-2 text-sm font-medium transition-opacity hover:opacity-80"
+            style={{
+              background: "rgb(var(--kitchen-accent))",
+              color: "rgb(26 18 10)",
+              borderRadius: "var(--radius-btn)",
+            }}
+          >
+            + Log
+          </button>
+        </div>
       </div>
 
       {/* Log form (collapsible) */}
@@ -203,7 +280,11 @@ export default function HistoryPage() {
           className="p-4 space-y-4 animate-fade-in"
           style={{ border: "1px solid var(--kitchen-line2)", borderRadius: "var(--radius-card)", background: "rgb(var(--kitchen-card))" }}
         >
-          <MonoLabel className="text-kitchen-muted">WHAT DID YOU DECIDE?</MonoLabel>
+          <div className="flex items-center justify-between">
+            <MonoLabel className="text-kitchen-muted">WHAT DID YOU DECIDE?</MonoLabel>
+            {parsing && <MonoLabel className="text-kitchen-accent animate-pulse">READING IMAGE…</MonoLabel>}
+            {parseError && <MonoLabel className="text-kitchen-danger">{parseError}</MonoLabel>}
+          </div>
           <div className="flex gap-2 mt-2">
             {(["cook", "order", "eat_out"] as const).map((m) => (
               <button
