@@ -309,7 +309,6 @@ export function BarcodeScanner({ onDetected, onClose }: Props) {
                     style={{
                       background: "rgba(255,220,180,0.06)", border: "1px solid rgba(255,220,180,0.14)",
                       borderRadius: 10, color: "#f4ece0",
-                      ringColor: "#e4a050",
                     }}
                   />
                 </div>
