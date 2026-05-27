@@ -2,9 +2,31 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { LoadingCard } from "@/components/Card";
 import { api, type Recipe } from "@/lib/api";
 import { formatCurrency } from "@/lib/utils";
+
+function IngredientCheckbox({ checked }: { checked: boolean }) {
+  return (
+    <div
+      className="flex-shrink-0 w-5 h-5 flex items-center justify-center"
+      style={{
+        borderRadius: 4,
+        border: checked
+          ? "1.5px solid rgb(var(--kitchen-accent))"
+          : "1.5px solid rgb(var(--kitchen-accent) / 0.45)",
+        background: checked ? "rgb(var(--kitchen-accent))" : "transparent",
+      }}
+    >
+      {checked && (
+        <svg viewBox="0 0 10 8" width="10" height="8" fill="none" stroke="rgb(26 18 10)" strokeWidth="2" strokeLinecap="round">
+          <polyline points="1 4 3.5 6.5 9 1" />
+        </svg>
+      )}
+    </div>
+  );
+}
 
 function MonoLabel({ children, className = "", style }: { children: React.ReactNode; className?: string; style?: React.CSSProperties }) {
   return <span className={`text-[10px] font-mono tracking-[0.12em] uppercase ${className}`} style={style}>{children}</span>;
@@ -24,10 +46,68 @@ function MeterCard({ label, value, sub }: { label: string; value: string; sub?: 
 }
 
 export function RecipeClient({ id }: { id: string }) {
+  const searchParams = useSearchParams();
+  const isTonightsPick = searchParams.get("pick") === "1";
   const [recipe, setRecipe]   = useState<Recipe | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError]     = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"ingredients" | "method">("ingredients");
+  const [addingToList, setAddingToList] = useState(false);
+  const [addedToList, setAddedToList]   = useState(false);
+  const [cookingMode, setCookingMode]   = useState(false);
+  const [activeStep, setActiveStep]     = useState(0);
+  const [completedSteps, setCompletedSteps] = useState<Set<number>>(new Set());
+  const [stepTimers, setStepTimers]     = useState<Record<number, number | null>>({});
+  const [timerIntervals, setTimerIntervals] = useState<Record<number, ReturnType<typeof setInterval>>>({});
+
+  function startCooking() {
+    setCookingMode(true);
+    setActiveTab("method");
+    setActiveStep(0);
+    setCompletedSteps(new Set());
+    setStepTimers({});
+  }
+
+  function advanceStep() {
+    // Stop any running timer for current step
+    if (timerIntervals[activeStep]) {
+      clearInterval(timerIntervals[activeStep]);
+      setTimerIntervals(prev => { const n = {...prev}; delete n[activeStep]; return n; });
+    }
+    setCompletedSteps((prev) => new Set([...prev, activeStep]));
+    if (activeStep < recipe!.instructions.length - 1) {
+      setActiveStep((s) => s + 1);
+    } else {
+      setCookingMode(false);
+    }
+  }
+
+  function toggleTimer(stepIdx: number, durationSeconds: number) {
+    if (timerIntervals[stepIdx]) {
+      clearInterval(timerIntervals[stepIdx]);
+      setTimerIntervals(prev => { const n = {...prev}; delete n[stepIdx]; return n; });
+    } else {
+      const remaining = stepTimers[stepIdx] ?? durationSeconds;
+      setStepTimers(prev => ({ ...prev, [stepIdx]: remaining }));
+      const interval = setInterval(() => {
+        setStepTimers(prev => {
+          const cur = (prev[stepIdx] ?? 1) - 1;
+          if (cur <= 0) {
+            clearInterval(interval);
+            setTimerIntervals(p => { const n = {...p}; delete n[stepIdx]; return n; });
+            return { ...prev, [stepIdx]: 0 };
+          }
+          return { ...prev, [stepIdx]: cur };
+        });
+      }, 1000);
+      setTimerIntervals(prev => ({ ...prev, [stepIdx]: interval }));
+    }
+  }
+
+  function extractMinutes(text: string): number | null {
+    const m = text.match(/\b(\d+)\s*(?:–|-|to\s+\d+\s*)?(?:minutes?|mins?)\b/i);
+    return m ? parseInt(m[1]) : null;
+  }
 
   useEffect(() => {
     api.getRecipe(id)
@@ -86,8 +166,22 @@ export function RecipeClient({ id }: { id: string }) {
             {recipe.name}
           </h1>
         </div>
-        {/* Win chip if high pantry match */}
-        {recipe.pantry_match_pct >= 80 && (
+        {/* Tonight's pick chip — only when navigated from dashboard */}
+        {isTonightsPick ? (
+          <div
+            className="absolute top-3 left-3 inline-flex items-center gap-1.5 px-2.5 py-1 text-[10px] font-mono"
+            style={{
+              background: "rgb(var(--kitchen-bg) / 0.8)",
+              backdropFilter: "blur(8px)",
+              borderRadius: 999,
+              color: "rgb(var(--kitchen-accent))",
+              letterSpacing: "0.1em",
+              border: "1px solid rgb(var(--kitchen-accent) / 0.3)",
+            }}
+          >
+            <span className="animate-pulse-dot">⌁</span> TONIGHT&apos;S PICK
+          </div>
+        ) : recipe.pantry_match_pct >= 80 ? (
           <div
             className="absolute top-3 right-3 px-2.5 py-1 text-[10px] font-mono"
             style={{
@@ -99,7 +193,7 @@ export function RecipeClient({ id }: { id: string }) {
           >
             {recipe.pantry_match_pct}% MATCH
           </div>
-        )}
+        ) : null}
       </div>
 
       {/* Meters row */}
@@ -151,23 +245,86 @@ export function RecipeClient({ id }: { id: string }) {
 
       {/* Tab content */}
       {activeTab === "ingredients" ? (
-        <div className="space-y-3 animate-fade-in">
-          <ul className="space-y-1.5">
-            {recipe.ingredients.map((ing) => (
-              <li
-                key={ing.normalized_name}
-                className="flex justify-between items-center px-4 py-3"
-                style={{ border: "1px solid var(--kitchen-line)", borderRadius: "var(--radius-card)", background: "rgb(var(--kitchen-card))" }}
+        <div className="space-y-4 animate-fade-in">
+          {/* In your pantry */}
+          {recipe.ingredients.filter(i => i.in_pantry).length > 0 && (
+            <div>
+              <MonoLabel className="text-kitchen-muted block mb-2">
+                IN YOUR PANTRY · {recipe.ingredients.filter(i => i.in_pantry).length}
+              </MonoLabel>
+              <ul className="space-y-1.5">
+                {recipe.ingredients.filter(i => i.in_pantry).map((ing) => (
+                  <li
+                    key={ing.normalized_name}
+                    className="flex items-center gap-3 px-4 py-3"
+                    style={{ border: "1px solid var(--kitchen-line)", borderRadius: "var(--radius-card)", background: "rgb(var(--kitchen-card))" }}
+                  >
+                    <IngredientCheckbox checked={true} />
+                    <span className="flex-1 text-sm text-kitchen-text capitalize">
+                      {ing.normalized_name.replace(/_/g, " ")}
+                    </span>
+                    <MonoLabel className="text-kitchen-muted">{ing.quantity} {ing.unit}</MonoLabel>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {/* To get */}
+          {recipe.ingredients.filter(i => !i.in_pantry).length > 0 && (
+            <div>
+              <MonoLabel className="text-kitchen-accent block mb-2">
+                TO GET · {recipe.ingredients.filter(i => !i.in_pantry).length}
+              </MonoLabel>
+              <ul className="space-y-1.5">
+                {recipe.ingredients.filter(i => !i.in_pantry).map((ing) => (
+                  <li
+                    key={ing.normalized_name}
+                    className="flex items-center gap-3 px-4 py-3"
+                    style={{ border: "1px solid rgb(var(--kitchen-accent) / 0.2)", borderRadius: "var(--radius-card)", background: "rgb(var(--kitchen-card))" }}
+                  >
+                    <IngredientCheckbox checked={false} />
+                    <span className="flex-1 text-sm text-kitchen-text capitalize">
+                      {ing.normalized_name.replace(/_/g, " ")}
+                    </span>
+                    <MonoLabel style={{ color: "rgb(var(--kitchen-accent))" }}>{ing.quantity} {ing.unit}</MonoLabel>
+                  </li>
+                ))}
+              </ul>
+
+              {/* Add missing to shopping list */}
+              <button
+                type="button"
+                disabled={addingToList || addedToList}
+                onClick={async () => {
+                  setAddingToList(true);
+                  try {
+                    await Promise.all(
+                      recipe.ingredients.filter(i => !i.in_pantry).map(ing =>
+                        api.addGrocery({ ingredient_name: ing.normalized_name.replace(/_/g, " "), quantity: ing.quantity, unit: ing.unit })
+                      )
+                    );
+                    setAddedToList(true);
+                  } catch { /* ignore */ }
+                  finally { setAddingToList(false); }
+                }}
+                className="mt-2 w-full py-2.5 text-xs font-mono transition-opacity hover:opacity-80 disabled:opacity-50"
+                style={{
+                  border: "1px solid rgb(var(--kitchen-accent) / 0.4)",
+                  borderRadius: "var(--radius-btn)",
+                  color: addedToList ? "rgb(var(--kitchen-success))" : "rgb(var(--kitchen-accent))",
+                  background: "rgb(var(--kitchen-accent) / 0.05)",
+                  letterSpacing: "0.06em",
+                }}
               >
-                <span className="text-sm text-kitchen-text capitalize">
-                  {ing.normalized_name.replace(/_/g, " ")}
-                </span>
-                <MonoLabel className="text-kitchen-muted">
-                  {ing.quantity} {ing.unit}
-                </MonoLabel>
-              </li>
-            ))}
-          </ul>
+                {addedToList
+                  ? `✓ Added to shopping list`
+                  : addingToList
+                  ? "Adding…"
+                  : `+ Add ${recipe.ingredients.filter(i => !i.in_pantry).length} missing to shopping list`}
+              </button>
+            </div>
+          )}
 
           {recipe.substitutions.length > 0 && (
             <div className="space-y-2">
@@ -190,51 +347,144 @@ export function RecipeClient({ id }: { id: string }) {
           )}
         </div>
       ) : (
-        <ol className="space-y-3 animate-fade-in">
-          {recipe.instructions.map((step, i) => (
-            <li
-              key={i}
-              className="flex gap-3 px-4 py-3"
-              style={{ border: "1px solid var(--kitchen-line)", borderRadius: "var(--radius-card)", background: "rgb(var(--kitchen-card))" }}
-            >
-              <div
-                className="flex-shrink-0 w-7 h-7 flex items-center justify-center text-sm font-mono"
+        <ol className="space-y-2 animate-fade-in">
+          {recipe.instructions.map((step, i) => {
+            const isDone   = completedSteps.has(i);
+            const isActive = cookingMode && i === activeStep;
+            return (
+              <li
+                key={i}
+                className="flex gap-3 px-4 py-3 transition-all"
                 style={{
-                  borderRadius: "50%",
-                  background: "rgb(var(--kitchen-accent) / 0.12)",
-                  color: "rgb(var(--kitchen-accent))",
+                  border: isActive
+                    ? "1px solid rgb(var(--kitchen-accent) / 0.45)"
+                    : "1px solid var(--kitchen-line)",
+                  borderRadius: "var(--radius-card)",
+                  background: isActive
+                    ? "rgb(var(--kitchen-accent) / 0.05)"
+                    : "rgb(var(--kitchen-card))",
+                  opacity: isDone ? 0.45 : cookingMode && !isActive ? 0.6 : 1,
+                  boxShadow: isActive ? "0 0 0 1px rgb(var(--kitchen-accent) / 0.12)" : "none",
                 }}
               >
-                {i + 1}
-              </div>
-              <p className="text-sm text-kitchen-text leading-relaxed pt-0.5">{step}</p>
-            </li>
-          ))}
+                <div
+                  className="flex-shrink-0 w-7 h-7 flex items-center justify-center text-sm font-mono"
+                  style={{
+                    borderRadius: "50%",
+                    background: isActive
+                      ? "rgb(var(--kitchen-accent))"
+                      : isDone
+                      ? "rgb(var(--kitchen-success) / 0.18)"
+                      : "rgb(var(--kitchen-accent) / 0.12)",
+                    color: isActive
+                      ? "rgb(26 18 10)"
+                      : isDone
+                      ? "rgb(var(--kitchen-success))"
+                      : "rgb(var(--kitchen-accent))",
+                  }}
+                >
+                  {isDone ? "✓" : i + 1}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm text-kitchen-text leading-relaxed pt-0.5">{step}</p>
+                  {isActive && (() => {
+                    const mins = extractMinutes(step);
+                    const secs = stepTimers[i];
+                    const running = !!timerIntervals[i];
+                    const displayTime = secs != null
+                      ? `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, "0")}`
+                      : null;
+                    return (
+                      <div className="mt-3 flex gap-2 flex-wrap">
+                        {mins && (
+                          <button
+                            type="button"
+                            onClick={() => toggleTimer(i, mins * 60)}
+                            className="px-3 py-1.5 text-xs font-mono transition-opacity hover:opacity-80"
+                            style={{
+                              border: "1px solid rgb(var(--kitchen-accent) / 0.4)",
+                              borderRadius: "var(--radius-btn)",
+                              color: running ? "rgb(var(--kitchen-success))" : "rgb(var(--kitchen-accent))",
+                              background: running ? "rgb(var(--kitchen-success) / 0.08)" : "rgb(var(--kitchen-accent) / 0.06)",
+                              letterSpacing: "0.04em",
+                            }}
+                          >
+                            {running && displayTime ? `⏱ ${displayTime}` : secs === 0 ? "✓ Done" : `Start timer · ${mins}m`}
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={advanceStep}
+                          className="px-4 py-1.5 text-xs font-mono font-medium transition-opacity hover:opacity-90"
+                          style={{
+                            background: "rgb(var(--kitchen-accent))",
+                            color: "rgb(26 18 10)",
+                            borderRadius: "var(--radius-btn)",
+                          }}
+                        >
+                          {i < recipe.instructions.length - 1 ? "Next step →" : "Finished! ✓"}
+                        </button>
+                      </div>
+                    );
+                  })()}
+                </div>
+              </li>
+            );
+          })}
         </ol>
       )}
 
       {/* Bottom action */}
       <div className="flex gap-2 pb-4">
-        <Link
-          href={`/decision?recipe=${recipe.id}`}
-          className="flex-1 py-3 text-sm font-medium text-center transition-opacity hover:opacity-90"
-          style={{
-            background: "rgb(var(--kitchen-accent))",
-            color: "rgb(26 18 10)",
-            borderRadius: "var(--radius-btn)",
-          }}
-        >
-          Compare this →
-        </Link>
-        <div
-          className="px-4 py-3 text-sm text-kitchen-accent font-mono text-center"
-          style={{
-            border: "1px solid rgb(var(--kitchen-accent) / 0.3)",
-            borderRadius: "var(--radius-btn)",
-          }}
-        >
-          {formatCurrency(recipe.estimated_cost)}
-        </div>
+        {cookingMode ? (
+          <>
+            <div
+              className="flex-1 px-4 py-3 text-xs font-mono text-center"
+              style={{
+                background: "rgb(var(--kitchen-accent) / 0.08)",
+                border: "1px solid rgb(var(--kitchen-accent) / 0.3)",
+                borderRadius: "var(--radius-btn)",
+                color: "rgb(var(--kitchen-accent))",
+                letterSpacing: "0.08em",
+              }}
+            >
+              STEP {activeStep + 1} OF {recipe.instructions.length}
+            </div>
+            <button
+              type="button"
+              onClick={() => setCookingMode(false)}
+              className="px-4 py-3 text-sm text-kitchen-muted transition-colors hover:text-kitchen-text"
+              style={{ border: "1px solid var(--kitchen-line2)", borderRadius: "var(--radius-btn)" }}
+            >
+              Stop
+            </button>
+          </>
+        ) : (
+          <>
+            <button
+              type="button"
+              onClick={startCooking}
+              className="flex-1 py-3 text-sm font-medium text-center transition-opacity hover:opacity-90"
+              style={{
+                background: "rgb(var(--kitchen-accent))",
+                color: "rgb(26 18 10)",
+                borderRadius: "var(--radius-btn)",
+              }}
+            >
+              Begin cooking → {recipe.prep_time_minutes}m active
+            </button>
+            <Link
+              href={`/decision?recipe=${recipe.id}`}
+              className="px-4 py-3 text-sm text-kitchen-muted font-mono text-center transition-colors hover:text-kitchen-text"
+              style={{
+                border: "1px solid var(--kitchen-line2)",
+                borderRadius: "var(--radius-btn)",
+              }}
+            >
+              Compare
+            </Link>
+          </>
+        )}
       </div>
     </div>
   );

@@ -210,6 +210,7 @@ export interface HistoryEntry {
   cuisine?: string;
   timestamp: string;
   satisfaction?: number;
+  cost?: number;
 }
 
 export interface ParsedOrder {
@@ -321,9 +322,9 @@ export const api = {
 
   // History
   getHistory: (limit = 20) => request<HistoryEntry[]>(`/history?limit=${limit}`),
-  logHistory: (data: { decision: string; recipe_name?: string; cuisine?: string; satisfaction?: number; timestamp?: string }) =>
+  logHistory: (data: { decision: string; recipe_name?: string; cuisine?: string; satisfaction?: number; timestamp?: string; cost?: number }) =>
     request<HistoryEntry>("/history", { method: "POST", body: JSON.stringify(data) }),
-  updateHistory: (id: string, data: { decision?: string; recipe_name?: string; cuisine?: string; satisfaction?: number; timestamp?: string }) =>
+  updateHistory: (id: string, data: { decision?: string; recipe_name?: string; cuisine?: string; satisfaction?: number; timestamp?: string; cost?: number }) =>
     request<HistoryEntry>(`/history/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
   deleteHistory: (id: string) =>
     request<void>(`/history/${id}`, { method: "DELETE" }),

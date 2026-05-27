@@ -73,13 +73,33 @@ Substitutions: [AI.md](./AI.md). Recipe model: [DATA_MODELS.md](./DATA_MODELS.md
 
 ---
 
-## MVP polish (week 5)
+## Grocery screen
 
-Per [ROADMAP.md](./ROADMAP.md):
+- grocery list with add/buy/delete
+- AI-suggested items based on pantry gaps
 
-- dashboard completeness
-- expiry alerts
-- general UI polish
+**Data sources:** `GET /grocery`, `POST /grocery`, `PUT /grocery/{id}`, `DELETE /grocery/{id}`, `GET /grocery/suggestions`.
+
+---
+
+## History screen
+
+- chronological decision log with food swatches and mode icons
+- satisfaction star ratings
+- log from order screenshot (vision AI → `POST /vision/parse`)
+
+**Data sources:** `GET /history`, `POST /history`, `PATCH /history/{id}`, `DELETE /history/{id}`.
+
+---
+
+## Settings screen
+
+- cuisines, spice level, dietary restrictions, cooking skill
+- appearance (theme picker, reduce motion toggle)
+- kitchen defaults (cook time, effort budget sliders)
+- notifications (expiring ingredients, time-to-start alerts)
+
+**Data sources:** `GET /user/preferences`, `PUT /user/preferences`. Theme + appearance are localStorage-only.
 
 ---
 
@@ -88,4 +108,4 @@ Per [ROADMAP.md](./ROADMAP.md):
 - Decision screen is the hero surface—not an infinite recipe feed ([FOUNDING_PRINCIPLES.md](./FOUNDING_PRINCIPLES.md)).
 - Show three options side-by-side with cost, time, effort, and bullet reasons from API structured fields.
 - Expiry alerts on dashboard must match backend expiry logic ([AI.md](./AI.md) prohibitions).
-- Mobile (React Native / Expo) is post-MVP per [ARCHITECTURE.md](./ARCHITECTURE.md).
+- The frontend is a Next.js static export (PWA) deployed to GitHub Pages — no React Native.

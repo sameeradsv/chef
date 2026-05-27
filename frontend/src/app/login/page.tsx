@@ -107,7 +107,7 @@ export default function LoginPage() {
         </div>
         <h1
           className="mt-5 font-display font-normal leading-tight"
-          style={{ fontSize: 28, letterSpacing: "-0.025em" }}
+          style={{ fontSize: 36, letterSpacing: "-0.03em", lineHeight: 1.1 }}
         >
           {isLogin ? <>Your <em className="not-italic text-kitchen-accent">kitchen</em>.</> : <>Cook with <em className="not-italic text-kitchen-accent">intent</em>.</>}
         </h1>
@@ -204,6 +204,18 @@ export default function LoginPage() {
             >
               {error}
             </p>
+          )}
+
+          {isLogin && (
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={() => alert("Password reset is not available in this build. Contact your account admin.")}
+                className="text-[12px] text-kitchen-muted hover:text-kitchen-accent transition-colors"
+              >
+                Forgot password?
+              </button>
+            </div>
           )}
 
           <button

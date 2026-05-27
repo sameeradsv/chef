@@ -24,7 +24,12 @@ async function fileToBase64(file: File, maxDim = 1024): Promise<{ base64: string
 import { BarcodeScanner } from "@/components/BarcodeScanner";
 import { formatCurrency } from "@/lib/utils";
 
-const CATEGORIES = ["All", "Produce", "Protein", "Dairy", "Grains", "Pantry"];
+const CATEGORIES = ["All", "Fridge", "Pantry", "Freezer"];
+const STORAGE_LABEL: Record<string, string> = {
+  fridge: "FRIDGE",
+  pantry: "PANTRY SHELF",
+  freezer: "FREEZER",
+};
 
 function expiryText(days?: number | null) {
   if (days == null) return null;
@@ -172,6 +177,62 @@ function IngredientSheet({
   const inputCls = "w-full bg-kitchen-surface text-kitchen-text text-sm px-3 py-2.5 outline-none focus:ring-1 ring-kitchen-accent/50 placeholder:text-kitchen-muted";
   const inputStyle: React.CSSProperties = { border: "1px solid var(--kitchen-line2)", borderRadius: "var(--radius-btn)" };
 
+  const [inputMode, setInputMode] = useState<"manual" | "voice">("manual");
+  const [listening, setListening] = useState(false);
+  const [transcript, setTranscript] = useState("");
+  const [voiceError, setVoiceError] = useState<string | null>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const recognitionRef = useRef<any>(null);
+
+  function parseVoiceInput(text: string) {
+    const lower = text.toLowerCase().replace(/^add\s+/i, "");
+    const qtyMatch = lower.match(/^([\d.]+)\s*(g|gram|grams|kg|kilogram|kilograms|ml|l|liter|litre|piece|pieces|pcs|ea|each|bunch|cup|cups|tbsp|tsp)\s+(?:of\s+)?/);
+    if (qtyMatch) {
+      let qty = parseFloat(qtyMatch[1]);
+      const rawUnit = qtyMatch[2];
+      let unit = rawUnit.replace(/s$/, "");
+      if (unit === "kg" || unit === "kilogram") { qty *= 1000; unit = "grams"; }
+      else if (unit === "l" || unit === "liter" || unit === "litre") { qty *= 1000; unit = "ml"; }
+      setForm((f) => ({ ...f, quantity: qty, unit }));
+      const rest = lower.slice(qtyMatch[0].length).trim();
+      if (rest) setForm((f) => ({ ...f, name: rest }));
+    } else {
+      const halfMatch = lower.match(/^(?:half\s+a?\s*)([\w\s]+)/);
+      if (halfMatch) {
+        setForm((f) => ({ ...f, quantity: 0.5, name: halfMatch[1].trim() }));
+      } else {
+        setForm((f) => ({ ...f, name: lower.trim() }));
+      }
+    }
+    setInputMode("manual");
+  }
+
+  function startListening() {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const SR = (typeof window !== "undefined") && ((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition);
+    if (!SR) { setVoiceError("Voice input not supported in this browser. Use manual instead."); return; }
+    setVoiceError(null);
+    setTranscript("");
+    setListening(true);
+    const r = new SR();
+    r.lang = "en-US";
+    r.interimResults = false;
+    r.maxAlternatives = 1;
+    recognitionRef.current = r;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    r.onresult = (e: any) => {
+      const t = e.results[0][0].transcript;
+      setTranscript(t);
+      parseVoiceInput(t);
+      setListening(false);
+    };
+    r.onerror = () => { setVoiceError("Could not understand. Please try again."); setListening(false); };
+    r.onend = () => setListening(false);
+    r.start();
+  }
+
+  function stopListening() { recognitionRef.current?.stop(); setListening(false); }
+
   return (
     <div
       className="fixed inset-0 z-60 flex items-end md:items-center justify-center"
@@ -187,12 +248,70 @@ function IngredientSheet({
           borderTop: "1px solid var(--kitchen-line2)",
         }}
       >
-        <div className="flex items-center justify-between mb-5">
+        <div className="flex items-center justify-between mb-4">
           <h2 className="font-display text-lg">{editing ? "Edit ingredient" : "Add ingredient"}</h2>
           <button type="button" onClick={onClose} className="text-kitchen-muted hover:text-kitchen-text w-8 h-8 flex items-center justify-center text-lg">×</button>
         </div>
 
-        <form onSubmit={onSubmit} className="space-y-4">
+        {/* Mode switcher — only on add (not edit) */}
+        {!editing && (
+          <div
+            className="flex mb-4 overflow-hidden"
+            style={{ border: "1px solid var(--kitchen-line2)", borderRadius: "var(--radius-btn)" }}
+          >
+            {(["manual", "voice"] as const).map((m) => (
+              <button
+                key={m}
+                type="button"
+                onClick={() => setInputMode(m)}
+                className="flex-1 py-2 text-[10px] font-mono transition-colors uppercase tracking-[0.1em]"
+                style={{
+                  background: inputMode === m ? "rgb(var(--kitchen-accent))" : "transparent",
+                  color: inputMode === m ? "rgb(26 18 10)" : "rgb(var(--kitchen-ink3))",
+                  border: "none",
+                }}
+              >
+                {m === "voice" ? "🎤 Voice" : "Manual"}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Voice mode panel */}
+        {inputMode === "voice" && !editing && (
+          <div className="flex flex-col items-center justify-center py-6 gap-4">
+            <button
+              type="button"
+              onClick={listening ? stopListening : startListening}
+              className="w-24 h-24 rounded-full flex items-center justify-center transition-all"
+              style={{
+                background: listening ? "rgb(var(--kitchen-accent) / 0.12)" : "rgb(var(--kitchen-surface))",
+                border: listening ? "2px solid rgb(var(--kitchen-accent))" : "2px solid var(--kitchen-line2)",
+                boxShadow: listening ? "0 0 32px rgb(var(--kitchen-accent) / 0.2)" : "none",
+              }}
+            >
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke={listening ? "rgb(var(--kitchen-accent))" : "rgb(var(--kitchen-ink2))"} strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="9" y="3" width="6" height="11" rx="3" />
+                <path d="M5 11a7 7 0 0 0 14 0M12 18v3M9 21h6" />
+              </svg>
+            </button>
+            <div className="text-center space-y-1">
+              {listening ? (
+                <p className="font-display text-base text-kitchen-text">Listening…</p>
+              ) : transcript ? (
+                <p className="text-sm text-kitchen-muted">&ldquo;{transcript}&rdquo;</p>
+              ) : null}
+              <p className="text-[11px] text-kitchen-muted">
+                {listening ? "Tap to stop" : "Say: \"Add 300 grams of chicken\""}
+              </p>
+            </div>
+            {voiceError && (
+              <p className="text-xs text-center px-4" style={{ color: "rgb(var(--kitchen-warn))" }}>{voiceError}</p>
+            )}
+          </div>
+        )}
+
+        <form onSubmit={onSubmit} className="space-y-4" style={{ display: inputMode === "voice" && !editing ? "none" : undefined }}>
           <div className="grid grid-cols-2 gap-3">
             <div className="col-span-2">
               <MonoLabel className="text-kitchen-muted block mb-1.5">NAME</MonoLabel>
@@ -507,8 +626,22 @@ export default function InventoryPage() {
     setShowForm(true);
   }
 
-  async function handleBarcode(barcode: string) {
+  async function handleBarcode(barcode: string, product?: BarcodeResult, storageType?: string) {
     setShowScanner(false);
+    if (product) {
+      setEditing(null);
+      setForm({
+        name: product.ingredient_name || product.product_name,
+        quantity: product.quantity,
+        unit: product.unit,
+        expiry_date: "",
+        storage_type: storageType ?? "pantry",
+        opened: false,
+        cost: 0,
+      });
+      setShowForm(true);
+      return;
+    }
     setScanLoading(true);
     try {
       const result: BarcodeResult = await api.lookupBarcode(barcode);
@@ -518,7 +651,7 @@ export default function InventoryPage() {
         quantity: result.quantity,
         unit: result.unit,
         expiry_date: "",
-        storage_type: "pantry",
+        storage_type: storageType ?? "pantry",
         opened: false,
         cost: 0,
       });
@@ -712,54 +845,80 @@ export default function InventoryPage() {
                 + ADD FIRST ITEM
               </button>
             </div>
-          ) : (
-            <ul className="space-y-2 pb-4">
-              {items.map((ing) => {
-                const label = expiryText(ing.days_until_expiry);
-                const style = expiryStyle(ing.days_until_expiry);
-                const isExpired = (ing.days_until_expiry ?? 1) < 0;
-                return (
-                  <li key={ing.id}>
-                    <div
-                      className="flex items-center justify-between px-4 py-3"
-                      style={{ border: "1px solid var(--kitchen-line)", borderRadius: "var(--radius-card)", background: "rgb(var(--kitchen-card))" }}
-                    >
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm font-medium text-kitchen-text truncate">{ing.name}</p>
-                        <MonoLabel className="text-kitchen-muted mt-0.5">
-                          {ing.quantity} {ing.unit} · {ing.storage_type}{ing.opened ? " · opened" : ""}
-                        </MonoLabel>
-                      </div>
-                      <div className="flex items-center gap-2 ml-3 flex-shrink-0">
-                        {label && (
-                          <span
-                            className="text-[10px] font-mono px-2 py-0.5"
-                            style={{ borderRadius: 999, letterSpacing: "0.05em", ...style }}
-                          >
-                            {label}
-                          </span>
-                        )}
-                        <button
-                          type="button"
-                          onClick={() => setDiscarding(ing)}
-                          className="text-xs font-mono transition-colors"
-                          style={{ color: isExpired ? "rgb(var(--kitchen-warn))" : "rgb(var(--kitchen-ink3))" }}
-                        >
-                          {isExpired ? "Discard" : "Discard"}
-                        </button>
-                        <button type="button" onClick={() => startEdit(ing)} className="text-xs text-kitchen-muted hover:text-kitchen-accent transition-colors">
-                          Edit
-                        </button>
-                        <button type="button" onClick={() => handleDelete(ing.id)} className="text-xs text-kitchen-muted hover:text-kitchen-danger transition-colors">
-                          ×
-                        </button>
-                      </div>
+          ) : (() => {
+            const filtered = filter === "All"
+              ? items
+              : items.filter(i => i.storage_type.toLowerCase() === filter.toLowerCase());
+
+            const groups: { label: string; items: typeof items }[] = filter === "All"
+              ? (["fridge", "pantry", "freezer"] as const)
+                  .map(st => ({ label: STORAGE_LABEL[st] ?? st.toUpperCase(), items: items.filter(i => i.storage_type === st) }))
+                  .filter(g => g.items.length > 0)
+              : [{ label: STORAGE_LABEL[filter.toLowerCase()] ?? filter.toUpperCase(), items: filtered }];
+
+            const IngRow = ({ ing }: { ing: Ingredient }) => {
+              const label = expiryText(ing.days_until_expiry);
+              const style = expiryStyle(ing.days_until_expiry);
+              const isExpired = (ing.days_until_expiry ?? 1) < 0;
+              return (
+                <li key={ing.id}>
+                  <div
+                    className="flex items-center justify-between px-4 py-3"
+                    style={{ border: "1px solid var(--kitchen-line)", borderRadius: "var(--radius-card)", background: "rgb(var(--kitchen-card))" }}
+                  >
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium text-kitchen-text truncate">{ing.name}</p>
+                      <MonoLabel className="text-kitchen-muted mt-0.5">
+                        {ing.quantity} {ing.unit}{ing.opened ? " · opened" : ""}
+                      </MonoLabel>
                     </div>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
+                    <div className="flex items-center gap-2 ml-3 flex-shrink-0">
+                      {label && (
+                        <span
+                          className="text-[10px] font-mono px-2 py-0.5"
+                          style={{ borderRadius: 999, letterSpacing: "0.05em", ...style }}
+                        >
+                          {label}
+                        </span>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => setDiscarding(ing)}
+                        className="text-xs font-mono transition-colors"
+                        style={{ color: isExpired ? "rgb(var(--kitchen-warn))" : "rgb(var(--kitchen-ink3))" }}
+                      >
+                        Discard
+                      </button>
+                      <button type="button" onClick={() => startEdit(ing)} className="text-xs text-kitchen-muted hover:text-kitchen-accent transition-colors">
+                        Edit
+                      </button>
+                      <button type="button" onClick={() => handleDelete(ing.id)} className="text-xs text-kitchen-muted hover:text-kitchen-danger transition-colors">
+                        ×
+                      </button>
+                    </div>
+                  </div>
+                </li>
+              );
+            };
+
+            return (
+              <div className="space-y-4 pb-4">
+                {groups.map(({ label: groupLabel, items: groupItems }) => (
+                  <div key={groupLabel}>
+                    <MonoLabel className="text-kitchen-muted block mb-2">{groupLabel} · {groupItems.length}</MonoLabel>
+                    <ul className="space-y-2">
+                      {groupItems.map(ing => <IngRow key={ing.id} ing={ing} />)}
+                    </ul>
+                  </div>
+                ))}
+                {groups.every(g => g.items.length === 0) && (
+                  <div className="py-12 text-center" style={{ border: "1px dashed var(--kitchen-line2)", borderRadius: "var(--radius-card)" }}>
+                    <p className="text-kitchen-muted text-sm">No items in this category.</p>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
         </>
       )}
 

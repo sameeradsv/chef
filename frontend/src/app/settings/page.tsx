@@ -6,6 +6,15 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useTheme, type Theme } from "@/contexts/ThemeContext";
 import { api, type UserPreferences } from "@/lib/api";
 
+function readLocalBool(key: string, fallback: boolean): boolean {
+  if (typeof window === "undefined") return fallback;
+  const v = localStorage.getItem(key);
+  return v === null ? fallback : v === "true";
+}
+function writeLocal(key: string, val: boolean) {
+  localStorage.setItem(key, String(val));
+}
+
 function MonoLabel({ children, className = "" }: { children: React.ReactNode; className?: string }) {
   return <span className={`text-[10px] font-mono tracking-[0.12em] uppercase ${className}`}>{children}</span>;
 }
@@ -42,13 +51,66 @@ function SettingsRow({
   );
 }
 
+/* ─── Toggle ───────────────────────────────────────────────────────────── */
+function Toggle({ value, onChange }: { value: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={value}
+      onClick={() => onChange(!value)}
+      className="relative flex-shrink-0 transition-colors"
+      style={{ width: 44, height: 26, borderRadius: 999, background: value ? "rgb(var(--kitchen-accent))" : "var(--kitchen-line2)" }}
+    >
+      <span
+        className="absolute top-1 transition-all"
+        style={{
+          width: 18, height: 18, borderRadius: "50%", background: "#fff",
+          left: value ? 22 : 4,
+          boxShadow: "0 1px 3px rgba(0,0,0,0.3)",
+        }}
+      />
+    </button>
+  );
+}
+
 /* ─── Theme Picker ─────────────────────────────────────────────────────── */
 const THEMES: { id: Theme; name: string; bg: string; accent: string; ink: string }[] = [
   { id: "hearth",  name: "Hearth",  bg: "#0e0c0a", accent: "#e4a050", ink: "#f4ece0" },
   { id: "mise",    name: "Mise",    bg: "#f3ece1", accent: "#b8533a", ink: "#1f1a14" },
 ];
 
-function ThemePickerCard({ theme, setTheme }: { theme: Theme; setTheme: (t: Theme) => void }) {
+function ThemePickerCard({ theme, setTheme, compact }: { theme: Theme; setTheme: (t: Theme) => void; compact?: boolean }) {
+  if (compact) {
+    return (
+      <div
+        className="inline-flex items-center gap-1.5 px-2.5 py-1.5 cursor-default"
+        style={{
+          border: "1px solid var(--kitchen-line2)",
+          borderRadius: 999,
+          background: "rgb(var(--kitchen-surface))",
+        }}
+      >
+        {THEMES.map((t) => (
+          <button
+            key={t.id}
+            type="button"
+            onClick={() => setTheme(t.id)}
+            title={t.name}
+            className="transition-all"
+            style={{
+              width: 16, height: 16, borderRadius: "50%",
+              background: t.accent,
+              boxShadow: theme === t.id ? `0 0 0 2px ${t.accent}, 0 0 0 3px rgb(var(--kitchen-bg))` : "none",
+              border: theme === t.id ? `2px solid ${t.bg}` : "2px solid transparent",
+              transform: theme === t.id ? "scale(1.15)" : "scale(1)",
+            }}
+          />
+        ))}
+      </div>
+    );
+  }
+
   return (
     <div
       className="p-4"
@@ -76,11 +138,7 @@ function ThemePickerCard({ theme, setTheme }: { theme: Theme; setTheme: (t: Them
             }}
             aria-label={t.name}
           >
-            {/* Mini preview swatch */}
-            <div
-              className="p-2.5 pb-3"
-              style={{ background: t.bg }}
-            >
+            <div className="p-2.5 pb-3" style={{ background: t.bg }}>
               <div className="flex items-center gap-1 mb-2">
                 <div className="w-1.5 h-1.5 rounded-full" style={{ background: t.accent }} />
                 <div className="flex-1 h-1 rounded-full" style={{ background: t.ink, opacity: 0.3 }} />
@@ -132,6 +190,41 @@ export default function SettingsPage() {
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [prefsOpen, setPrefsOpen] = useState(false);
+
+  // Local-only settings
+  const [reduceMotion, setReduceMotion] = useState(false);
+  const [notifExpiring, setNotifExpiring] = useState(false);
+  const [notifTimeToStart, setNotifTimeToStart] = useState(false);
+  const [defaultCookTime, setDefaultCookTime] = useState(45);
+  const [effortBudget, setEffortBudget] = useState(8);
+
+  useEffect(() => {
+    setReduceMotion(readLocalBool("chef_reduce_motion", false));
+    setNotifExpiring(readLocalBool("chef_notif_expiring", false));
+    setNotifTimeToStart(readLocalBool("chef_notif_timetostart", false));
+    const ct = localStorage.getItem("chef_default_cook_time");
+    if (ct) setDefaultCookTime(Number(ct));
+    const eb = localStorage.getItem("chef_effort_budget");
+    if (eb) setEffortBudget(Number(eb));
+  }, []);
+
+  function toggleReduceMotion(v: boolean) {
+    setReduceMotion(v);
+    writeLocal("chef_reduce_motion", v);
+    document.documentElement.dataset.reduceMotion = v ? "true" : "false";
+  }
+  function toggleNotifExpiring(v: boolean) {
+    setNotifExpiring(v);
+    writeLocal("chef_notif_expiring", v);
+  }
+  function toggleNotifTimeToStart(v: boolean) {
+    setNotifTimeToStart(v);
+    writeLocal("chef_notif_timetostart", v);
+  }
+  function saveKitchenSettings() {
+    localStorage.setItem("chef_default_cook_time", String(defaultCookTime));
+    localStorage.setItem("chef_effort_budget", String(effortBudget));
+  }
 
   const PRESET_SKIPS = ["mushroom", "soy", "nuts", "dairy", "onion", "garlic", "shellfish"];
 
@@ -232,9 +325,30 @@ export default function SettingsPage() {
         <div className="ml-auto text-kitchen-muted text-sm">›</div>
       </div>
 
-      {/* Theme picker */}
-      <ThemePickerCard theme={theme} setTheme={setTheme} />
-
+      {/* Appearance */}
+      <div
+        className="overflow-hidden"
+        style={{ border: "1px solid var(--kitchen-line)", borderRadius: "var(--radius-card)", background: "rgb(var(--kitchen-card))" }}
+      >
+        <SectionHeader>APPEARANCE</SectionHeader>
+        {/* Theme row */}
+        <div className="px-4 py-3.5" style={{ borderBottom: "1px solid var(--kitchen-line)" }}>
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-kitchen-text">Theme</p>
+              <p className="text-[11px] text-kitchen-muted mt-0.5 capitalize">Currently {theme} — {theme === "hearth" ? "dark premium" : "warm editorial"}</p>
+            </div>
+            <ThemePickerCard theme={theme} setTheme={setTheme} compact />
+          </div>
+        </div>
+        {/* Reduce motion */}
+        <div className="px-4 py-3.5" style={{ borderBottom: "1px solid var(--kitchen-line)" }}>
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-kitchen-text">Reduce motion</p>
+            <Toggle value={reduceMotion} onChange={toggleReduceMotion} />
+          </div>
+        </div>
+      </div>
 
       {/* Preferences */}
       <div
@@ -460,6 +574,74 @@ export default function SettingsPage() {
             {prefs.city && <SettingsRow label="Location" value={prefs.city} />}
           </>
         )}
+      </div>
+
+      {/* Kitchen */}
+      <div
+        className="overflow-hidden mt-3"
+        style={{ border: "1px solid var(--kitchen-line)", borderRadius: "var(--radius-card)", background: "rgb(var(--kitchen-card))" }}
+      >
+        <SectionHeader>KITCHEN</SectionHeader>
+        <div className="px-4 py-4 space-y-5" style={{ borderBottom: "1px solid var(--kitchen-line)" }}>
+          <div>
+            <div className="flex justify-between mb-1.5">
+              <MonoLabel className="text-kitchen-muted">DEFAULT COOK TIME</MonoLabel>
+              <MonoLabel className="text-kitchen-accent">≤ {defaultCookTime}m</MonoLabel>
+            </div>
+            <input
+              type="range" min={10} max={120} step={5}
+              value={defaultCookTime}
+              onChange={(e) => setDefaultCookTime(Number(e.target.value))}
+              onMouseUp={saveKitchenSettings}
+              onTouchEnd={saveKitchenSettings}
+              className="w-full accent-kitchen-accent"
+            />
+            <div className="flex justify-between mt-0.5">
+              <span className="text-[11px] text-kitchen-muted">10m</span>
+              <span className="text-[11px] text-kitchen-muted">2h</span>
+            </div>
+          </div>
+          <div>
+            <div className="flex justify-between mb-1.5">
+              <MonoLabel className="text-kitchen-muted">EFFORT BUDGET</MonoLabel>
+              <MonoLabel className="text-kitchen-accent">{effortBudget} / 10</MonoLabel>
+            </div>
+            <input
+              type="range" min={1} max={10}
+              value={effortBudget}
+              onChange={(e) => setEffortBudget(Number(e.target.value))}
+              onMouseUp={saveKitchenSettings}
+              onTouchEnd={saveKitchenSettings}
+              className="w-full accent-kitchen-accent"
+            />
+            <div className="flex justify-between mt-0.5">
+              <span className="text-[11px] text-kitchen-muted">Easy only</span>
+              <span className="text-[11px] text-kitchen-muted">Anything</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Notifications */}
+      <div
+        className="overflow-hidden mt-3"
+        style={{ border: "1px solid var(--kitchen-line)", borderRadius: "var(--radius-card)", background: "rgb(var(--kitchen-card))" }}
+      >
+        <SectionHeader>NOTIFICATIONS</SectionHeader>
+        <div className="px-4 py-3.5 flex items-center justify-between" style={{ borderBottom: "1px solid var(--kitchen-line)" }}>
+          <div>
+            <p className="text-sm text-kitchen-text">Expiring ingredients</p>
+            <p className="text-[11px] text-kitchen-muted mt-0.5">Daily reminder before things go bad</p>
+          </div>
+          <Toggle value={notifExpiring} onChange={toggleNotifExpiring} />
+        </div>
+        <div className="px-4 py-3.5 flex items-center justify-between">
+          <div>
+            <p className="text-sm text-kitchen-text">Time to start</p>
+            <p className="text-[11px] text-kitchen-muted mt-0.5">Alert when it&apos;s time to begin cooking for tonight</p>
+          </div>
+          <Toggle value={notifTimeToStart} onChange={toggleNotifTimeToStart} />
+        </div>
       </div>
 
       {/* About */}

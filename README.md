@@ -27,7 +27,7 @@ Chef answers *"What is the best food decision right now?"* — not only *"What r
 | Decision history + satisfaction ratings | Implemented |
 | Log history from order screenshot (vision AI) | Implemented |
 | User preferences (cuisines, spice, dietary, skill) | Implemented |
-| LLM narrative explanations | Implemented (Groq Llama; requires `GROQ_API_KEY`) |
+| LLM narrative explanations | Implemented (Groq Llama 3.1; requires `GROQ_API_KEY`) |
 | Multi-user auth (JWT, bcrypt, 30-day tokens) | Implemented |
 | Live Swiggy/Zomato API | Stub (seed restaurant data only) |
 | pgvector semantic search | Stub (keyword search only) |
@@ -79,7 +79,8 @@ Optional env vars:
 ```bash
 GROQ_API_KEY=...                      # enables LLM narratives and vision parsing
 DATABASE_URL=postgres://              # switches from SQLite to PostgreSQL
-NEXT_PUBLIC_CONDUIT_API_URL=http://...  # conduit backend URL for the /chat terminal (default: http://localhost:8000)
+NEXT_PUBLIC_CORTEX_URL=http://...     # Cortex backend URL for cross-app auth (optional)
+NEXT_PUBLIC_CONDUIT_API_URL=http://...  # Conduit backend URL for /chat terminal (optional)
 ```
 
 ### Frontend
@@ -253,12 +254,14 @@ chef/
 
 ## Conduit integration
 
-Chef's backend is consumed by **conduit** — the hub app that provides cross-app AI chat and diary routing.
+Chef's backend is consumed by **Conduit** — the hub app that provides cross-app AI chat and diary routing.
 
-- **Agent reads:** `GET /recipes/recommend`, `POST /decision/cook-vs-order`, `GET /history` — conduit answers "What should I cook?" and "Should I order tonight?"
-- **Diary writes:** `POST /history` — conduit's diary mode logs meals from freeform entries
+- **Agent reads:** `GET /recipes/recommend`, `POST /decision/cook-vs-order`, `GET /history` — Conduit answers "What should I cook?" and "Should I order tonight?"
+- **Diary writes:** `POST /history` — Conduit's diary mode logs meals from freeform entries
 
-Chef also has an embedded terminal chat at `/chat` (in the sidebar and mobile bottom tab), powered by conduit's backend with the `scope=chef` tool set. Set `NEXT_PUBLIC_CONDUIT_API_URL` in `frontend/.env.local` to point to the conduit backend.
+Chef also has an embedded terminal chat at `/chat` (in the sidebar and mobile bottom tab), powered by Conduit's backend with the `scope=chef` tool set. Set `NEXT_PUBLIC_CONDUIT_API_URL` in `frontend/.env.local` to point to the Conduit backend.
+
+Chef login also supports **Cortex** single sign-on (shared account across Chef, Canopy, Circuit). Set `NEXT_PUBLIC_CORTEX_URL` for cross-app auth and energy sync.
 
 ---
 

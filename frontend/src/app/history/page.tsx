@@ -95,6 +95,7 @@ export default function HistoryPage() {
   const [logDecision, setLogDecision] = useState<"cook" | "order" | "eat_out">("cook");
   const [logRecipe, setLogRecipe]     = useState("");
   const [logCuisine, setLogCuisine]   = useState("");
+  const [logCost, setLogCost]         = useState<string>("");
   const [logSatisfaction, setLogSatisfaction] = useState<number | undefined>();
   const [logTimestamp, setLogTimestamp] = useState(() => localDatetimeValue());
   const [submitting, setSubmitting]   = useState(false);
@@ -107,6 +108,7 @@ export default function HistoryPage() {
   const [editDecision, setEditDecision]   = useState<"cook" | "order" | "eat_out">("cook");
   const [editRecipe, setEditRecipe]       = useState("");
   const [editCuisine, setEditCuisine]     = useState("");
+  const [editCost, setEditCost]           = useState<string>("");
   const [editSatisfaction, setEditSatisfaction] = useState<number | undefined>();
   const [editTimestamp, setEditTimestamp] = useState("");
   const [editSaving, setEditSaving]       = useState(false);
@@ -151,10 +153,11 @@ export default function HistoryPage() {
         cuisine: logCuisine.trim() || undefined,
         satisfaction: logSatisfaction,
         timestamp: new Date(logTimestamp).toISOString(),
+        cost: logCost ? parseFloat(logCost) : undefined,
       });
       setEntries((prev) => [entry, ...prev]);
       setShowLog(false);
-      setLogRecipe(""); setLogCuisine(""); setLogSatisfaction(undefined); setLogTimestamp(localDatetimeValue());
+      setLogRecipe(""); setLogCuisine(""); setLogCost(""); setLogSatisfaction(undefined); setLogTimestamp(localDatetimeValue());
     } catch {
       setError("Failed to save. Please try again.");
     } finally {
@@ -167,6 +170,7 @@ export default function HistoryPage() {
     setEditDecision(entry.decision);
     setEditRecipe(entry.recipe_name ?? "");
     setEditCuisine(entry.cuisine ?? "");
+    setEditCost(entry.cost != null ? String(entry.cost) : "");
     setEditSatisfaction(entry.satisfaction ?? undefined);
     setEditTimestamp(localDatetimeValue(entry.timestamp));
   }
@@ -180,6 +184,7 @@ export default function HistoryPage() {
         cuisine: editCuisine.trim() || undefined,
         satisfaction: editSatisfaction,
         timestamp: editTimestamp ? new Date(editTimestamp).toISOString() : undefined,
+        cost: editCost ? parseFloat(editCost) : undefined,
       });
       setEntries((prev) => prev.map((e) => (e.id === id ? updated : e)));
       setEditingId(null);
@@ -214,6 +219,17 @@ export default function HistoryPage() {
   const orderCount = visible.filter((e) => e.decision === "order").length;
   const outCount   = visible.filter((e) => e.decision === "eat_out").length;
   const total      = visible.length;
+  const totalSpent = visible.reduce((s, e) => s + (e.cost ?? 0), 0);
+
+  function groupFeed(items: typeof visible) {
+    const now = Date.now();
+    const groups: { label: string; entries: typeof items }[] = [
+      { label: "THIS WEEK",  entries: items.filter(e => now - new Date(e.timestamp).getTime() <= 7 * 86400000) },
+      { label: "LAST WEEK",  entries: items.filter(e => { const d = now - new Date(e.timestamp).getTime(); return d > 7 * 86400000 && d <= 14 * 86400000; }) },
+      { label: "EARLIER",    entries: items.filter(e => now - new Date(e.timestamp).getTime() > 14 * 86400000) },
+    ];
+    return groups.filter(g => g.entries.length > 0);
+  }
 
   const inputCls = "w-full bg-kitchen-surface text-kitchen-text text-sm px-3 py-2.5 outline-none focus:ring-1 ring-kitchen-accent/50 placeholder:text-kitchen-muted";
   const inputStyle: React.CSSProperties = { border: "1px solid var(--kitchen-line2)", borderRadius: "var(--radius-btn)" };
@@ -313,6 +329,10 @@ export default function HistoryPage() {
               <MonoLabel className="text-kitchen-muted block mb-1.5">CUISINE (OPTIONAL)</MonoLabel>
               <input value={logCuisine} onChange={(e) => setLogCuisine(e.target.value)} placeholder="e.g. Indian" className={inputCls} style={inputStyle} />
             </div>
+            <div>
+              <MonoLabel className="text-kitchen-muted block mb-1.5">COST ₹ (OPTIONAL)</MonoLabel>
+              <input type="number" min="0" step="0.01" value={logCost} onChange={(e) => setLogCost(e.target.value)} placeholder="e.g. 350" className={inputCls} style={inputStyle} />
+            </div>
           </div>
           <div>
             <MonoLabel className="text-kitchen-muted block mb-2">SATISFACTION</MonoLabel>
@@ -373,11 +393,19 @@ export default function HistoryPage() {
       {/* Stats row */}
       {total > 0 && (
         <div className="grid grid-cols-4 gap-2">
+          <div
+            className="p-3 text-center col-span-1"
+            style={{ border: "1px solid var(--kitchen-line)", borderRadius: "var(--radius-card)", background: "rgb(var(--kitchen-card))" }}
+          >
+            <p className="text-lg font-display font-normal text-kitchen-accent">
+              {totalSpent > 0 ? `₹${Math.round(totalSpent)}` : total}
+            </p>
+            <MonoLabel className="text-kitchen-muted mt-0.5 block">{totalSpent > 0 ? "SPENT" : "MEALS"}</MonoLabel>
+          </div>
           {[
-            { label: "MEALS",  value: total,      color: "text-kitchen-text"    },
-            { label: "COOKED", value: cookCount,  color: "text-kitchen-success" },
-            { label: "ORDER",  value: orderCount, color: "text-kitchen-accent"  },
-            { label: "OUT",    value: outCount,   color: "text-kitchen-warn"    },
+            { label: "COOK",  value: cookCount,  color: "text-kitchen-success" },
+            { label: "ORDER", value: orderCount, color: "text-kitchen-accent"  },
+            { label: "OUT",   value: outCount,   color: "text-kitchen-warn"    },
           ].map(({ label, value, color }) => (
             <div
               key={label}
@@ -426,8 +454,12 @@ export default function HistoryPage() {
           <p className="text-kitchen-muted text-xs mt-1">Use the Decide page and your history will appear here.</p>
         </div>
       ) : (
-        <ul className="space-y-2">
-          {visible.map((entry) => {
+        <div className="space-y-5">
+          {groupFeed(visible).map(({ label: groupLabel, entries: groupEntries }) => (
+            <div key={groupLabel}>
+              <MonoLabel className="text-kitchen-muted block mb-2">{groupLabel}</MonoLabel>
+              <ul className="space-y-2">
+          {groupEntries.map((entry) => {
             const meta = MODE_META[entry.decision] ?? { label: entry.decision.toUpperCase(), color: "rgb(var(--kitchen-ink3))" };
             const isEditing = editingId === entry.id;
             return (
@@ -473,6 +505,14 @@ export default function HistoryPage() {
                         className={inputCls}
                         style={inputStyle}
                       />
+                      <input
+                        type="number" min="0" step="0.01"
+                        value={editCost}
+                        onChange={(e) => setEditCost(e.target.value)}
+                        placeholder="Cost ₹ (optional)"
+                        className={inputCls}
+                        style={inputStyle}
+                      />
                     </div>
                     <StarRating value={editSatisfaction} onChange={setEditSatisfaction} />
                     <div>
@@ -507,11 +547,35 @@ export default function HistoryPage() {
                   </div>
                 ) : (
                   <div className="flex items-start gap-3">
-                    {/* Swatch */}
+                    {/* Gradient food swatch */}
                     <div
-                      className="flex-shrink-0 w-10 h-10 rounded-lg"
-                      style={{ background: `${meta.color.replace("rgb", "rgba").replace(")", " / 0.12)")}` }}
-                    />
+                      className="flex-shrink-0 relative overflow-hidden"
+                      style={{
+                        width: 44,
+                        height: 44,
+                        borderRadius: "var(--radius-card)",
+                        background: entry.decision === "cook"
+                          ? "linear-gradient(135deg, rgb(var(--kitchen-success) / 0.35) 0%, rgb(var(--kitchen-accent2) / 0.25) 100%)"
+                          : entry.decision === "order"
+                          ? "linear-gradient(135deg, rgb(var(--kitchen-accent) / 0.4) 0%, rgb(var(--kitchen-accent2) / 0.2) 100%)"
+                          : "linear-gradient(135deg, rgb(var(--kitchen-warn) / 0.35) 0%, rgb(var(--kitchen-accent2) / 0.25) 100%)",
+                        flexShrink: 0,
+                      }}
+                    >
+                      <div
+                        className="absolute inset-0"
+                        style={{
+                          backgroundImage: "repeating-linear-gradient(45deg, rgba(255,255,255,0.06) 0 4px, rgba(0,0,0,0.04) 4px 8px)",
+                          mixBlendMode: "overlay",
+                        }}
+                      />
+                      <div
+                        className="absolute inset-0 flex items-center justify-center"
+                        style={{ color: meta.color, fontSize: 18 }}
+                      >
+                        {entry.decision === "cook" ? "◉" : entry.decision === "order" ? "◎" : "◈"}
+                      </div>
+                    </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
                         <span className="text-[10px] font-mono tracking-[0.12em] uppercase" style={{ color: meta.color }}>{meta.label}</span>
@@ -523,11 +587,14 @@ export default function HistoryPage() {
                       {entry.cuisine && (
                         <MonoLabel className="text-kitchen-muted">{entry.cuisine}</MonoLabel>
                       )}
-                      <div className="mt-1.5">
+                      <div className="mt-1.5 flex items-center justify-between">
                         <StarRating
                           value={entry.satisfaction ?? undefined}
                           onChange={(n) => updateSatisfaction(entry.id, n)}
                         />
+                        {entry.cost != null && (
+                          <MonoLabel className="text-kitchen-muted">₹{entry.cost}</MonoLabel>
+                        )}
                       </div>
                     </div>
                     {/* Edit / Delete */}
@@ -560,7 +627,10 @@ export default function HistoryPage() {
               </li>
             );
           })}
-        </ul>
+              </ul>
+            </div>
+          ))}
+        </div>
       )}
     </div>
   );

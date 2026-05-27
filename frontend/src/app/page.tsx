@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import { api, type Ingredient, type Recipe, type RecommendMealResult } from "@/lib/api";
+import { useTheme, type Theme } from "@/contexts/ThemeContext";
+import { api, type HistoryEntry, type Ingredient, type Recipe, type RecommendMealResult } from "@/lib/api";
 import { expiryBadge } from "@/lib/utils";
 
 /* ─── Helpers ──────────────────────────────────────────────────────────── */
@@ -11,6 +12,23 @@ import { expiryBadge } from "@/lib/utils";
 function todayLabel() {
   return new Intl.DateTimeFormat("en", { weekday: "short", month: "short", day: "numeric" }).format(new Date());
 }
+
+function greeting() {
+  const h = new Date().getHours();
+  if (h >= 5 && h < 12) return "Good morning";
+  if (h >= 12 && h < 17) return "Good afternoon";
+  if (h >= 17 && h < 21) return "Good evening";
+  return "Good night";
+}
+
+const MOODS = [
+  { id: "comfort",    label: "Comfort",      craving: "comfort food",               cook: 7 },
+  { id: "light",      label: "Light & fresh", craving: "light and healthy",          cook: 6 },
+  { id: "hearty",     label: "Hearty",        craving: "hearty filling meal",        cook: 7 },
+  { id: "quick",      label: "Quick",         craving: "something quick and easy",   cook: 8 },
+  { id: "adventurous",label: "Adventurous",   craving: "adventurous exciting cuisine",cook: 8 },
+] as const;
+type MoodId = typeof MOODS[number]["id"];
 
 const MEAL_TYPES = ["breakfast", "lunch", "snacks", "dinner"] as const;
 type MealType = typeof MEAL_TYPES[number];
@@ -52,110 +70,228 @@ function MonoLabel({ children, className = "" }: { children: React.ReactNode; cl
   );
 }
 
-function TonightCard({ meal, recipe, pickLabel }: { meal: RecommendMealResult; recipe?: Recipe; pickLabel: string }) {
+function ThemeToggle() {
+  const { theme, setTheme } = useTheme();
+  const themes: { id: Theme; bg: string; accent: string }[] = [
+    { id: "hearth", bg: "#0e0c0a", accent: "#e4a050" },
+    { id: "mise",   bg: "#f3ece1", accent: "#b8533a" },
+  ];
+  return (
+    <div
+      className="flex items-center gap-1 p-1 flex-shrink-0"
+      style={{ border: "1px solid var(--kitchen-line)", borderRadius: 999, background: "rgb(var(--kitchen-surface))" }}
+    >
+      {themes.map((t) => (
+        <button
+          key={t.id}
+          type="button"
+          onClick={() => setTheme(t.id)}
+          title={t.id.charAt(0).toUpperCase() + t.id.slice(1)}
+          className="w-4 h-4 rounded-full transition-all"
+          style={{
+            background: t.bg,
+            boxShadow: theme === t.id ? `0 0 0 2px ${t.accent}` : "none",
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
+const DOT_COLOR: Record<string, string> = {
+  cook:    "rgb(var(--kitchen-accent))",
+  order:   "rgb(var(--kitchen-success))",
+  eat_out: "rgb(var(--kitchen-warn))",
+};
+const DAY_ABBR = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
+
+function WeekGlance({ entries }: { entries: HistoryEntry[] }) {
+  const days = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date();
+    d.setDate(d.getDate() - 6 + i);
+    return d;
+  });
+  const todayStr = new Date().toISOString().slice(0, 10);
+
+  function kindForDay(d: Date) {
+    const s = d.toISOString().slice(0, 10);
+    return entries.find((e) => e.timestamp.slice(0, 10) === s)?.decision ?? null;
+  }
+
+  return (
+    <div>
+      <MonoLabel className="block mb-2">This week</MonoLabel>
+      <div className="grid grid-cols-7 gap-1.5">
+        {days.map((d) => {
+          const isToday = d.toISOString().slice(0, 10) === todayStr;
+          const kind = kindForDay(d);
+          return (
+            <div
+              key={d.toISOString()}
+              className="aspect-square flex flex-col items-center justify-center gap-1"
+              style={{
+                borderRadius: "var(--radius-btn)",
+                background: "rgb(var(--kitchen-card))",
+                border: isToday
+                  ? "1px solid rgb(var(--kitchen-accent) / 0.5)"
+                  : "1px solid var(--kitchen-line)",
+              }}
+            >
+              <span
+                className="text-[8px] font-mono"
+                style={{
+                  color: isToday ? "rgb(var(--kitchen-accent))" : "rgb(var(--kitchen-ink3))",
+                  letterSpacing: "0.04em",
+                }}
+              >
+                {DAY_ABBR[d.getDay()]}
+              </span>
+              <div
+                className="w-1.5 h-1.5 rounded-full"
+                style={{ background: kind ? DOT_COLOR[kind] : "var(--kitchen-line2)" }}
+              />
+            </div>
+          );
+        })}
+      </div>
+      <div className="flex gap-3 mt-2">
+        {([["cook", "Cooked"], ["order", "Ordered"], ["eat_out", "Ate out"]] as const).map(([k, label]) => (
+          <div key={k} className="flex items-center gap-1">
+            <div className="w-1.5 h-1.5 rounded-full" style={{ background: DOT_COLOR[k] }} />
+            <span className="text-[9px] font-mono text-kitchen-muted">{label}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function TonightCard({ meal, pickLabel }: { meal: RecommendMealResult; pickLabel: string }) {
   const name = meal.mode === "cook" && meal.recipe
     ? meal.recipe.name
     : meal.recommendation;
 
   const meta = meal.mode === "cook" && meal.recipe
     ? [
-        `${meal.recipe.prep_time_minutes + meal.recipe.cook_time_minutes}m`,
+        `${meal.recipe.prep_time_minutes}m active`,
         `${meal.recipe.pantry_match_pct}% pantry`,
         `₹${Math.round(meal.recipe.estimated_cost)}/serving`,
       ].join(" · ")
     : meal.reasoning[0] ?? "";
+
+  const scoreLabel = meal.mode === "cook" && meal.recipe
+    ? `${meal.recipe.pantry_match_pct}%`
+    : "BEST";
 
   return (
     <div
       className="relative overflow-hidden"
       style={{ borderRadius: "var(--radius-card)", border: "1px solid var(--kitchen-line)" }}
     >
-      {/* Gradient hero swatch */}
+      {/* Hero swatch — title overlaps bottom */}
       <div
-        className="h-36"
-        style={{
-          background: "linear-gradient(135deg, rgb(var(--kitchen-accent2) / 0.6) 0%, rgb(var(--kitchen-accent) / 0.3) 50%, rgb(var(--kitchen-surface)) 100%)",
-          position: "relative",
-        }}
+        className="relative"
+        style={{ height: 160 }}
       >
         <div
+          className="absolute inset-0"
           style={{
-            position: "absolute",
-            inset: 0,
-            background: "linear-gradient(180deg, transparent 20%, rgb(var(--kitchen-card)) 100%)",
+            background: "linear-gradient(135deg, rgb(var(--kitchen-accent2) / 0.6) 0%, rgb(var(--kitchen-accent) / 0.3) 60%, rgb(var(--kitchen-surface)) 100%)",
           }}
         />
-      </div>
-
-      {/* Chips overlay */}
-      <div className="absolute top-3 left-3 right-3 flex justify-between items-start">
         <div
-          className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[10px] font-mono text-kitchen-accent"
+          className="absolute inset-0"
           style={{
-            background: "rgb(var(--kitchen-bg) / 0.75)",
-            backdropFilter: "blur(8px)",
-            borderRadius: 999,
-            letterSpacing: "0.1em",
+            backgroundImage: "repeating-linear-gradient(45deg, rgb(var(--kitchen-accent) / 0.04) 0 6px, transparent 6px 12px)",
           }}
-        >
-          <span className="animate-pulse-dot">●</span>
-          {pickLabel}
+        />
+        {/* Fade to card at bottom so title is readable */}
+        <div
+          className="absolute inset-0"
+          style={{ background: "linear-gradient(180deg, transparent 35%, rgb(var(--kitchen-card)) 100%)" }}
+        />
+
+        {/* Top chips */}
+        <div className="absolute top-3 left-3 right-3 flex justify-between items-start">
+          <div
+            className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[10px] font-mono text-kitchen-accent"
+            style={{
+              background: "rgb(var(--kitchen-bg) / 0.75)",
+              backdropFilter: "blur(8px)",
+              borderRadius: 999,
+              letterSpacing: "0.1em",
+            }}
+          >
+            <span className="animate-pulse-dot">●</span>
+            {pickLabel}
+          </div>
+          <div
+            className="px-2 py-1 text-[10px] font-mono"
+            style={{
+              background: "rgba(0,0,0,0.5)",
+              backdropFilter: "blur(8px)",
+              borderRadius: 999,
+              color: "rgb(var(--kitchen-accent))",
+              letterSpacing: "0.1em",
+              border: "1px solid rgba(255,220,180,0.2)",
+            }}
+          >
+            {meal.mode.toUpperCase().replace("_", " ")} · {scoreLabel}
+          </div>
         </div>
-        <MonoLabel className="text-kitchen-text/70">
-          {meal.mode.toUpperCase().replace("_", " ")} · {meal.mode === "cook" && meal.recipe ? Math.round(meal.recipe.pantry_match_pct * 0.88) : "—"}
-        </MonoLabel>
+
+        {/* Title overlapping hero bottom */}
+        <div className="absolute bottom-0 left-0 right-0 px-4 pb-3">
+          <h2
+            className="font-display font-normal leading-snug"
+            style={{ fontSize: 22, letterSpacing: "-0.02em" }}
+          >
+            {name}
+          </h2>
+          <MonoLabel className="text-kitchen-muted mt-0.5 block">{meta}</MonoLabel>
+        </div>
       </div>
 
-      {/* Content below swatch */}
+      {/* Action row */}
       <div
-        className="px-4 pb-4"
-        style={{ background: "rgb(var(--kitchen-card))" }}
+        className="flex gap-2 px-4 py-3"
+        style={{ background: "rgb(var(--kitchen-card))", borderTop: "1px solid var(--kitchen-line)" }}
       >
-        <h2
-          className="font-display font-normal leading-snug mb-1"
-          style={{ fontSize: 22, letterSpacing: "-0.02em" }}
-        >
-          {name}
-        </h2>
-        <MonoLabel>{meta}</MonoLabel>
-
-        <div className="flex gap-2 mt-3">
-          {meal.mode === "cook" && meal.recipe ? (
-            <Link
-              href={`/recipe/${meal.recipe.id}`}
-              className="flex-1 py-2.5 text-sm font-medium text-center transition-opacity hover:opacity-90"
-              style={{
-                background: "rgb(var(--kitchen-accent))",
-                color: "rgb(26 18 10)",
-                borderRadius: "var(--radius-btn)",
-              }}
-            >
-              Open recipe →
-            </Link>
-          ) : (
-            <Link
-              href="/decision"
-              className="flex-1 py-2.5 text-sm font-medium text-center transition-opacity hover:opacity-90"
-              style={{
-                background: "rgb(var(--kitchen-accent))",
-                color: "rgb(26 18 10)",
-                borderRadius: "var(--radius-btn)",
-              }}
-            >
-              See options →
-            </Link>
-          )}
+        {meal.mode === "cook" && meal.recipe ? (
           <Link
-            href={meal.mode === "cook" && meal.recipe ? `/decision?recipe=${meal.recipe.id}` : "/decision"}
-            className="px-3.5 py-2.5 text-sm text-kitchen-text transition-colors hover:text-kitchen-accent"
+            href={`/recipe/${meal.recipe.id}?pick=1`}
+            className="flex-1 py-2.5 text-sm font-medium text-center transition-opacity hover:opacity-90"
             style={{
-              border: "1px solid var(--kitchen-line2)",
+              background: "rgb(var(--kitchen-accent))",
+              color: "rgb(26 18 10)",
               borderRadius: "var(--radius-btn)",
             }}
           >
-            Compare
+            Open recipe →
           </Link>
-        </div>
+        ) : (
+          <Link
+            href="/decision"
+            className="flex-1 py-2.5 text-sm font-medium text-center transition-opacity hover:opacity-90"
+            style={{
+              background: "rgb(var(--kitchen-accent))",
+              color: "rgb(26 18 10)",
+              borderRadius: "var(--radius-btn)",
+            }}
+          >
+            See options →
+          </Link>
+        )}
+        <Link
+          href={meal.mode === "cook" && meal.recipe ? `/decision?recipe=${meal.recipe.id}` : "/decision"}
+          className="px-3.5 py-2.5 text-sm text-kitchen-text transition-colors hover:text-kitchen-accent"
+          style={{
+            border: "1px solid var(--kitchen-line2)",
+            borderRadius: "var(--radius-btn)",
+          }}
+        >
+          Or 2 more
+        </Link>
       </div>
     </div>
   );
@@ -240,11 +376,11 @@ export default function DashboardPage() {
   const [status, setStatus] = useState<"loading" | "waking" | "error" | "ok">("loading");
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [attempt, setAttempt] = useState(0);
-  const [mood, setMood] = useState("");
-  const [moodApplied, setMoodApplied] = useState(false);
+  const [activeMood, setActiveMood] = useState<MoodId | null>(null);
   const [mealType, setMealType] = useState<MealType>(detectMealType);
   const [suggestion, setSuggestion] = useState<string>("");
   const [recipeTabLoading, setRecipeTabLoading] = useState(false);
+  const [weekHistory, setWeekHistory] = useState<HistoryEntry[]>([]);
 
   async function loadSuggestion(mt: MealType) {
     setSuggestion("");
@@ -270,14 +406,13 @@ export default function DashboardPage() {
     loadRecipesForMeal(mt);
   }
 
-  async function loadRecommendations(craving?: string) {
+  async function loadRecommendations(mood?: typeof MOODS[number] | null) {
     setStatus("loading");
     try {
-      if (craving?.trim()) {
+      if (mood) {
         const current = await api.getUserState().catch(() => null);
         const base = current ?? { energy_level: 5, time_available_minutes: 30, budget_today: 300, health_priority: 5, craving: "", willingness_to_cook: 5, stress_level: 5 };
-        await api.setUserState({ ...base, craving: craving.trim() });
-        setMoodApplied(true);
+        await api.setUserState({ ...base, craving: mood.craving, willingness_to_cook: mood.cook });
       }
       const detected = detectMealType();
       setMealType(detected);
@@ -303,7 +438,10 @@ export default function DashboardPage() {
   }
 
   // Load immediately on mount
-  useEffect(() => { loadRecommendations(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    loadRecommendations(null);
+    api.getHistory(50).then(setWeekHistory).catch(() => {});
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Auto-retry every 12s while waking
   useEffect(() => {
@@ -314,46 +452,53 @@ export default function DashboardPage() {
 
   useEffect(() => {
     if (attempt === 0) return;
-    loadRecommendations(mood);
+    loadRecommendations(MOODS.find(m => m.id === activeMood) ?? null);
   }, [attempt]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div className="space-y-5">
       {/* Greeting */}
-      <div className="pt-2">
-        <MonoLabel>{todayLabel()}</MonoLabel>
-        <h1
-          className="font-display font-normal mt-1"
-          style={{ fontSize: 26, letterSpacing: "-0.02em", lineHeight: 1.1 }}
-        >
-          Hello,{" "}
-          <em className="not-italic text-kitchen-accent">{username ?? "chef"}</em>.
-        </h1>
+      <div className="pt-2 flex items-start justify-between gap-3">
+        <div>
+          <MonoLabel>{todayLabel()}</MonoLabel>
+          <h1
+            className="font-display font-normal mt-1"
+            style={{ fontSize: 26, letterSpacing: "-0.02em", lineHeight: 1.1 }}
+          >
+            {greeting()},{" "}
+            <em className="not-italic text-kitchen-accent">{username ?? "chef"}</em>.
+          </h1>
+        </div>
+        <ThemeToggle />
       </div>
 
-      {/* Mood / craving input — optional, non-blocking */}
-      <div className="flex gap-2">
-        <input
-          value={mood}
-          onChange={(e) => { setMood(e.target.value); setMoodApplied(false); }}
-          onKeyDown={(e) => { if (e.key === "Enter" && mood.trim()) loadRecommendations(mood); }}
-          placeholder="Any cravings? (optional — shapes recommendations)"
-          className="flex-1 text-sm px-3 py-2.5 bg-kitchen-card text-kitchen-text placeholder:text-kitchen-muted outline-none focus:ring-1 ring-kitchen-accent/50"
-          style={{ border: "1px solid var(--kitchen-line2)", borderRadius: "var(--radius-btn)" }}
-        />
-        {mood.trim() && !moodApplied && (
-          <button
-            type="button"
-            onClick={() => loadRecommendations(mood)}
-            className="px-3 text-sm font-mono text-kitchen-accent transition-opacity hover:opacity-70 flex-shrink-0"
-            style={{ border: "1px solid rgb(var(--kitchen-accent) / 0.3)", borderRadius: "var(--radius-btn)" }}
-          >
-            Apply
-          </button>
-        )}
-        {moodApplied && (
-          <span className="px-3 py-2.5 text-xs font-mono text-kitchen-muted flex items-center flex-shrink-0">applied ✓</span>
-        )}
+      {/* Mood pills */}
+      <div className="flex gap-2 overflow-x-auto pb-0.5 -mx-[22px] px-[22px]">
+        {MOODS.map((m) => {
+          const active = activeMood === m.id;
+          return (
+            <button
+              key={m.id}
+              type="button"
+              onClick={() => {
+                const next = active ? null : m.id;
+                setActiveMood(next);
+                loadRecommendations(next ? m : null);
+              }}
+              className="flex-shrink-0 px-3 py-1.5 text-xs font-mono tracking-wide transition-all"
+              style={{
+                borderRadius: 999,
+                border: active ? "1px solid rgb(var(--kitchen-accent) / 0.5)" : "1px solid var(--kitchen-line2)",
+                background: active ? "rgb(var(--kitchen-ink))" : "transparent",
+                color: active ? "rgb(var(--kitchen-accent))" : "rgb(var(--kitchen-ink3))",
+                letterSpacing: "0.06em",
+              }}
+            >
+              {m.label}
+            </button>
+          );
+        })}
+        <div className="flex-shrink-0 w-[22px]" />
       </div>
 
       {/* Main content */}
@@ -410,6 +555,7 @@ export default function DashboardPage() {
         <>
           {meal && <TonightCard meal={meal} pickLabel={mealPickLabel(mealType)} />}
 
+
           {expiring.length > 0 && <ExpiringCard items={expiring} />}
 
           {/* Meal type tabs + quick picks */}
@@ -458,6 +604,9 @@ export default function DashboardPage() {
             ) : null}
           </div>
 
+          {/* Week glance */}
+          <WeekGlance entries={weekHistory} />
+
           {/* Quick nav cards */}
           <div className="grid grid-cols-2 gap-3 pt-1">
             {[
@@ -484,7 +633,7 @@ export default function DashboardPage() {
 
           <button
             type="button"
-            onClick={() => loadRecommendations(mood)}
+            onClick={() => loadRecommendations(MOODS.find(m => m.id === activeMood) ?? null)}
             className="w-full text-xs text-kitchen-muted font-mono hover:text-kitchen-accent transition-colors py-1"
           >
             ↻ REFRESH

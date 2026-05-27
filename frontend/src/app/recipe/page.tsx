@@ -3,6 +3,12 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { api, type Recipe } from "@/lib/api";
+import dynamic from "next/dynamic";
+
+const RecipeCoverageScatter = dynamic(
+  () => import("@/components/RecipeCoverageScatter"),
+  { ssr: false, loading: () => null }
+);
 
 function MonoLabel({ children, className = "" }: { children: React.ReactNode; className?: string }) {
   return <span className={`text-[10px] font-mono tracking-[0.12em] uppercase ${className}`}>{children}</span>;
@@ -73,6 +79,8 @@ export default function RecipeListPage() {
         className="w-full bg-kitchen-surface text-kitchen-text text-sm px-3.5 py-3 outline-none focus:ring-1 ring-kitchen-accent/50 placeholder:text-kitchen-muted"
         style={{ border: "1px solid var(--kitchen-line2)", borderRadius: "var(--radius-btn)" }}
       />
+
+      {!loading && recipes.length > 0 && <RecipeCoverageScatter recipes={recipes} />}
 
       {error && (
         <p className="text-xs text-kitchen-danger px-3 py-2"

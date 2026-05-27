@@ -116,6 +116,7 @@ class CookingHistoryModel(Base):
     cuisine: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     timestamp: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     satisfaction: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)  # 1-5
+    cost: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
 
 
 class GroceryItemModel(Base):

@@ -116,50 +116,9 @@ Examples:
 
 ---
 
-## MVP build order (weeks 1–5)
-
-### Week 1
-
-- inventory CRUD
-- PostgreSQL setup
-- ingredient model
-
-See [DATA_MODELS.md](./DATA_MODELS.md) (Ingredient), [API.md](./API.md) (inventory endpoints).
-
-### Week 2
-
-- recipe retrieval
-- recipe recommendation logic
-
-See [INTEGRATIONS.md](./INTEGRATIONS.md), [AI.md](./AI.md).
-
-### Week 3
-
-- AI recommendation layer
-- natural language queries
-
-See [AI.md](./AI.md).
-
-### Week 4
-
-- decision engine
-- cook vs order comparison
-
-See [DECISION_ENGINE.md](./DECISION_ENGINE.md), [INTEGRATIONS.md](./INTEGRATIONS.md) (compare logic).
-
-### Week 5
-
-- frontend polish
-- dashboard
-- expiry alerts
-
-See [FRONTEND.md](./FRONTEND.md).
-
----
-
 ## Implementation notes for agents
 
-- Default implementation work to Phase 1 and the week order above unless the user reprioritizes.
-- Week 4 decision engine must use deterministic scoring first ([DECISION_ENGINE.md](./DECISION_ENGINE.md)).
-- Week 3 AI layer must respect AI prohibitions on counts, expiry, and scheduling ([AI.md](./AI.md)).
-- Phase 2–3 features are out of MVP unless explicitly requested.
+- Phase 1 (MVP) is complete. Default new work to Phase 2 features unless the user overrides.
+- Decision engine must use deterministic scoring first ([DECISION_ENGINE.md](./DECISION_ENGINE.md)).
+- AI layer must respect prohibitions on counts, expiry, and scheduling ([AI.md](./AI.md)).
+- Phase 3 features are out of scope unless explicitly requested.

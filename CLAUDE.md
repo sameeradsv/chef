@@ -96,5 +96,40 @@ These are in-scope future features still using placeholder/seed data:
 - pgvector semantic search (keyword `q` filter only; needs PostgreSQL + pgvector extension)
 
 ### Implemented but needs configuration
-- **LLM narrative explanations** — `services/llm.py` calls Claude Haiku 4.5; requires `ANTHROPIC_API_KEY` set in Render dashboard
+- **LLM narrative explanations** — `services/llm.py` calls Groq Llama 3.1 8B; requires `GROQ_API_KEY` set in Render dashboard
 - **TheMealDB live search** — `services/mealdb.py` fetches live results; wired into `/recipes/search` alongside seed data
+
+### Conscious Design Decisions (vs. Design Handoff)
+
+The design handoff (`Claude Design/chef-designs/design_handoff_kitchen_intelligence/`) specified certain features that were deliberately **not implemented**. Do not re-add these without explicit approval:
+
+| Feature | Decision | Reason |
+|---|---|---|
+| **Pantry theme** (third colour scheme) | Dropped | Only two themes (Hearth dark, Mise warm) are shipped; Pantry (cool neutral/blue) was cut as low-usage |
+| **Density control** (compact/standard/comfy) | Dropped | The spacing multiplier adds complexity with negligible perceptible benefit at this scale |
+| **Connected services** (Instacart, OpenTable, DoorDash, Apple Health) | Deferred | Re-enable once Swiggy/Zomato live API integration ships — the rows belong in Settings when real integrations exist |
+
+### Open Design Gaps (tracked, not yet built)
+
+| Feature | Notes |
+|---|---|
+| Grocery — swipe-to-mark-bought | `translateX(-72px)` swipe revealing amber "Mark bought"; currently uses checkboxes |
+
+### Closed Design Gaps (implemented)
+
+| Feature | Where |
+|---|---|
+| Bottom tab bar navigation | `components/Layout.tsx` — mobile bottom tabs + desktop sidebar |
+| Week glance strip on Dashboard | `app/page.tsx` — `WeekGlance` component, pulls last 50 history entries |
+| ThemePicker in Dashboard header | `app/page.tsx` — `ThemeToggle` compact swatch pills (top-right of greeting) |
+| Tonight's Pick score badge | `app/page.tsx` — backdrop-blur amber pill showing mode + pantry match % |
+| Add Ingredient — Voice mode | `app/inventory/page.tsx` — Manual / Voice switcher in `IngredientSheet`; Web Speech API |
+| Recipe Method — interactive cooking steps | `app/recipe/[id]/RecipeClient.tsx` — "Begin cooking" CTA, active-step highlight, "Step done →" advance |
+| Barcode Scanner — detected-product overlay | `components/BarcodeScanner.tsx` — full-screen camera, amber reticle, bottom confirm sheet with qty + storage |
+
+### Additions Beyond Design Spec
+
+These components were built during implementation and are intentional additions not in the original design handoff:
+
+- `components/DecisionScoreWaterfall.tsx` — horizontal bar chart breaking down score factors per decision mode; shown as collapsible section on the Decision page
+- `components/RecipeCoverageScatter.tsx` — scatter/coverage visualisation for recipe pantry match; newly implemented, keep

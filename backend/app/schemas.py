@@ -232,6 +232,7 @@ class CookingHistoryCreate(BaseModel):
     cuisine: Optional[str] = None
     satisfaction: Optional[int] = Field(None, ge=1, le=5)
     timestamp: Optional[datetime] = None
+    cost: Optional[float] = None
 
 
 class CookingHistoryUpdate(BaseModel):
@@ -240,6 +241,7 @@ class CookingHistoryUpdate(BaseModel):
     cuisine: Optional[str] = None
     satisfaction: Optional[int] = Field(None, ge=1, le=5)
     timestamp: Optional[datetime] = None
+    cost: Optional[float] = None
 
 
 class CookingHistoryResponse(BaseModel):
@@ -249,6 +251,7 @@ class CookingHistoryResponse(BaseModel):
     cuisine: Optional[str]
     timestamp: datetime
     satisfaction: Optional[int]
+    cost: Optional[float] = None
 
     model_config = {"from_attributes": True}
 

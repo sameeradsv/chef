@@ -5,6 +5,12 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { api, type CookVsOrderResult, type DecisionOption, type UserState, getToken } from "@/lib/api";
 import { formatCurrency } from "@/lib/utils";
+import dynamic from "next/dynamic";
+
+const DecisionScoreWaterfall = dynamic(
+  () => import("@/components/DecisionScoreWaterfall"),
+  { ssr: false, loading: () => null }
+);
 
 const defaultState: UserState = {
   energy_level: 5,
@@ -113,11 +119,13 @@ function ScoreCard({
   winner,
   selected,
   onSelect,
+  orderCost,
 }: {
   option: DecisionOption;
   winner: boolean;
   selected: boolean;
   onSelect: () => void;
+  orderCost?: number;
 }) {
   const meta = MODE_META[option.mode] ?? { label: option.mode, sub: "", icon: "◉" };
 
@@ -238,6 +246,14 @@ function ScoreCard({
           </div>
           {option.mode === "cook" && (
             <div className="mt-3 space-y-2">
+              {orderCost != null && orderCost > 0 && option.cost > 0 && (
+                <div className="flex justify-between items-center">
+                  <MonoLabel className="text-kitchen-muted">Cost vs. order</MonoLabel>
+                  <span className="text-xs font-mono" style={{ color: "rgb(var(--kitchen-accent))" }}>
+                    {Math.round((1 - option.cost / orderCost) * 100)}% cheaper
+                  </span>
+                </div>
+              )}
               {(option.details?.missing_ingredients as unknown as string[] | undefined)?.length ? (
                 <div
                   className="px-3 py-2 text-[11px] font-mono"
@@ -386,6 +402,7 @@ function DecisionPageInner() {
   const [peopleCount, setPeopleCount] = useState(2);
   const [defaultPeople, setDefaultPeople] = useState(2);
   const [showContext, setShowContext] = useState(false);
+  const [showChart, setShowChart] = useState(false);
 
   async function runDecision(updatedState?: UserState, people?: number) {
     setLoading(true);
@@ -498,9 +515,19 @@ function DecisionPageInner() {
             <em className="not-italic text-kitchen-accent">move</em>?
           </h1>
           {result && (
-            <MonoLabel className="text-kitchen-muted">
-              {new Intl.DateTimeFormat("en", { hour: "2-digit", minute: "2-digit" }).format(new Date())}
-            </MonoLabel>
+            <div className="flex items-center gap-3 flex-shrink-0">
+              <MonoLabel className="text-kitchen-muted">
+                {new Intl.DateTimeFormat("en", { hour: "2-digit", minute: "2-digit" }).format(new Date())}
+              </MonoLabel>
+              <button
+                type="button"
+                onClick={() => setShowChart((v) => !v)}
+                className="text-xs font-mono transition-colors hover:opacity-80"
+                style={{ color: "rgb(var(--kitchen-accent))", letterSpacing: "0.06em" }}
+              >
+                {showChart ? "Hide ↑" : "See why →"}
+              </button>
+            </div>
           )}
         </div>
         {result?.reasoning?.[0] && (
@@ -555,8 +582,29 @@ function DecisionPageInner() {
               winner={opt.mode === winner}
               selected={selected === opt.mode}
               onSelect={() => setSelected(opt.mode === selected ? null : opt.mode)}
+              orderCost={opt.mode === "cook" ? result.options.find(o => o.mode === "order")?.cost : undefined}
             />
           ))}
+        </div>
+      )}
+
+      {/* Score breakdown chart toggle */}
+      {result && (
+        <div>
+          <button
+            type="button"
+            onClick={() => setShowChart((v) => !v)}
+            className="w-full flex items-center justify-between px-3 py-2 text-[10px] font-mono tracking-[0.1em] text-kitchen-muted hover:text-kitchen-accent transition-colors"
+            style={{ border: "1px solid var(--kitchen-line)", borderRadius: "var(--radius-btn)", background: "rgb(var(--kitchen-surface))" }}
+          >
+            <span>SCORE BREAKDOWN</span>
+            <span>{showChart ? "▲" : "▼"}</span>
+          </button>
+          {showChart && (
+            <div className="mt-2">
+              <DecisionScoreWaterfall options={result.options} />
+            </div>
+          )}
         </div>
       )}
 
