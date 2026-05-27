@@ -10,6 +10,7 @@ from app.routers.grocery import router as grocery_router
 from app.routers.history import router as history_router
 from app.routers.sync import router as sync_router
 from app.routers.vision import router as vision_router
+from app.routers.webauthn import router as webauthn_router
 from app.seed import seed_database
 
 app = FastAPI(
@@ -32,6 +33,7 @@ app.add_middleware(
 )
 
 app.include_router(auth_router)
+app.include_router(webauthn_router)
 app.include_router(ingredients.router)
 app.include_router(recipes.router)
 app.include_router(decisions.router)

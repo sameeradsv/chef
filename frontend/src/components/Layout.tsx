@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
+import { PasskeyBanner } from "@/components/PasskeyBanner";
 
 /* ─── Icons (24×24, stroke-based) ─────────────────────────────────────── */
 const HomeIcon = () => (
@@ -139,13 +140,14 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
       {/* ── Main content ───────────────────────────────────────────── */}
       <main
-        className="md:ml-56 min-h-dvh"
+        className="md:ml-56 min-h-dvh flex flex-col"
         style={{
           paddingTop: "env(safe-area-inset-top, 0px)",
           paddingBottom: "calc(64px + env(safe-area-inset-bottom, 0px))",
         }}
       >
-        <div className="max-w-2xl mx-auto px-[22px] py-6 animate-fade-in">
+        <PasskeyBanner />
+        <div className="max-w-2xl mx-auto px-[22px] py-6 animate-fade-in w-full">
           {children}
         </div>
       </main>

@@ -131,3 +131,23 @@ class GroceryItemModel(Base):
     unit: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
     bought: Mapped[bool] = mapped_column(Boolean, default=False)
     added_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class WebAuthnCredential(Base):
+    __tablename__ = "webauthn_credentials"
+
+    credential_id: Mapped[str] = mapped_column(Text, primary_key=True)
+    public_key: Mapped[str] = mapped_column(Text, nullable=False)
+    sign_count: Mapped[int] = mapped_column(Integer, default=0)
+    user_id: Mapped[str] = mapped_column(Text, nullable=False, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class WebAuthnChallenge(Base):
+    __tablename__ = "webauthn_challenges"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    challenge: Mapped[str] = mapped_column(String(128), nullable=False)
+    user_id: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    expires_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)

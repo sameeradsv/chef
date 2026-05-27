@@ -69,6 +69,27 @@ def _migrate_sqlite() -> None:
             if "cost" not in existing_hist:
                 conn.execute(text("ALTER TABLE cooking_history ADD COLUMN cost REAL"))
                 conn.commit()
+        if "webauthn_credentials" not in inspector.get_table_names():
+            conn.execute(text(
+                "CREATE TABLE webauthn_credentials ("
+                "credential_id TEXT PRIMARY KEY, "
+                "public_key TEXT NOT NULL, "
+                "sign_count INTEGER DEFAULT 0, "
+                "user_id TEXT NOT NULL, "
+                "created_at DATETIME DEFAULT CURRENT_TIMESTAMP)"
+            ))
+            conn.execute(text("CREATE INDEX ix_webauthn_cred_user ON webauthn_credentials (user_id)"))
+            conn.commit()
+        if "webauthn_challenges" not in inspector.get_table_names():
+            conn.execute(text(
+                "CREATE TABLE webauthn_challenges ("
+                "id VARCHAR(64) PRIMARY KEY, "
+                "challenge VARCHAR(128) NOT NULL, "
+                "user_id TEXT, "
+                "expires_at DATETIME NOT NULL, "
+                "created_at DATETIME DEFAULT CURRENT_TIMESTAMP)"
+            ))
+            conn.commit()
 
 
 def _migrate_postgres() -> None:
@@ -106,6 +127,27 @@ def _migrate_postgres() -> None:
             conn.execute(text(
                 "CREATE UNIQUE INDEX IF NOT EXISTS ix_user_accounts_cortex_user_id "
                 "ON user_accounts (cortex_user_id) WHERE cortex_user_id IS NOT NULL"
+            ))
+            conn.commit()
+        if "webauthn_credentials" not in inspector.get_table_names():
+            conn.execute(text(
+                "CREATE TABLE webauthn_credentials ("
+                "credential_id TEXT PRIMARY KEY, "
+                "public_key TEXT NOT NULL, "
+                "sign_count INTEGER DEFAULT 0, "
+                "user_id TEXT NOT NULL, "
+                "created_at TIMESTAMP DEFAULT NOW())"
+            ))
+            conn.execute(text("CREATE INDEX ix_webauthn_cred_user ON webauthn_credentials (user_id)"))
+            conn.commit()
+        if "webauthn_challenges" not in inspector.get_table_names():
+            conn.execute(text(
+                "CREATE TABLE webauthn_challenges ("
+                "id VARCHAR(64) PRIMARY KEY, "
+                "challenge VARCHAR(128) NOT NULL, "
+                "user_id TEXT, "
+                "expires_at TIMESTAMP NOT NULL, "
+                "created_at TIMESTAMP DEFAULT NOW())"
             ))
             conn.commit()
 

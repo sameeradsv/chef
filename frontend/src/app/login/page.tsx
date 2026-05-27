@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { CortexSignIn } from "@shared/cortex";
+import { CortexSignIn, setAuthToken } from "@shared/cortex";
 import { useAuth } from "@/contexts/AuthContext";
+import { usePasskey } from "@/hooks/usePasskey";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "") ?? "http://localhost:8000";
 const CORTEX_URL = (process.env.NEXT_PUBLIC_CORTEX_URL ?? "").replace(/\/$/, "");
@@ -22,6 +23,8 @@ export default function LoginPage() {
   // Show Cortex first when configured; fall back to local-only if not
   const [showLocal, setShowLocal] = useState(!CORTEX_URL);
   const isLogin = mode === "login";
+  const { supported, loginWithPasskey } = usePasskey();
+  const [passkeyLoading, setPasskeyLoading] = useState(false);
 
   useEffect(() => {
     if (isAuthenticated) router.push("/");
@@ -72,6 +75,21 @@ export default function LoginPage() {
       setError(err instanceof Error ? err.message : "Demo login failed");
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handlePasskeyLogin() {
+    setError(null);
+    setPasskeyLoading(true);
+    try {
+      const result = await loginWithPasskey();
+      setAuthToken("chef_auth_token", result.token);
+      await refetch();
+      router.push("/");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Biometric login failed");
+    } finally {
+      setPasskeyLoading(false);
     }
   }
 
@@ -144,6 +162,28 @@ export default function LoginPage() {
       {CORTEX_URL && !showLocal && (
         <div className="relative flex-1 flex flex-col justify-center px-5 overflow-y-auto max-w-sm mx-auto w-full min-h-0">
           <p className="text-[12px] text-kitchen-muted mb-4">One account across Canopy, Chef, and Circuit.</p>
+          {supported && (
+            <div className="mb-4 flex flex-col gap-3">
+              <button
+                type="button"
+                onClick={handlePasskeyLogin}
+                disabled={passkeyLoading}
+                className="w-full py-3 text-sm text-kitchen-accent disabled:opacity-50 transition-opacity hover:opacity-80"
+                style={{
+                  border: "1.5px solid rgb(var(--kitchen-accent) / 0.3)",
+                  background: "rgb(var(--kitchen-accent) / 0.05)",
+                  borderRadius: "var(--radius-btn)",
+                }}
+              >
+                {passkeyLoading ? "Please wait…" : "Sign in with biometrics"}
+              </button>
+              <div className="flex items-center gap-3">
+                <div className="flex-1 h-px" style={{ background: "var(--kitchen-line)" }} />
+                <span className="text-[10px] text-kitchen-muted font-mono tracking-[0.1em]">OR</span>
+                <div className="flex-1 h-px" style={{ background: "var(--kitchen-line)" }} />
+              </div>
+            </div>
+          )}
           <CortexSignIn
             cortexApiBase={CORTEX_URL}
             tokenKey="chef_auth_token"
@@ -246,6 +286,29 @@ export default function LoginPage() {
           >
             Try the demo — no sign‑up
           </button>
+
+          {supported && (
+            <>
+              <div className="flex items-center gap-3">
+                <div className="flex-1 h-px" style={{ background: "var(--kitchen-line)" }} />
+                <span className="text-[10px] text-kitchen-muted font-mono tracking-[0.1em]">OR</span>
+                <div className="flex-1 h-px" style={{ background: "var(--kitchen-line)" }} />
+              </div>
+              <button
+                type="button"
+                onClick={handlePasskeyLogin}
+                disabled={passkeyLoading || loading}
+                className="w-full py-3 text-sm text-kitchen-accent disabled:opacity-50 transition-opacity hover:opacity-80"
+                style={{
+                  border: "1.5px solid rgb(var(--kitchen-accent) / 0.3)",
+                  background: "rgb(var(--kitchen-accent) / 0.05)",
+                  borderRadius: "var(--radius-btn)",
+                }}
+              >
+                {passkeyLoading ? "Please wait…" : "Sign in with biometrics"}
+              </button>
+            </>
+          )}
 
           {CORTEX_URL && (
             <button
