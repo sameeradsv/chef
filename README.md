@@ -29,6 +29,7 @@ Chef answers *"What is the best food decision right now?"* — not only *"What r
 | User preferences (cuisines, spice, dietary, skill) | Implemented |
 | LLM narrative explanations | Implemented (Groq Llama 3.1; requires `GROQ_API_KEY`) |
 | Multi-user auth (JWT, bcrypt, 30-day tokens) | Implemented |
+| WebAuthn passkey / biometric sign-in | Implemented |
 | Live Swiggy/Zomato API | Stub (seed restaurant data only) |
 | pgvector semantic search | Stub (keyword search only) |
 
@@ -81,6 +82,11 @@ GROQ_API_KEY=...                      # enables LLM narratives and vision parsin
 DATABASE_URL=postgres://              # switches from SQLite to PostgreSQL
 NEXT_PUBLIC_CORTEX_URL=http://...     # Cortex backend URL for cross-app auth (optional)
 NEXT_PUBLIC_CONDUIT_API_URL=http://...  # Conduit backend URL for /chat terminal (optional)
+
+# WebAuthn (passkey login) — set these in production
+WEBAUTHN_RP_ID=your-domain.com
+WEBAUTHN_ORIGIN=https://your-domain.com
+WEBAUTHN_RP_NAME=chef
 ```
 
 ### Frontend
@@ -134,6 +140,10 @@ export DATABASE_URL=postgresql://chef:chef@localhost:5432/chef
 | POST | `/auth/register` | Register new user |
 | POST | `/auth/login` | Login → JWT token |
 | GET | `/auth/me` | Current user info |
+| POST | `/auth/webauthn/register/begin` | Start passkey registration (requires Bearer token) |
+| POST | `/auth/webauthn/register/complete` | Finish passkey registration |
+| POST | `/auth/webauthn/login/begin` | Start passkey login |
+| POST | `/auth/webauthn/login/complete` | Finish passkey login → JWT token |
 
 ### Ingredients
 | Method | Path | Description |

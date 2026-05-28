@@ -118,7 +118,7 @@ Examples:
 
 ## Implementation notes for agents
 
-- Phase 1 (MVP) is complete. Default new work to Phase 2 features unless the user overrides.
+- Phase 1 (MVP) is complete, including WebAuthn passkey / biometric sign-in (shipped after MVP). Default new work to Phase 2 features unless the user overrides.
 - Decision engine must use deterministic scoring first ([DECISION_ENGINE.md](./DECISION_ENGINE.md)).
 - AI layer must respect prohibitions on counts, expiry, and scheduling ([AI.md](./AI.md)).
 - Phase 3 features are out of scope unless explicitly requested.

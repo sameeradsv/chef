@@ -72,6 +72,30 @@ GET /user/preferences
 
 ---
 
+## Auth
+
+```text
+POST /auth/register
+POST /auth/login
+GET  /auth/me
+POST /auth/webauthn/register/begin
+POST /auth/webauthn/register/complete
+POST /auth/webauthn/login/begin
+POST /auth/webauthn/login/complete
+```
+
+| Method | Purpose |
+|--------|---------|
+| `POST /auth/register` | Register new user |
+| `POST /auth/login` | Login → JWT token |
+| `GET /auth/me` | Current user info |
+| `POST /auth/webauthn/register/begin` | Start passkey registration (requires Bearer token) |
+| `POST /auth/webauthn/register/complete` | Finish passkey registration |
+| `POST /auth/webauthn/login/begin` | Start passkey login (public) |
+| `POST /auth/webauthn/login/complete` | Finish passkey login → JWT token |
+
+---
+
 ## Implementation notes for agents
 
 - Implement inventory CRUD in Week 1 per [ROADMAP.md](./ROADMAP.md); decision routes in Week 4.

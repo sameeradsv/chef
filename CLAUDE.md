@@ -98,6 +98,7 @@ These are in-scope future features still using placeholder/seed data:
 ### Implemented but needs configuration
 - **LLM narrative explanations** — `services/llm.py` calls Groq Llama 3.1 8B; requires `GROQ_API_KEY` set in Render dashboard
 - **TheMealDB live search** — `services/mealdb.py` fetches live results; wired into `/recipes/search` alongside seed data
+- **WebAuthn passkey / biometric sign-in** — `routers/webauthn.py`; requires `WEBAUTHN_RP_ID`, `WEBAUTHN_ORIGIN`, `WEBAUTHN_RP_NAME` env vars in production. Endpoints: `POST /auth/webauthn/register/begin|complete` (requires Bearer token), `POST /auth/webauthn/login/begin|complete` (public, returns JWT). Frontend: `src/hooks/usePasskey.ts` + `PasskeyBanner` post-login prompt.
 
 ### Conscious Design Decisions (vs. Design Handoff)
 
