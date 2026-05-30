@@ -98,15 +98,16 @@ export default function DecisionScoreWaterfall({ options }: Props) {
             tick={{ fontSize: 9, fill: "rgb(var(--kitchen-ink3))", fontFamily: "monospace" }}
             axisLine={false}
             tickLine={false}
-            tickFormatter={(v) => (v > 0 ? `+${v}` : String(v))}
+            tickFormatter={(v) => { const n = Math.round(v); return n > 0 ? `+${n}` : String(n); }}
           />
           <YAxis
             type="category"
             dataKey="name"
-            width={130}
+            width={150}
             tick={{ fontSize: 10, fill: "rgb(var(--kitchen-ink3))", fontFamily: "monospace" }}
             axisLine={false}
             tickLine={false}
+            tickFormatter={(v: string) => v.length > 16 ? `${v.slice(0, 15)}…` : v}
           />
           <ReferenceLine x={0} stroke="var(--kitchen-line2)" strokeWidth={1} />
           <Tooltip
