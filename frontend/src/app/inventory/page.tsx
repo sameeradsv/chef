@@ -226,8 +226,8 @@ function IngredientSheet({
       parseVoiceInput(t);
       setListening(false);
     };
-    r.onerror = () => { setVoiceError("Could not understand. Please try again."); setListening(false); };
-    r.onend = () => setListening(false);
+    r.onerror = () => { setVoiceError("Could not understand. Please try again."); setListening(false); setInputMode("manual"); };
+    r.onend = () => { setListening(false); setInputMode("manual"); };
     r.start();
   }
 
