@@ -29,7 +29,7 @@ router = APIRouter(prefix="/auth/webauthn", tags=["webauthn"])
 
 RP_ID = os.getenv("WEBAUTHN_RP_ID", "localhost")
 RP_NAME = os.getenv("WEBAUTHN_RP_NAME", "chef")
-ORIGIN = os.getenv("WEBAUTHN_ORIGIN", "http://localhost:3000")
+ORIGIN = os.getenv("WEBAUTHN_ORIGIN", "http://localhost:3000").rstrip("/")
 _TTL = 120
 
 

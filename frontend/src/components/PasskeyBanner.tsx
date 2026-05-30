@@ -8,16 +8,18 @@ export function PasskeyBanner() {
   const [dismissed, setDismissed] = useState(false);
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
 
   if (!supported || registered || dismissed || done) return null;
 
   async function handleEnable() {
     setBusy(true);
+    setErr(null);
     try {
       await registerPasskey();
       setDone(true);
-    } catch {
-      setDismissed(true);
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Registration failed");
     } finally {
       setBusy(false);
     }
@@ -32,7 +34,11 @@ export function PasskeyBanner() {
         color: "rgb(var(--kitchen-accent))",
       }}
     >
-      <span className="flex-1">Enable biometric sign-in for faster access</span>
+      {err ? (
+        <span className="flex-1" style={{ color: "rgb(239 68 68)" }}>{err}</span>
+      ) : (
+        <span className="flex-1">Enable biometric sign-in for faster access</span>
+      )}
       <button
         onClick={handleEnable}
         disabled={busy}
