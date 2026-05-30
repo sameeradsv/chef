@@ -136,7 +136,7 @@ export default function LoginPage() {
 
       {/* Backend status banner */}
       {backendStatus !== "ok" && (
-        <div className="mx-auto w-full max-w-sm px-5 mt-3 flex-shrink-0">
+        <div className="mx-auto w-full max-w-sm px-5 mt-3 flex-shrink-0 relative">
           <div
             className="px-3 py-2 text-xs font-mono flex items-center gap-2"
             style={{
