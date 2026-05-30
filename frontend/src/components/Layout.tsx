@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
-import { PasskeyBanner } from "@/components/PasskeyBanner";
 
 /* ─── Icons (24×24, stroke-based) ─────────────────────────────────────── */
 const HomeIcon = () => (
@@ -146,7 +145,6 @@ export function Layout({ children }: { children: React.ReactNode }) {
           paddingBottom: "calc(64px + env(safe-area-inset-bottom, 0px))",
         }}
       >
-        <PasskeyBanner />
         <div className="max-w-2xl mx-auto px-[22px] py-6 animate-fade-in w-full">
           {children}
         </div>

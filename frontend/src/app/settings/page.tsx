@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTheme, type Theme } from "@/contexts/ThemeContext";
 import { api, type UserPreferences } from "@/lib/api";
+import { usePasskey } from "@/hooks/usePasskey";
 
 function readLocalBool(key: string, fallback: boolean): boolean {
   if (typeof window === "undefined") return fallback;
@@ -175,6 +176,9 @@ export default function SettingsPage() {
   const { username, logout } = useAuth();
   const { theme, setTheme } = useTheme();
   const router = useRouter();
+  const { supported: passkeySupported, registered: passkeyRegistered, registerPasskey } = usePasskey();
+  const [passkeyBusy, setPasskeyBusy] = useState(false);
+  const [passkeyErr, setPasskeyErr] = useState<string | null>(null);
 
   const [prefs, setPrefs] = useState<UserPreferences | null>(null);
   const [cuisines, setCuisines] = useState("");
@@ -278,6 +282,18 @@ export default function SettingsPage() {
       setError("Failed to save preferences. Please try again.");
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleEnablePasskey() {
+    setPasskeyBusy(true);
+    setPasskeyErr(null);
+    try {
+      await registerPasskey();
+    } catch (e) {
+      setPasskeyErr(e instanceof Error ? e.message : "Registration failed");
+    } finally {
+      setPasskeyBusy(false);
     }
   }
 
@@ -643,6 +659,57 @@ export default function SettingsPage() {
           <Toggle value={notifTimeToStart} onChange={toggleNotifTimeToStart} />
         </div>
       </div>
+
+      {/* Security */}
+      {passkeySupported && (
+        <div
+          className="overflow-hidden mt-3"
+          style={{ border: "1px solid var(--kitchen-line)", borderRadius: "var(--radius-card)", background: "rgb(var(--kitchen-card))" }}
+        >
+          <SectionHeader>SECURITY</SectionHeader>
+          <div className="px-4 py-3.5 flex items-center justify-between">
+            <div className="min-w-0 mr-3">
+              <p className="text-sm text-kitchen-text">Biometric sign-in</p>
+              <p className="text-[11px] text-kitchen-muted mt-0.5">
+                {passkeyRegistered
+                  ? "Passkey registered — sign in with Face ID or fingerprint"
+                  : "Use Face ID or fingerprint instead of your passcode"}
+              </p>
+              {passkeyErr && (
+                <p className="text-[11px] mt-1" style={{ color: "rgb(var(--kitchen-danger))" }}>{passkeyErr}</p>
+              )}
+            </div>
+            {passkeyRegistered ? (
+              <span
+                className="flex-shrink-0 text-[11px] font-mono px-2.5 py-1"
+                style={{
+                  background: "rgb(var(--kitchen-accent) / 0.1)",
+                  border: "1px solid rgb(var(--kitchen-accent) / 0.25)",
+                  borderRadius: "var(--radius-btn)",
+                  color: "rgb(var(--kitchen-accent))",
+                  letterSpacing: "0.08em",
+                }}
+              >
+                ENABLED
+              </span>
+            ) : (
+              <button
+                type="button"
+                onClick={handleEnablePasskey}
+                disabled={passkeyBusy}
+                className="flex-shrink-0 text-xs text-kitchen-accent disabled:opacity-50 px-3 py-1.5 transition-opacity hover:opacity-80"
+                style={{
+                  border: "1px solid rgb(var(--kitchen-accent) / 0.3)",
+                  borderRadius: "var(--radius-btn)",
+                  background: "rgb(var(--kitchen-accent) / 0.06)",
+                }}
+              >
+                {passkeyBusy ? "Setting up…" : "Enable"}
+              </button>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* About */}
       <div
