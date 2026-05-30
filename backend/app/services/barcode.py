@@ -5,6 +5,7 @@ import re
 import httpx
 
 OFF_BASE = "https://world.openfoodfacts.org/api/v2/product"
+OFF_LEGACY = "https://world.openfoodfacts.org/api/v0/product"
 _TIMEOUT = 6.0
 
 
@@ -41,13 +42,23 @@ def lookup_barcode(barcode: str) -> dict | None:
     """Call Open Food Facts. Returns product dict or None if not found."""
     try:
         resp = httpx.get(
-            f"{OFF_BASE}/{barcode}.json",
+            f"{OFF_BASE}/{barcode}",
             params={"fields": "product_name,brands,quantity,nutriments"},
             timeout=_TIMEOUT,
             headers={"User-Agent": "Chef-Kitchen-App/1.0"},
         )
         resp.raise_for_status()
         data = resp.json()
+        # v2 returns status as int (1=found); fall back to legacy v0 if v2 gives nothing
+        if data.get("status") != 1:
+            resp2 = httpx.get(
+                f"{OFF_LEGACY}/{barcode}.json",
+                params={"fields": "product_name,brands,quantity,nutriments"},
+                timeout=_TIMEOUT,
+                headers={"User-Agent": "Chef-Kitchen-App/1.0"},
+            )
+            resp2.raise_for_status()
+            data = resp2.json()
     except Exception:
         return None
 

@@ -31,13 +31,13 @@ export function BarcodeScanner({ onDetected, onClose }: Props) {
         if (cancelled) return;
 
         const reader = new BrowserMultiFormatReader();
-        const controls = await reader.decodeFromVideoDevice(
-          undefined,
+        const controls = await reader.decodeFromConstraints(
+          { video: { facingMode: { ideal: "environment" } } },
           videoRef.current!,
           async (result) => {
             if (result && !detectedRef.current && !cancelled) {
               detectedRef.current = true;
-              controls.stop();
+              controlsRef.current?.stop();
               const barcode = result.getText();
               setDetectedBarcode(barcode);
               setStatus("looking-up");
