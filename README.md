@@ -14,7 +14,7 @@ Chef answers *"What is the best food decision right now?"* — not only *"What r
 | Feature | Status |
 |---------|--------|
 | Pantry CRUD with freshness/expiry scoring | Implemented |
-| Barcode scanner → auto-fill ingredient from product | Implemented |
+| Barcode scanner → auto-fill ingredient from product | Implemented — uses rear camera, Open Food Facts lookup |
 | Add ingredients from photo (vision AI) | Implemented |
 | Discard log + food waste tracker | Implemented |
 | Decision engine — cook vs order vs eat out | Implemented (deterministic scoring) |
@@ -29,7 +29,7 @@ Chef answers *"What is the best food decision right now?"* — not only *"What r
 | User preferences (cuisines, spice, dietary, skill) | Implemented |
 | LLM narrative explanations | Implemented (Groq Llama 3.1; requires `GROQ_API_KEY`) |
 | Multi-user auth (JWT, bcrypt, 30-day tokens) | Implemented |
-| WebAuthn passkey / biometric sign-in | Implemented |
+| WebAuthn passkey / biometric sign-in | Implemented — enable from **Settings → Security** |
 | Live Swiggy/Zomato API | Stub (seed restaurant data only) |
 | pgvector semantic search | Stub (keyword search only) |
 
@@ -128,7 +128,7 @@ export DATABASE_URL=postgresql://chef:chef@localhost:5432/chef
 | `/grocery` | Grocery list — add/buy/delete, AI suggestions |
 | `/history` | Decision log, satisfaction ratings, auto-fill from screenshot |
 | `/chat` | Terminal chat — ask "What should I cook?", "Should I order tonight?", "Log that I ate sushi" |
-| `/settings` | Cuisines, spice level, dietary restrictions, cooking skill |
+| `/settings` | Cuisines, spice level, dietary restrictions, cooking skill, biometric sign-in (Security section) |
 
 ---
 
@@ -269,7 +269,7 @@ Chef's backend is consumed by **Conduit** — the hub app that provides cross-ap
 - **Agent reads:** `GET /recipes/recommend`, `POST /decision/cook-vs-order`, `GET /history` — Conduit answers "What should I cook?" and "Should I order tonight?"
 - **Diary writes:** `POST /history` — Conduit's diary mode logs meals from freeform entries
 
-Chef also has an embedded terminal chat at `/chat` (in the sidebar and mobile bottom tab), powered by Conduit's backend with the `scope=chef` tool set. Set `NEXT_PUBLIC_CONDUIT_API_URL` in `frontend/.env.local` to point to the Conduit backend.
+Chef also has an embedded terminal chat at `/chat` (in the sidebar and mobile bottom tab), powered by Conduit's backend with the `scope=chef` tool set. Set `NEXT_PUBLIC_CONDUIT_API_URL` in `frontend/.env.local` to point to the Conduit backend. If the variable is unset, the chat page shows a "not configured" message instead of a raw network error.
 
 Chef login also supports **Cortex** single sign-on (shared account across Chef, Canopy, Circuit). Set `NEXT_PUBLIC_CORTEX_URL` for cross-app auth and energy sync.
 
