@@ -27,10 +27,15 @@ def generate_meal_suggestion(meal_type: str, pantry_names: list[str], energy_lev
         return ""
     try:
         pantry_str = ", ".join(pantry_names[:8]) if pantry_names else "various ingredients"
+        meal_constraint = ""
+        if meal_type == "dinner":
+            meal_constraint = " Suggest a proper cooked main-course dish, not just fruits or snacks."
+        elif meal_type == "lunch":
+            meal_constraint = " Suggest a filling cooked meal, not raw fruits or light snacks."
         prompt = (
             f"Meal: {meal_type}\nEnergy: {energy_level}/10\nPantry: {pantry_str}\n\n"
             f"Write exactly one concise, warm sentence suggesting what to cook for {meal_type} "
-            "using what's available. Be specific about an ingredient or dish. No preamble."
+            f"using what's available. Be specific about an ingredient or dish. No preamble.{meal_constraint}"
         )
         response = client.chat.completions.create(
             model="llama-3.1-8b-instant",

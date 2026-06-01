@@ -5,9 +5,10 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.dependencies import get_current_user
-from app.models import IngredientModel, UserAccountModel, UserPreferencesModel, UserStateModel
+from app.models import CookingHistoryModel, IngredientModel, UserAccountModel, UserPreferencesModel, UserStateModel
 from app.schemas import RecipeResponse, UserPreferencesResponse, UserStatePayload
 from app.services.mealdb import generate_recipes
+from app.services.personalization import get_user_profile
 from app.services.recipes import (
     _passes_diet_response,
     _recipe_score,
@@ -79,28 +80,46 @@ def recommend(
     prefs = _get_prefs(db, current_user.id)
     is_demo = current_user.username == "demo"
     skipped = {s.lower() for s in prefs.skipped_ingredients}
-
     dr_set = {d.lower() for d in prefs.dietary_restrictions}
+    effective_meal_type = meal_type or current_meal_type()
+
+    # Pull recent history for variety and personalization
+    recent_history = (
+        db.query(CookingHistoryModel)
+        .filter(CookingHistoryModel.user_id == current_user.id)
+        .order_by(CookingHistoryModel.timestamp.desc())
+        .limit(15)
+        .all()
+    )
+    recent_meal_names = [h.recipe_name for h in recent_history if h.recipe_name]
+
+    # Use history-derived preferred cuisines when available, fall back to stored prefs
+    profile = get_user_profile(current_user.id, db)
+    effective_cuisines = profile.preferred_cuisines or prefs.favorite_cuisines
+
     results = recommend_recipes(
         pantry, state, limit,
         vegetarian=prefs.vegetarian,
         skipped_ingredients=prefs.skipped_ingredients,
-        favorite_cuisines=prefs.favorite_cuisines,
+        favorite_cuisines=effective_cuisines,
         spice_level=prefs.spice_level,
         dietary_restrictions=prefs.dietary_restrictions,
-        meal_type=meal_type or current_meal_type(),
+        meal_type=effective_meal_type,
+        recent_meal_names=recent_meal_names,
     )
 
     # Non-demo users: augment with Claude-generated recipes using full preference context
     if not is_demo:
         seen = {r.name.lower() for r in results}
         for r in generate_recipes(
-            cuisines=prefs.favorite_cuisines[:2] or None,
+            cuisines=effective_cuisines[:2] or None,
             pantry=pantry,
             spice_level=prefs.spice_level,
             dietary_restrictions=prefs.dietary_restrictions or None,
             vegetarian=prefs.vegetarian,
             count=limit,
+            meal_type=effective_meal_type,
+            recent_meals=recent_meal_names,
         ):
             if r.name.lower() not in seen and _passes_diet_response(r, prefs.vegetarian, skipped, dr_set):
                 results.append(r)

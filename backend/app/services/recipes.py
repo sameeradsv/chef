@@ -201,12 +201,14 @@ def recommend_recipes(
     spice_level: int = 5,
     dietary_restrictions: list[str] | None = None,
     meal_type: str | None = None,
+    recent_meal_names: list[str] | None = None,
 ) -> list[RecipeResponse]:
     recipes = load_recipes()
     skipped = {s.strip().lower() for s in (skipped_ingredients or []) if s.strip()}
     dr_set = {d.strip().lower() for d in (dietary_restrictions or []) if d.strip()}
     recipes = [r for r in recipes if _passes_diet(r, vegetarian, skipped, dr_set)]
     fav_cuisines = [fc.lower() for fc in (favorite_cuisines or []) if fc.strip()]
+    recent_lower = {n.lower() for n in (recent_meal_names or []) if n}
     scored: list[tuple[float, dict]] = []
     state = state or UserStatePayload()
 
@@ -237,6 +239,9 @@ def recommend_recipes(
             score += 20
         elif recipe_meal_type == "any":
             score += 5
+        # Penalise recently eaten dishes so variety is surfaced
+        if recent_lower and raw.get("name", "").lower() in recent_lower:
+            score -= 25
         score += random.uniform(-1.2, 1.2)
         scored.append((score, raw))
 

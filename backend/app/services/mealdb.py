@@ -91,10 +91,29 @@ def _build_prompt(
     vegetarian: bool,
     pantry_names: set[str],
     count: int,
+    meal_type: str | None = None,
+    recent_meals: list[str] | None = None,
 ) -> str:
     lines = [f"Generate {count} recipe suggestions."]
     if query:
         lines.append(f"Search query: {query}")
+    if meal_type and meal_type != "any":
+        lines.append(f"Meal type: {meal_type}")
+        if meal_type == "dinner":
+            lines.append(
+                "Dinner must be a proper cooked main-course meal (e.g. dal, curry, sabzi, rice dish, "
+                "pasta, stir-fry). Do NOT suggest raw fruits, plain salads, snacks, or light bites as dinner."
+            )
+        elif meal_type == "lunch":
+            lines.append(
+                "Lunch should be a filling, cooked meal (e.g. roti with sabzi, rice and dal, "
+                "pulao, sandwiches with cooked filling). Avoid suggesting raw fruits or snacks."
+            )
+        elif meal_type == "breakfast":
+            lines.append(
+                "Breakfast dishes should be appropriate morning fare "
+                "(e.g. poha, upma, paratha, oats, idli, toast with accompaniment)."
+            )
     if cuisines:
         lines.append(f"Preferred cuisines: {', '.join(cuisines)}")
     lines.append(f"Spice tolerance: {spice_level}/10  (1=very mild, 5=medium, 10=very spicy)")
@@ -105,6 +124,11 @@ def _build_prompt(
     if pantry_names:
         sample = sorted(pantry_names)[:20]
         lines.append(f"Pantry items available (prioritise using these): {', '.join(sample)}")
+    if recent_meals:
+        lines.append(
+            f"Recently eaten (must NOT repeat these): {', '.join(recent_meals[:10])}. "
+            "Suggest different dishes."
+        )
 
     lines.append(
         "\nReturn ONLY a JSON array. Each element must have exactly these keys:\n"
@@ -182,6 +206,8 @@ def generate_recipes(
     dietary_restrictions: list[str] | None = None,
     vegetarian: bool = True,
     count: int = 5,
+    meal_type: str | None = None,
+    recent_meals: list[str] | None = None,
 ) -> list[RecipeResponse]:
     """Generate personalised recipes via Claude, falling back to TheMealDB if unavailable."""
     pantry_names: set[str] = set()
@@ -202,6 +228,8 @@ def generate_recipes(
             vegetarian=vegetarian,
             pantry_names=pantry_names,
             count=count,
+            meal_type=meal_type,
+            recent_meals=recent_meals,
         )
         try:
             message = client.messages.create(
