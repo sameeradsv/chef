@@ -403,6 +403,8 @@ function DecisionPageInner() {
   const [defaultPeople, setDefaultPeople] = useState(2);
   const [showContext, setShowContext] = useState(false);
   const [showChart, setShowChart] = useState(false);
+  const [consuming, setConsuming] = useState(false);
+  const [consumeResult, setConsumeResult] = useState<{ consumed: string[]; depleted: string[]; not_found: string[] } | null>(null);
 
   async function runDecision(updatedState?: UserState, people?: number) {
     setLoading(true);
@@ -585,6 +587,70 @@ function DecisionPageInner() {
               orderCost={opt.mode === "cook" ? result.options.find(o => o.mode === "order")?.cost : undefined}
             />
           ))}
+        </div>
+      )}
+
+      {/* Auto-consume ingredients strip — shown when Cook is selected and recipe is known */}
+      {result && selected === "cook" && result.recommended_recipe && !consumeResult && (
+        <div
+          className="flex items-center justify-between px-4 py-3"
+          style={{ border: "1px solid rgb(var(--kitchen-accent) / 0.25)", borderRadius: "var(--radius-card)", background: "rgb(var(--kitchen-accent) / 0.05)" }}
+        >
+          <div className="min-w-0 flex-1">
+            <MonoLabel className="text-kitchen-accent block">COOKING {result.recommended_recipe.name.toUpperCase()}</MonoLabel>
+            <p className="text-xs text-kitchen-muted mt-0.5">
+              {result.recommended_recipe.ingredients.filter(i => i.in_pantry).length} of {result.recommended_recipe.ingredients.length} ingredients in pantry
+            </p>
+          </div>
+          <button
+            type="button"
+            disabled={consuming}
+            onClick={async () => {
+              setConsuming(true);
+              try {
+                const recipeId = result.recommended_recipe!.id;
+                let overrides: Array<{ normalized_name: string; quantity: number }> = [];
+                try {
+                  const stored = localStorage.getItem(`recipe-qty-overrides-${recipeId}`);
+                  if (stored) overrides = Object.entries(JSON.parse(stored)).map(([normalized_name, quantity]) => ({ normalized_name, quantity: quantity as number }));
+                } catch { /* ignore */ }
+                const r = await api.consumeRecipe(recipeId, overrides);
+                setConsumeResult(r);
+              } finally {
+                setConsuming(false);
+              }
+            }}
+            className="flex-shrink-0 ml-3 px-3 py-1.5 text-xs font-mono transition-opacity hover:opacity-80 disabled:opacity-50"
+            style={{ background: "rgb(var(--kitchen-accent))", color: "rgb(26 18 10)", borderRadius: "var(--radius-btn)", letterSpacing: "0.06em" }}
+          >
+            {consuming ? "Updating…" : "DONE COOKING →"}
+          </button>
+        </div>
+      )}
+
+      {/* Consume result feedback */}
+      {consumeResult && (
+        <div
+          className="px-4 py-3 space-y-1"
+          style={{ border: "1px solid rgb(var(--kitchen-success) / 0.3)", borderRadius: "var(--radius-card)", background: "rgb(var(--kitchen-success) / 0.06)" }}
+        >
+          <MonoLabel className="text-kitchen-muted block mb-1">PANTRY UPDATED</MonoLabel>
+          {consumeResult.consumed.length > 0 && (
+            <p className="text-xs text-kitchen-text">Reduced: {consumeResult.consumed.join(", ")}</p>
+          )}
+          {consumeResult.depleted.length > 0 && (
+            <p className="text-xs" style={{ color: "rgb(var(--kitchen-warn))" }}>Used up: {consumeResult.depleted.join(", ")}</p>
+          )}
+          {consumeResult.not_found.length > 0 && (
+            <p className="text-xs text-kitchen-muted">Not in pantry: {consumeResult.not_found.join(", ")}</p>
+          )}
+          <button
+            type="button"
+            onClick={() => setConsumeResult(null)}
+            className="text-[10px] font-mono text-kitchen-muted hover:text-kitchen-accent transition-colors mt-1"
+          >
+            DISMISS
+          </button>
         </div>
       )}
 

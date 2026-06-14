@@ -67,6 +67,97 @@ const DISCARD_REASONS = [
   { id: "other",    label: "Other",          desc: "Surplus, not needed, etc." },
 ];
 
+/* ─── Consume sheet ─────────────────────────────────────────────────────── */
+function ConsumeSheet({
+  ingredient,
+  onConfirm,
+  onClose,
+}: {
+  ingredient: Ingredient;
+  onConfirm: (amountUsed: number) => void;
+  onClose: () => void;
+}) {
+  const [amount, setAmount] = useState<string>("");
+  const used = parseFloat(amount) || 0;
+  const remaining = Math.max(0, ingredient.quantity - used);
+  const depleted = used >= ingredient.quantity;
+
+  return (
+    <div
+      className="fixed inset-0 z-60 flex items-end md:items-center justify-center"
+      style={{ background: "rgba(0,0,0,0.5)", backdropFilter: "blur(4px)" }}
+      onClick={(e) => e.target === e.currentTarget && onClose()}
+    >
+      <div
+        className="w-full max-w-md animate-fade-in"
+        style={{
+          background: "rgb(var(--kitchen-bg))",
+          borderRadius: "var(--radius-card) var(--radius-card) 0 0",
+          padding: "20px 22px calc(24px + env(safe-area-inset-bottom, 0px))",
+          borderTop: "1px solid var(--kitchen-line2)",
+        }}
+      >
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h2 className="font-display text-lg">Use ingredient</h2>
+            <p className="text-sm text-kitchen-muted mt-0.5">{ingredient.name} · {ingredient.quantity} {ingredient.unit} in stock</p>
+          </div>
+          <button type="button" onClick={onClose} className="text-kitchen-muted hover:text-kitchen-text w-8 h-8 flex items-center justify-center text-lg">×</button>
+        </div>
+
+        <MonoLabel className="text-kitchen-muted block mb-1.5">AMOUNT USED ({ingredient.unit})</MonoLabel>
+        <input
+          type="number"
+          min={0.01}
+          step="any"
+          autoFocus
+          value={amount}
+          onChange={(e) => setAmount(e.target.value)}
+          placeholder={`0–${ingredient.quantity}`}
+          className="w-full bg-kitchen-surface text-kitchen-text text-sm px-3 py-2.5 outline-none focus:ring-1 ring-kitchen-accent/50 mb-4"
+          style={{ border: "1px solid var(--kitchen-line2)", borderRadius: "var(--radius-btn)" }}
+        />
+
+        {used > 0 && (
+          <div
+            className="flex items-center justify-between px-4 py-2.5 mb-4 text-sm"
+            style={{
+              background: depleted ? "rgb(var(--kitchen-warn) / 0.07)" : "rgb(var(--kitchen-accent) / 0.07)",
+              border: `1px solid ${depleted ? "rgb(var(--kitchen-warn) / 0.3)" : "rgb(var(--kitchen-accent) / 0.3)"}`,
+              borderRadius: "var(--radius-btn)",
+            }}
+          >
+            <span className="text-kitchen-muted font-mono text-xs">REMAINING</span>
+            <span className="font-mono font-medium" style={{ color: depleted ? "rgb(var(--kitchen-warn))" : "rgb(var(--kitchen-accent))" }}>
+              {depleted ? "Fully used up" : `${remaining} ${ingredient.unit}`}
+            </span>
+          </div>
+        )}
+
+        <div className="flex gap-2">
+          <button
+            type="button"
+            disabled={!used || used <= 0}
+            onClick={() => onConfirm(used)}
+            className="flex-1 py-3 text-sm font-medium transition-opacity hover:opacity-90 disabled:opacity-40"
+            style={{ background: "rgb(var(--kitchen-accent))", color: "rgb(26 18 10)", borderRadius: "var(--radius-btn)" }}
+          >
+            {depleted ? "Mark as finished" : "Update quantity"}
+          </button>
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-4 py-3 text-sm text-kitchen-muted transition-colors hover:text-kitchen-text"
+            style={{ border: "1px solid var(--kitchen-line2)", borderRadius: "var(--radius-btn)" }}
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ─── Discard sheet ─────────────────────────────────────────────────────── */
 function DiscardSheet({
   ingredient,
@@ -586,6 +677,7 @@ export default function InventoryPage() {
   const [showScanner, setShowScanner] = useState(false);
   const [scanLoading, setScanLoading] = useState(false);
   const [discarding, setDiscarding] = useState<Ingredient | null>(null);
+  const [consuming, setConsuming] = useState<Ingredient | null>(null);
   const [view, setView] = useState<"pantry" | "waste">("pantry");
   const [imageParsing, setImageParsing] = useState(false);
   const [imageError, setImageError] = useState<string | null>(null);
@@ -668,6 +760,18 @@ export default function InventoryPage() {
   async function handleDelete(id: string) {
     if (!confirm("Remove this ingredient?")) return;
     await api.deleteIngredient(id);
+    load();
+  }
+
+  async function handleConsume(amountUsed: number) {
+    if (!consuming) return;
+    const remaining = consuming.quantity - amountUsed;
+    if (remaining <= 0) {
+      await api.deleteIngredient(consuming.id);
+    } else {
+      await api.updateIngredient(consuming.id, { quantity: remaining, opened: true });
+    }
+    setConsuming(null);
     load();
   }
 
@@ -883,6 +987,14 @@ export default function InventoryPage() {
                       )}
                       <button
                         type="button"
+                        onClick={() => setConsuming(ing)}
+                        className="text-xs font-mono transition-colors hover:text-kitchen-accent"
+                        style={{ color: "rgb(var(--kitchen-ink3))" }}
+                      >
+                        Use
+                      </button>
+                      <button
+                        type="button"
                         onClick={() => setDiscarding(ing)}
                         className="text-xs font-mono transition-colors"
                         style={{ color: isExpired ? "rgb(var(--kitchen-warn))" : "rgb(var(--kitchen-ink3))" }}
@@ -1031,6 +1143,15 @@ export default function InventoryPage() {
           setForm={setForm}
           onSubmit={handleSubmit}
           onClose={() => { setShowForm(false); setEditing(null); }}
+        />
+      )}
+
+      {/* Consume sheet */}
+      {consuming && (
+        <ConsumeSheet
+          ingredient={consuming}
+          onConfirm={handleConsume}
+          onClose={() => setConsuming(null)}
         />
       )}
 

@@ -265,6 +265,14 @@ export const api = {
     request<DiscardedIngredient[]>("/ingredients/discarded"),
   getWasteSummary: () =>
     request<WasteSummaryItem[]>("/ingredients/waste-summary"),
+  consumeRecipe: (recipeId: string, overrides?: Array<{ normalized_name: string; quantity: number }>) =>
+    request<{ consumed: string[]; depleted: string[]; not_found: string[] }>(
+      `/ingredients/consume-recipe/${recipeId}`,
+      {
+        method: "POST",
+        ...(overrides && overrides.length > 0 ? { body: JSON.stringify({ overrides }) } : {}),
+      }
+    ),
   lookupBarcode: (barcode: string) =>
     request<BarcodeResult>(`/ingredients/barcode/${barcode}`),
 

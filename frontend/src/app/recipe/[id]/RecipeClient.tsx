@@ -45,6 +45,20 @@ function MeterCard({ label, value, sub }: { label: string; value: string; sub?: 
   );
 }
 
+const OVERRIDES_KEY = (id: string) => `recipe-qty-overrides-${id}`;
+
+function loadOverrides(id: string): Record<string, number> {
+  try {
+    return JSON.parse(localStorage.getItem(OVERRIDES_KEY(id)) || "{}");
+  } catch {
+    return {};
+  }
+}
+
+function saveOverrides(id: string, overrides: Record<string, number>) {
+  localStorage.setItem(OVERRIDES_KEY(id), JSON.stringify(overrides));
+}
+
 export function RecipeClient({ id }: { id: string }) {
   const searchParams = useSearchParams();
   const isTonightsPick = searchParams.get("pick") === "1";
@@ -59,6 +73,13 @@ export function RecipeClient({ id }: { id: string }) {
   const [completedSteps, setCompletedSteps] = useState<Set<number>>(new Set());
   const [stepTimers, setStepTimers]     = useState<Record<number, number | null>>({});
   const [timerIntervals, setTimerIntervals] = useState<Record<number, ReturnType<typeof setInterval>>>({});
+  // Ingredient quantity overrides (persisted to localStorage)
+  const [qtyOverrides, setQtyOverrides] = useState<Record<string, number>>({});
+  const [editingIng, setEditingIng] = useState<string | null>(null);
+  const [editValue, setEditValue] = useState<string>("");
+  // Consume state
+  const [consuming, setConsuming] = useState(false);
+  const [consumeResult, setConsumeResult] = useState<{ consumed: string[]; depleted: string[]; not_found: string[] } | null>(null);
 
   function startCooking() {
     setCookingMode(true);
@@ -111,10 +132,45 @@ export function RecipeClient({ id }: { id: string }) {
 
   useEffect(() => {
     api.getRecipe(id)
-      .then(setRecipe)
+      .then((r) => { setRecipe(r); setQtyOverrides(loadOverrides(r.id)); })
       .catch(() => setError("Could not load recipe."))
       .finally(() => setLoading(false));
   }, [id]);
+
+  function startEdit(normalizedName: string, currentQty: number) {
+    setEditingIng(normalizedName);
+    setEditValue(String(qtyOverrides[normalizedName] ?? currentQty));
+  }
+
+  function commitEdit(normalizedName: string) {
+    const parsed = parseFloat(editValue);
+    if (!isNaN(parsed) && parsed > 0) {
+      const next = { ...qtyOverrides, [normalizedName]: parsed };
+      setQtyOverrides(next);
+      saveOverrides(id, next);
+    }
+    setEditingIng(null);
+  }
+
+  function resetOverride(normalizedName: string) {
+    const next = { ...qtyOverrides };
+    delete next[normalizedName];
+    setQtyOverrides(next);
+    saveOverrides(id, next);
+  }
+
+  async function handleConsume() {
+    if (!recipe) return;
+    setConsuming(true);
+    setConsumeResult(null);
+    try {
+      const overrides = Object.entries(qtyOverrides).map(([normalized_name, quantity]) => ({ normalized_name, quantity }));
+      const result = await api.consumeRecipe(recipe.id, overrides);
+      setConsumeResult(result);
+    } finally {
+      setConsuming(false);
+    }
+  }
 
   if (loading) return <div className="space-y-4 pt-2"><LoadingCard /><LoadingCard /></div>;
 
@@ -249,23 +305,68 @@ export function RecipeClient({ id }: { id: string }) {
           {/* In your pantry */}
           {recipe.ingredients.filter(i => i.in_pantry).length > 0 && (
             <div>
-              <MonoLabel className="text-kitchen-muted block mb-2">
-                IN YOUR PANTRY · {recipe.ingredients.filter(i => i.in_pantry).length}
-              </MonoLabel>
+              <div className="flex items-center justify-between mb-2">
+                <MonoLabel className="text-kitchen-muted">
+                  IN YOUR PANTRY · {recipe.ingredients.filter(i => i.in_pantry).length}
+                </MonoLabel>
+                <MonoLabel className="text-kitchen-muted opacity-60">tap qty to adjust</MonoLabel>
+              </div>
               <ul className="space-y-1.5">
-                {recipe.ingredients.filter(i => i.in_pantry).map((ing) => (
-                  <li
-                    key={ing.normalized_name}
-                    className="flex items-center gap-3 px-4 py-3"
-                    style={{ border: "1px solid var(--kitchen-line)", borderRadius: "var(--radius-card)", background: "rgb(var(--kitchen-card))" }}
-                  >
-                    <IngredientCheckbox checked={true} />
-                    <span className="flex-1 text-sm text-kitchen-text capitalize">
-                      {ing.normalized_name.replace(/_/g, " ")}
-                    </span>
-                    <MonoLabel className="text-kitchen-muted">{ing.quantity} {ing.unit}</MonoLabel>
-                  </li>
-                ))}
+                {recipe.ingredients.filter(i => i.in_pantry).map((ing) => {
+                  const overrideQty = qtyOverrides[ing.normalized_name];
+                  const displayQty = overrideQty ?? ing.quantity;
+                  const isEditing = editingIng === ing.normalized_name;
+                  return (
+                    <li
+                      key={ing.normalized_name}
+                      className="flex items-center gap-3 px-4 py-3"
+                      style={{ border: "1px solid var(--kitchen-line)", borderRadius: "var(--radius-card)", background: "rgb(var(--kitchen-card))" }}
+                    >
+                      <IngredientCheckbox checked={true} />
+                      <span className="flex-1 text-sm text-kitchen-text capitalize">
+                        {ing.normalized_name.replace(/_/g, " ")}
+                      </span>
+                      {isEditing ? (
+                        <div className="flex items-center gap-1.5">
+                          <input
+                            type="number"
+                            autoFocus
+                            value={editValue}
+                            onChange={(e) => setEditValue(e.target.value)}
+                            onKeyDown={(e) => { if (e.key === "Enter") commitEdit(ing.normalized_name); if (e.key === "Escape") setEditingIng(null); }}
+                            className="w-16 text-right text-xs font-mono bg-kitchen-surface text-kitchen-text px-2 py-1 outline-none focus:ring-1 ring-kitchen-accent/50"
+                            style={{ border: "1px solid rgb(var(--kitchen-accent) / 0.5)", borderRadius: "var(--radius-btn)" }}
+                          />
+                          <MonoLabel className="text-kitchen-muted">{ing.unit}</MonoLabel>
+                          <button type="button" onClick={() => commitEdit(ing.normalized_name)} className="text-[10px] font-mono text-kitchen-accent hover:opacity-70">✓</button>
+                          <button type="button" onClick={() => setEditingIng(null)} className="text-[10px] font-mono text-kitchen-muted hover:opacity-70">✕</button>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => startEdit(ing.normalized_name, ing.quantity)}
+                          className="flex items-center gap-1.5 group"
+                          title="Tap to adjust quantity"
+                        >
+                          <MonoLabel
+                            className="text-kitchen-muted group-hover:text-kitchen-accent transition-colors"
+                            style={overrideQty != null ? { color: "rgb(var(--kitchen-accent))", textDecoration: "underline dotted" } : {}}
+                          >
+                            {displayQty} {ing.unit}
+                          </MonoLabel>
+                          {overrideQty != null && (
+                            <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); resetOverride(ing.normalized_name); }}
+                              className="text-[9px] text-kitchen-muted hover:text-kitchen-warn transition-colors"
+                              title="Reset to recipe default"
+                            >↺</button>
+                          )}
+                        </button>
+                      )}
+                    </li>
+                  );
+                })}
               </ul>
             </div>
           )}
@@ -434,6 +535,26 @@ export function RecipeClient({ id }: { id: string }) {
         </ol>
       )}
 
+      {/* Cook & consume result */}
+      {consumeResult && (
+        <div
+          className="px-4 py-3 space-y-1 animate-fade-in"
+          style={{ border: "1px solid rgb(var(--kitchen-success) / 0.3)", borderRadius: "var(--radius-card)", background: "rgb(var(--kitchen-success) / 0.06)" }}
+        >
+          <MonoLabel className="text-kitchen-muted block mb-1">PANTRY UPDATED</MonoLabel>
+          {consumeResult.consumed.length > 0 && (
+            <p className="text-xs text-kitchen-text">Reduced: {consumeResult.consumed.join(", ")}</p>
+          )}
+          {consumeResult.depleted.length > 0 && (
+            <p className="text-xs" style={{ color: "rgb(var(--kitchen-warn))" }}>Used up: {consumeResult.depleted.join(", ")}</p>
+          )}
+          {consumeResult.not_found.length > 0 && (
+            <p className="text-xs text-kitchen-muted">Not in pantry: {consumeResult.not_found.join(", ")}</p>
+          )}
+          <button type="button" onClick={() => setConsumeResult(null)} className="text-[10px] font-mono text-kitchen-muted hover:text-kitchen-accent transition-colors mt-1">DISMISS</button>
+        </div>
+      )}
+
       {/* Bottom action */}
       <div className="flex gap-2 pb-4">
         {cookingMode ? (
@@ -472,6 +593,22 @@ export function RecipeClient({ id }: { id: string }) {
               }}
             >
               Begin cooking → {recipe.prep_time_minutes}m active
+            </button>
+            <button
+              type="button"
+              disabled={consuming}
+              onClick={handleConsume}
+              className="px-4 py-3 text-xs font-mono transition-opacity hover:opacity-80 disabled:opacity-50"
+              style={{
+                border: "1px solid rgb(var(--kitchen-accent) / 0.4)",
+                borderRadius: "var(--radius-btn)",
+                color: "rgb(var(--kitchen-accent))",
+                background: "rgb(var(--kitchen-accent) / 0.06)",
+                letterSpacing: "0.04em",
+              }}
+              title="Subtract these ingredients from your pantry"
+            >
+              {consuming ? "…" : "Consume"}
             </button>
             <Link
               href={`/decision?recipe=${recipe.id}`}

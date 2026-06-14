@@ -242,11 +242,17 @@ def recommend_recipes(
         # Penalise recently eaten dishes so variety is surfaced
         if recent_lower and raw.get("name", "").lower() in recent_lower:
             score -= 25
-        score += random.uniform(-1.2, 1.2)
         scored.append((score, raw))
 
     scored.sort(key=lambda x: x[0], reverse=True)
-    return [_recipe_to_response(r, pantry) for _, r in scored[:limit]]
+    # Sample randomly from the top pool so the same recipes don't always appear.
+    # Pool = top (limit × 3) candidates; choose limit without replacement, then
+    # re-sort by score so the best of the chosen set appears first.
+    pool_size = min(len(scored), max(limit * 3, 15))
+    pool = scored[:pool_size]
+    chosen = random.sample(pool, min(limit, len(pool)))
+    chosen.sort(key=lambda x: x[0], reverse=True)
+    return [_recipe_to_response(r, pantry) for _, r in chosen]
 
 
 def search_recipes(

@@ -43,6 +43,21 @@ class IngredientResponse(IngredientBase):
     model_config = {"from_attributes": True}
 
 
+class IngredientOverride(BaseModel):
+    normalized_name: str
+    quantity: float
+
+
+class ConsumeRecipeRequest(BaseModel):
+    overrides: List[IngredientOverride] = Field(default_factory=list)
+
+
+class ConsumeRecipeResponse(BaseModel):
+    consumed: List[str]   # ingredients whose quantity was reduced
+    depleted: List[str]   # ingredients fully used up and removed
+    not_found: List[str]  # recipe ingredients not in pantry
+
+
 class BarcodeResult(BaseModel):
     barcode: str
     product_name: str

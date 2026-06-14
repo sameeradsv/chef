@@ -63,8 +63,15 @@ def suggest(
     from app.services.llm import generate_meal_suggestion
     pantry = _get_pantry(db, current_user.id)
     state = _get_state(db, current_user.id)
+    prefs = _get_prefs(db, current_user.id)
     pantry_names = [getattr(p, "name", "") for p in pantry if getattr(p, "name", "")]
-    suggestion = generate_meal_suggestion(meal_type, pantry_names, state.energy_level)
+    suggestion = generate_meal_suggestion(
+        meal_type,
+        pantry_names,
+        state.energy_level,
+        vegetarian=prefs.vegetarian,
+        dietary_restrictions=prefs.dietary_restrictions,
+    )
     return {"suggestion": suggestion}
 
 

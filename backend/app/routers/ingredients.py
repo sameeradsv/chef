@@ -1,16 +1,18 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Body, Depends, HTTPException, Query
+from typing import Optional
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.dependencies import get_current_user
 from app.models import DiscardedIngredientModel, IngredientModel, UserAccountModel
-from app.schemas import BarcodeResult, DiscardRequest, DiscardedIngredientResponse, IngredientCreate, IngredientResponse, IngredientUpdate, WasteSummaryItem
+from app.schemas import BarcodeResult, ConsumeRecipeRequest, ConsumeRecipeResponse, DiscardRequest, DiscardedIngredientResponse, IngredientCreate, IngredientResponse, IngredientUpdate, WasteSummaryItem
 from app.services.barcode import lookup_barcode
 from app.services.freshness import days_until_expiry
 from app.services.ingredients import ingredient_to_response, refresh_freshness
 from app.services.normalize import normalize_ingredient_name
+from app.services.recipes import get_recipe_by_id
 
 router = APIRouter(prefix="/ingredients", tags=["ingredients"])
 
@@ -191,6 +193,54 @@ def list_discarded(
         .all()
     )
     return rows
+
+
+@router.post("/consume-recipe/{recipe_id}", response_model=ConsumeRecipeResponse)
+def consume_recipe_ingredients(
+    recipe_id: str,
+    payload: Optional[ConsumeRecipeRequest] = Body(default=None),
+    db: Session = Depends(get_db),
+    current_user: UserAccountModel = Depends(get_current_user),
+):
+    pantry = db.query(IngredientModel).filter(IngredientModel.user_id == current_user.id).all()
+    recipe = get_recipe_by_id(recipe_id, pantry)
+    if not recipe:
+        raise HTTPException(status_code=404, detail="Recipe not found")
+
+    pantry_by_norm = {}
+    for item in pantry:
+        pantry_by_norm.setdefault(item.normalized_name, []).append(item)
+
+    # Build a lookup of user-specified quantity overrides
+    override_map = {o.normalized_name: o.quantity for o in (payload.overrides if payload else [])}
+
+    consumed, depleted, not_found = [], [], []
+
+    for ing in recipe.ingredients:
+        if not ing.in_pantry:
+            not_found.append(ing.normalized_name.replace("_", " "))
+            continue
+
+        matches = pantry_by_norm.get(ing.normalized_name, [])
+        if not matches:
+            not_found.append(ing.normalized_name.replace("_", " "))
+            continue
+
+        target = next((m for m in matches if m.unit == ing.unit), matches[0])
+        qty_to_use = override_map.get(ing.normalized_name, ing.quantity)
+        remaining = target.quantity - qty_to_use
+
+        if remaining <= 0:
+            depleted.append(ing.normalized_name.replace("_", " "))
+            db.delete(target)
+        else:
+            target.quantity = round(remaining, 3)
+            target.opened = True
+            refresh_freshness(target)
+            consumed.append(ing.normalized_name.replace("_", " "))
+
+    db.commit()
+    return ConsumeRecipeResponse(consumed=consumed, depleted=depleted, not_found=not_found)
 
 
 @router.get("/waste-summary", response_model=list[WasteSummaryItem])

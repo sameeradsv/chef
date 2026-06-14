@@ -20,7 +20,13 @@ def _get_client():
     return _client
 
 
-def generate_meal_suggestion(meal_type: str, pantry_names: list[str], energy_level: int) -> str:
+def generate_meal_suggestion(
+    meal_type: str,
+    pantry_names: list[str],
+    energy_level: int,
+    vegetarian: bool = True,
+    dietary_restrictions: list[str] | None = None,
+) -> str:
     """Return a one-sentence contextual suggestion for the given meal type. Returns '' if unavailable."""
     client = _get_client()
     if not client:
@@ -32,10 +38,15 @@ def generate_meal_suggestion(meal_type: str, pantry_names: list[str], energy_lev
             meal_constraint = " Suggest a proper cooked main-course dish, not just fruits or snacks."
         elif meal_type == "lunch":
             meal_constraint = " Suggest a filling cooked meal, not raw fruits or light snacks."
+        diet_constraints = ""
+        if vegetarian:
+            diet_constraints += " Only suggest vegetarian dishes — absolutely no meat, poultry, seafood, or eggs."
+        if dietary_restrictions:
+            diet_constraints += f" Also respect these restrictions: {', '.join(dietary_restrictions)}."
         prompt = (
             f"Meal: {meal_type}\nEnergy: {energy_level}/10\nPantry: {pantry_str}\n\n"
             f"Write exactly one concise, warm sentence suggesting what to cook for {meal_type} "
-            f"using what's available. Be specific about an ingredient or dish. No preamble.{meal_constraint}"
+            f"using what's available. Be specific about an ingredient or dish. No preamble.{meal_constraint}{diet_constraints}"
         )
         response = client.chat.completions.create(
             model="llama-3.1-8b-instant",
