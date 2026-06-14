@@ -58,6 +58,8 @@ jobs:
           GITHUB_PAGES: "true"
           NEXT_PUBLIC_API_URL: ${{ vars.CHEF_API_URL || secrets.CHEF_API_URL || 'https://chef-api.onrender.com' }}
           NEXT_PUBLIC_CORTEX_URL: ${{ vars.NEXT_PUBLIC_CORTEX_URL }}
+          NEXT_PUBLIC_CIRCUIT_URL: ${{ vars.NEXT_PUBLIC_CIRCUIT_URL }}
+          NEXT_PUBLIC_CANOPY_URL: ${{ vars.NEXT_PUBLIC_CANOPY_URL }}
         run: npm run build:pages
 
       - uses: actions/upload-pages-artifact@v3
