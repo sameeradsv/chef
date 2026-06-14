@@ -100,6 +100,6 @@ def get_history(
             CookingHistoryModel.timestamp < day_end,
         )
 
-    from sqlalchemy import func, case
+    from sqlalchemy import func
     sort_col = func.coalesce(CookingHistoryModel.created_at, CookingHistoryModel.timestamp)
-    return q.order_by(sort_col.desc()).limit(limit).all()
+    return q.order_by(sort_col.desc(), CookingHistoryModel.timestamp.desc()).limit(limit).all()

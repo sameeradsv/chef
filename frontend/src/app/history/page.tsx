@@ -218,7 +218,12 @@ export default function HistoryPage() {
     }
   }
 
-  const visible = filterEntries(entries, timeFilter);
+  const visible = filterEntries(entries, timeFilter).sort((a, b) => {
+    const aLog = new Date(a.created_at ?? a.timestamp).getTime();
+    const bLog = new Date(b.created_at ?? b.timestamp).getTime();
+    if (bLog !== aLog) return bLog - aLog;
+    return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
+  });
   const cookCount  = visible.filter((e) => e.decision === "cook").length;
   const orderCount = visible.filter((e) => e.decision === "order").length;
   const outCount   = visible.filter((e) => e.decision === "eat_out").length;
