@@ -69,6 +69,9 @@ def _migrate_sqlite() -> None:
             if "cost" not in existing_hist:
                 conn.execute(text("ALTER TABLE cooking_history ADD COLUMN cost REAL"))
                 conn.commit()
+            if "created_at" not in existing_hist:
+                conn.execute(text("ALTER TABLE cooking_history ADD COLUMN created_at DATETIME DEFAULT CURRENT_TIMESTAMP"))
+                conn.commit()
         if "webauthn_credentials" not in inspector.get_table_names():
             conn.execute(text(
                 "CREATE TABLE webauthn_credentials ("
@@ -120,6 +123,9 @@ def _migrate_postgres() -> None:
             existing_hist = {c["name"] for c in inspector.get_columns("cooking_history")}
             if "cost" not in existing_hist:
                 conn.execute(text("ALTER TABLE cooking_history ADD COLUMN cost FLOAT"))
+                conn.commit()
+            if "created_at" not in existing_hist:
+                conn.execute(text("ALTER TABLE cooking_history ADD COLUMN created_at TIMESTAMP DEFAULT NOW()"))
                 conn.commit()
         existing_accounts = {c["name"] for c in inspector.get_columns("user_accounts")}
         if "cortex_user_id" not in existing_accounts:

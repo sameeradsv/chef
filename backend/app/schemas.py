@@ -267,6 +267,7 @@ class CookingHistoryResponse(BaseModel):
     timestamp: datetime
     satisfaction: Optional[int]
     cost: Optional[float] = None
+    created_at: Optional[datetime] = None
 
     model_config = {"from_attributes": True}
 

@@ -84,7 +84,8 @@ function filterEntries(entries: HistoryEntry[], filter: TimeFilter) {
     Week: 7 * 86400000, Month: 30 * 86400000, Year: 365 * 86400000, All: Infinity,
   };
   const cutoff = ms[filter];
-  return entries.filter((e) => now - new Date(e.timestamp).getTime() <= cutoff);
+  // Filter by log time (created_at) so recently-added backdated entries stay visible
+  return entries.filter((e) => now - new Date(e.created_at ?? e.timestamp).getTime() <= cutoff);
 }
 
 export default function HistoryPage() {
@@ -224,12 +225,16 @@ export default function HistoryPage() {
   const total      = visible.length;
   const totalSpent = visible.reduce((s, e) => s + (e.cost ?? 0), 0);
 
+  function loggedAt(entry: HistoryEntry): number {
+    return new Date(entry.created_at ?? entry.timestamp).getTime();
+  }
+
   function groupFeed(items: typeof visible) {
     const now = Date.now();
     const groups: { label: string; entries: typeof items }[] = [
-      { label: "THIS WEEK",  entries: items.filter(e => now - new Date(e.timestamp).getTime() <= 7 * 86400000) },
-      { label: "LAST WEEK",  entries: items.filter(e => { const d = now - new Date(e.timestamp).getTime(); return d > 7 * 86400000 && d <= 14 * 86400000; }) },
-      { label: "EARLIER",    entries: items.filter(e => now - new Date(e.timestamp).getTime() > 14 * 86400000) },
+      { label: "THIS WEEK",  entries: items.filter(e => now - loggedAt(e) <= 7 * 86400000) },
+      { label: "LAST WEEK",  entries: items.filter(e => { const d = now - loggedAt(e); return d > 7 * 86400000 && d <= 14 * 86400000; }) },
+      { label: "EARLIER",    entries: items.filter(e => now - loggedAt(e) > 14 * 86400000) },
     ];
     return groups.filter(g => g.entries.length > 0);
   }
@@ -580,9 +585,12 @@ export default function HistoryPage() {
                       </div>
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <span className="text-[10px] font-mono tracking-[0.12em] uppercase" style={{ color: meta.color }}>{meta.label}</span>
                         <MonoLabel className="text-kitchen-muted">· {formatDate(entry.timestamp)}</MonoLabel>
+                        {entry.created_at && Math.abs(new Date(entry.created_at).getTime() - new Date(entry.timestamp).getTime()) > 3600000 && (
+                          <MonoLabel className="text-kitchen-muted opacity-60">(logged {formatDate(entry.created_at)})</MonoLabel>
+                        )}
                       </div>
                       {entry.recipe_name && (
                         <p className="text-sm font-display font-normal text-kitchen-text mt-0.5 truncate">{entry.recipe_name}</p>

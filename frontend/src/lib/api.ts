@@ -208,7 +208,8 @@ export interface HistoryEntry {
   decision: "cook" | "order" | "eat_out";
   recipe_name?: string;
   cuisine?: string;
-  timestamp: string;
+  timestamp: string;    // the meal's date/time (user-set, can be backdated)
+  created_at?: string;  // when the entry was added to the app
   satisfaction?: number;
   cost?: number;
 }
