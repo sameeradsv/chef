@@ -215,8 +215,12 @@ def build_reasoning(
     restaurant: RestaurantOption | None,
     expiring_names: list[str],
     order_cost: float,
+    state: Optional[UserStatePayload] = None,
 ) -> list[str]:
     reasons: list[str] = []
+    energy = state.energy_level if state else 5
+    willingness = state.willingness_to_cook if state else 5
+
     if winner.mode == "cook" and recipe:
         if expiring_names:
             names = ", ".join(expiring_names[:3])
@@ -230,13 +234,24 @@ def build_reasoning(
             reasons.append("low cleanup effort")
         if restaurant and restaurant.estimated_delivery_minutes >= 35:
             reasons.append("delivery times currently high")
+        if energy >= 7:
+            reasons.append(f"energy at {energy}/10 — good time to cook")
+        if willingness >= 7:
+            reasons.append(f"willingness to cook is high ({willingness}/10)")
     elif winner.mode == "order" and restaurant:
         reasons.append(f"{restaurant.platform} delivery in ~{restaurant.estimated_delivery_minutes} mins")
-        reasons.append("minimal effort when energy is low")
+        if energy <= 4:
+            reasons.append(f"energy at {energy}/10 — cooking effort cost is high right now")
+        elif willingness <= 3:
+            reasons.append(f"low willingness to cook ({willingness}/10)")
+        else:
+            reasons.append("minimal effort when energy is low")
         if restaurant.discount_available:
             reasons.append("discount available on platform")
     elif winner.mode == "eat_out":
         reasons.append("social or dine-out preference fits current mood")
+        if energy <= 4:
+            reasons.append(f"energy at {energy}/10 — cooking not ideal")
         reasons.append("no cooking or cleanup required")
     if not reasons:
         reasons.append("best overall tradeoff for cost, time, and effort right now")
@@ -290,7 +305,7 @@ def compare_options(
     mode_map = {"cook": "cook", "order": "order", "eat_out": "eat_out"}
     rec_mode = mode_map[winner.mode]
 
-    reasoning = build_reasoning(winner, recipe, restaurant, expiring_names, restaurant.total_cost)
+    reasoning = build_reasoning(winner, recipe, restaurant, expiring_names, restaurant.total_cost, state)
 
     return CookVsOrderResponse(
         recommendation=rec_mode,

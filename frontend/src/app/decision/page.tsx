@@ -679,11 +679,17 @@ function DecisionPageInner() {
         <div className="flex items-center gap-2 min-w-0">
           {energySources.length > 0 && (
             <div
-              className="flex items-center gap-1.5 px-2.5 py-1.5 text-[10px] font-mono text-kitchen-muted truncate"
-              style={{ border: "1px solid var(--kitchen-line)", borderRadius: "var(--radius-btn)", background: "rgb(var(--kitchen-surface))" }}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 text-[10px] font-mono truncate"
+              style={{
+                border: `1px solid ${state.energy_level <= 4 ? "rgb(var(--kitchen-warn) / 0.4)" : "var(--kitchen-line)"}`,
+                borderRadius: "var(--radius-btn)",
+                background: state.energy_level <= 4 ? "rgb(var(--kitchen-warn) / 0.07)" : "rgb(var(--kitchen-surface))",
+                color: state.energy_level <= 4 ? "rgb(var(--kitchen-warn))" : "rgb(var(--kitchen-ink3))",
+              }}
+              title={`Energy level ${state.energy_level}/10 is influencing cook vs order scores`}
             >
-              <span style={{ color: "rgb(var(--kitchen-accent))" }}>◎</span>
-              Energy from {energySources.join(" · ")}
+              <span style={{ color: state.energy_level <= 4 ? "rgb(var(--kitchen-warn))" : "rgb(var(--kitchen-accent))" }}>◎</span>
+              Energy {state.energy_level}/10 · {energySources.join(" + ")}
             </div>
           )}
         </div>
