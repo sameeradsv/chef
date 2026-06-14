@@ -12,6 +12,8 @@ from app.models import CookingHistoryModel, UserAccountModel
 
 router = APIRouter(prefix="/energy", tags=["energy"])
 
+_IST = timedelta(hours=5, minutes=30)
+
 # Cooking decision base energy before satisfaction adjustment
 _DECISION_BASE: dict[str, float] = {
     "cook":     0.55,  # effort involved, but productive
@@ -36,7 +38,7 @@ def energy_timeline(
     current_user: UserAccountModel = Depends(get_current_user),
 ):
     """
-    Per-meal energy for a given calendar day (default: today UTC).
+    Per-meal energy for a given calendar day (default: today in IST).
     Returns a common shape shared by all personal apps:
       { date, source, events: [{occurred_at, time, energy, label, note, source}], avg_energy }
     """
@@ -47,17 +49,17 @@ def energy_timeline(
         except ValueError:
             raise HTTPException(400, "date must be YYYY-MM-DD")
     else:
-        target = datetime.utcnow().date()
+        target = (datetime.utcnow() + _IST).date()
 
-    day_start = datetime(target.year, target.month, target.day)
-    day_end = day_start + timedelta(days=1)
+    day_start_utc = datetime(target.year, target.month, target.day) - _IST
+    day_end_utc = day_start_utc + timedelta(days=1)
 
     entries = (
         db.query(CookingHistoryModel)
         .filter(
             CookingHistoryModel.user_id == current_user.id,
-            CookingHistoryModel.timestamp >= day_start,
-            CookingHistoryModel.timestamp < day_end,
+            CookingHistoryModel.timestamp >= day_start_utc,
+            CookingHistoryModel.timestamp < day_end_utc,
         )
         .order_by(CookingHistoryModel.timestamp)
         .all()
@@ -70,12 +72,13 @@ def energy_timeline(
         note = entry.recipe_name or entry.decision
         if entry.satisfaction is not None:
             note += f" · {entry.satisfaction}/5"
+        local_time = entry.timestamp + _IST
         events.append({
             "occurred_at": entry.timestamp.isoformat() + "Z",
-            "time": entry.timestamp.strftime("%H:%M"),
+            "time": local_time.strftime("%H:%M"),
             "energy": energy,
             "label": label,
-            "note": note,
+            "note": note[:80],
             "source": "chef",
         })
 
