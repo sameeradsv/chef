@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta
 
+_IST = timedelta(hours=5, minutes=30)
+
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
@@ -41,7 +43,7 @@ def nutrition_summary(
 
     meals_with_names = [e for e in entries if e.recipe_name]
     averages = analyze_history(entries, days)
-    days_with_data = len({e.timestamp.date() for e in entries}) if entries else 0
+    days_with_data = len({(e.timestamp + _IST).date() for e in entries}) if entries else 0
 
     nutrient_stats = []
     for key, rda in DAILY_RDA.items():

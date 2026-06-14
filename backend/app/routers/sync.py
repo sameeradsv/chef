@@ -14,6 +14,8 @@ router = APIRouter(prefix="/sync", tags=["sync"])
 # Drain cost per meal decision type (0–1 scale)
 _MEAL_DRAIN = {"cook": 0.25, "eat_out": 0.12, "order": 0.04}
 
+_IST = timedelta(hours=5, minutes=30)
+
 
 @router.get("/energy")
 def energy_summary(
@@ -25,9 +27,11 @@ def energy_summary(
     - drain_so_far: meals already prepared/decided today
     - drain_ahead:  0 (cooking decisions are reactive, not pre-scheduled)
     Cook = 0.25 drain, eat_out = 0.12, order = 0.04.
+    Day boundary is IST midnight, consistent with energy.py.
     """
     now = datetime.utcnow()
-    today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    ist_today = (now + _IST).date()
+    today_start = datetime(ist_today.year, ist_today.month, ist_today.day) - _IST
     today_end = today_start + timedelta(days=1)
 
     meals_today = (
