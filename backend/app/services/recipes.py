@@ -129,8 +129,9 @@ _MEAL_HOURS: dict[str, tuple[int, int]] = {
 
 
 def current_meal_type() -> str:
-    from datetime import datetime
-    hour = datetime.now().hour
+    from datetime import datetime, timedelta
+    _IST = timedelta(hours=5, minutes=30)
+    hour = (datetime.utcnow() + _IST).hour
     for meal, (start, end) in _MEAL_HOURS.items():
         if start <= hour < end:
             return meal

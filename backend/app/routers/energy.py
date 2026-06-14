@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
+from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
@@ -12,7 +13,7 @@ from app.models import CookingHistoryModel, UserAccountModel
 
 router = APIRouter(prefix="/energy", tags=["energy"])
 
-_IST = timedelta(hours=5, minutes=30)
+_IST = ZoneInfo("Asia/Kolkata")
 
 # Cooking decision base energy before satisfaction adjustment
 _DECISION_BASE: dict[str, float] = {
@@ -49,9 +50,9 @@ def energy_timeline(
         except ValueError:
             raise HTTPException(400, "date must be YYYY-MM-DD")
     else:
-        target = (datetime.utcnow() + _IST).date()
+        target = datetime.now(_IST).date()
 
-    day_start_utc = datetime(target.year, target.month, target.day) - _IST
+    day_start_utc = datetime(target.year, target.month, target.day, tzinfo=_IST).astimezone(timezone.utc).replace(tzinfo=None)
     day_end_utc = day_start_utc + timedelta(days=1)
 
     entries = (
@@ -72,7 +73,7 @@ def energy_timeline(
         note = entry.recipe_name or entry.decision
         if entry.satisfaction is not None:
             note += f" · {entry.satisfaction}/5"
-        local_time = entry.timestamp + _IST
+        local_time = entry.timestamp.replace(tzinfo=timezone.utc).astimezone(_IST)
         events.append({
             "occurred_at": entry.timestamp.isoformat() + "Z",
             "time": local_time.strftime("%H:%M"),
