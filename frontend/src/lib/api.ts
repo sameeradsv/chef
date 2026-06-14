@@ -233,6 +233,32 @@ export interface ParsedIngredients {
   items: ParsedIngredientItem[];
 }
 
+export interface NutrientStat {
+  key: string;
+  label: string;
+  unit: string;
+  daily_avg: number;
+  rda: number;
+  pct_rda: number;
+  status: "low" | "ok" | "high";
+}
+
+export interface FoodSuggestion {
+  food: string;
+  reason: string;
+  meal_type: string;
+  nutrients: string[];
+}
+
+export interface NutritionSummary {
+  days_analyzed: number;
+  meals_logged: number;
+  nutrients: NutrientStat[];
+  gaps: string[];
+  suggestions: FoodSuggestion[];
+  meal_suggestions: Record<string, FoodSuggestion[]>;
+}
+
 // --- API ---
 
 export const api = {
@@ -343,4 +369,8 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ image_base64: imageBase64, image_type: imageType, parse_type: parseType }),
     }),
+
+  // Nutrition
+  getNutritionSummary: (days = 7) =>
+    request<NutritionSummary>(`/nutrition/summary?days=${days}`),
 };

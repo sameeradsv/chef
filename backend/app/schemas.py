@@ -1,5 +1,5 @@
 from datetime import date, datetime
-from typing import Any, Dict, List, Literal, Optional
+from typing import Any, Dict, List, Literal, Optional, Tuple
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -309,3 +309,31 @@ class UserProfileResponse(BaseModel):
     vegetarian: bool = True
     skipped_ingredients: List[str] = Field(default_factory=list)
     city: str = ""
+
+
+# ── Nutrition / Health ────────────────────────────────────────────────────────
+
+class NutrientStat(BaseModel):
+    key: str
+    label: str
+    unit: str
+    daily_avg: float
+    rda: float
+    pct_rda: float
+    status: str  # "low" | "ok" | "high"
+
+
+class FoodSuggestion(BaseModel):
+    food: str
+    reason: str
+    meal_type: str  # breakfast | lunch | snack | dinner | any
+    nutrients: List[str]
+
+
+class NutritionSummary(BaseModel):
+    days_analyzed: int
+    meals_logged: int
+    nutrients: List[NutrientStat]
+    gaps: List[str]
+    suggestions: List[FoodSuggestion]
+    meal_suggestions: Dict[str, List[FoodSuggestion]]

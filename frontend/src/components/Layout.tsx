@@ -50,12 +50,19 @@ const ChatIcon = () => (
   </svg>
 );
 
+const HealthIcon = () => (
+  <svg viewBox="0 0 24 24" strokeWidth={1.7} fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round">
+    <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+  </svg>
+);
+
 const TABS = [
   { href: "/",          label: "Home",    Icon: HomeIcon    },
   { href: "/inventory", label: "Pantry",  Icon: PantryIcon  },
   { href: "/decision",  label: "Decide",  Icon: DecideIcon  },
   { href: "/grocery",   label: "Grocery", Icon: GroceryIcon },
   { href: "/history",   label: "History", Icon: HistoryIcon },
+  { href: "/health",    label: "Health",  Icon: HealthIcon  },
   { href: "/chat",      label: "Chat",    Icon: ChatIcon    },
   { href: "/settings",  label: "You",     Icon: YouIcon     },
 ];
@@ -159,23 +166,22 @@ export function Layout({ children }: { children: React.ReactNode }) {
           paddingBottom: "env(safe-area-inset-bottom, 0px)",
         }}
       >
-        <div className="flex">
+        <div className="flex overflow-x-auto" style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}>
           {TABS.map(({ href, label, Icon }) => {
             const active = isActive(href, pathname);
             return (
               <Link
                 key={href}
                 href={href}
-                className={`flex-1 flex flex-col items-center pt-2.5 pb-2 gap-1 transition-colors duration-150 ${
+                className={`flex-shrink-0 flex flex-col items-center pt-2.5 pb-2 gap-1 transition-colors duration-150 ${
                   active ? "text-kitchen-accent" : "text-kitchen-muted"
                 }`}
+                style={{ width: `${100 / TABS.length}vw`, minWidth: 48 }}
               >
                 <div className="w-5 h-5">
                   <Icon />
                 </div>
-                <span
-                  className="text-[9px] font-mono tracking-[0.08em]"
-                >
+                <span className="text-[9px] font-mono tracking-[0.08em]">
                   {label.toUpperCase()}
                 </span>
               </Link>
