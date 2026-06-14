@@ -33,16 +33,22 @@ const MODE_META: Record<string, { label: string; color: string }> = {
   eat_out: { label: "ATE OUT",  color: "rgb(var(--kitchen-warn))"    },
 };
 
+const TZ = "Asia/Kolkata";
+
 function formatDate(iso: string) {
   const d = new Date(iso);
-  const today = new Date();
-  const diff = Math.floor((today.getTime() - d.getTime()) / 86400000);
-  const time = d.toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit", hour12: true });
+  const time = d.toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit", hour12: true, timeZone: TZ });
+  // Compare calendar dates in IST so Today/Yesterday labels are correct
+  const nowIST  = new Date(new Date().toLocaleString("en-US", { timeZone: TZ }));
+  const dIST    = new Date(d.toLocaleString("en-US", { timeZone: TZ }));
+  const todayDay = new Date(nowIST.getFullYear(), nowIST.getMonth(), nowIST.getDate());
+  const entryDay = new Date(dIST.getFullYear(),   dIST.getMonth(),   dIST.getDate());
+  const diff = Math.round((todayDay.getTime() - entryDay.getTime()) / 86400000);
   let label: string;
-  if (diff === 0) label = "Today";
+  if (diff === 0)      label = "Today";
   else if (diff === 1) label = "Yesterday";
   else if (diff < 7)  label = `${diff}d ago`;
-  else label = d.toLocaleDateString("en-IN", { day: "numeric", month: "short" });
+  else                 label = d.toLocaleDateString("en-IN", { day: "numeric", month: "short", timeZone: TZ });
   return `${label}, ${time}`;
 }
 
