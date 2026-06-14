@@ -298,6 +298,9 @@ def get_restaurant_by_id(restaurant_id: str) -> dict | None:
     return None
 
 
+_FAST_FOOD_CUISINES = {"pizza", "burgers", "sandwiches", "american", "fast food", "chinese"}
+
+
 def best_restaurant_for_state(state: UserStatePayload, vegetarian: bool = False) -> dict:
     restaurants = load_restaurants()
     if not restaurants:
@@ -317,15 +320,28 @@ def best_restaurant_for_state(state: UserStatePayload, vegetarian: bool = False)
         veg = [r for r in restaurants if r.get("vegetarian_friendly", True)]
         if veg:
             restaurants = veg
+    low_energy = state.energy_level < 5
     best = restaurants[0]
     best_score = -1
     for r in restaurants:
         score = 0
-        if state.craving and state.craving.lower() in r.get("cuisine", "").lower():
+        cuisine = r.get("cuisine", "").lower()
+        if state.craving and state.craving.lower() in cuisine:
             score += 10
         if state.budget_today >= r.get("total_cost", 999):
             score += 5
-        score -= r.get("estimated_delivery_minutes", 40) / 20
+        delivery_mins = r.get("estimated_delivery_minutes", 40)
+        score -= delivery_mins / 20
+        if low_energy:
+            # Prefer fast, cheap, zero-effort options when tired
+            if delivery_mins <= 30:
+                score += 4
+            if r.get("total_cost", 999) <= 300:
+                score += 3
+            if any(fc in cuisine for fc in _FAST_FOOD_CUISINES):
+                score += 3
+        if r.get("discount_available"):
+            score += 0.5
         if score > best_score:
             best_score = score
             best = r

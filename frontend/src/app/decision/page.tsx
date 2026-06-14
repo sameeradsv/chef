@@ -517,19 +517,9 @@ function DecisionPageInner() {
             <em className="not-italic text-kitchen-accent">move</em>?
           </h1>
           {result && (
-            <div className="flex items-center gap-3 flex-shrink-0">
-              <MonoLabel className="text-kitchen-muted">
-                {new Intl.DateTimeFormat("en", { hour: "2-digit", minute: "2-digit" }).format(new Date())}
-              </MonoLabel>
-              <button
-                type="button"
-                onClick={() => setShowChart((v) => !v)}
-                className="text-xs font-mono transition-colors hover:opacity-80"
-                style={{ color: "rgb(var(--kitchen-accent))", letterSpacing: "0.06em" }}
-              >
-                {showChart ? "Hide ↑" : "See why →"}
-              </button>
-            </div>
+            <MonoLabel className="text-kitchen-muted flex-shrink-0">
+              {new Intl.DateTimeFormat("en", { hour: "2-digit", minute: "2-digit" }).format(new Date())}
+            </MonoLabel>
           )}
         </div>
         {result?.reasoning?.[0] && (

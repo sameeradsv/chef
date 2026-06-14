@@ -117,8 +117,9 @@ def cook_vs_order(
             budget=state.budget_today,
             vegetarian=vegetarian,
             craving=state.craving,
+            energy_level=state.energy_level,
         )
-        rest_raw = best_ai_restaurant(suggestions, state.craving, state.budget_today) or best_restaurant_for_state(state, vegetarian=vegetarian)
+        rest_raw = best_ai_restaurant(suggestions, state.craving, state.budget_today, energy_level=state.energy_level) or best_restaurant_for_state(state, vegetarian=vegetarian)
     else:
         rest_raw = best_restaurant_for_state(state, vegetarian=vegetarian)
     restaurant = _restaurant_dto(rest_raw)
@@ -164,8 +165,9 @@ def recommend_meal_endpoint(
             budget=state.budget_today,
             vegetarian=vegetarian,
             craving=state.craving,
+            energy_level=state.energy_level,
         )
-        rest_raw = best_ai_restaurant(suggestions, state.craving, state.budget_today) or best_restaurant_for_state(state, vegetarian=vegetarian)
+        rest_raw = best_ai_restaurant(suggestions, state.craving, state.budget_today, energy_level=state.energy_level) or best_restaurant_for_state(state, vegetarian=vegetarian)
     else:
         rest_raw = best_restaurant_for_state(state, vegetarian=vegetarian)
     restaurant = _restaurant_dto(rest_raw)

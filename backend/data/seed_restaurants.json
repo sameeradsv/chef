@@ -67,8 +67,56 @@
     "total_cost": 450,
     "delivery_fee": 60,
     "rating": 4.1,
-    "cuisine": "Italian",
+    "cuisine": "Pizza",
     "discount_available": false,
+    "vegetarian_friendly": true
+  },
+  {
+    "id": "rest-dominos",
+    "platform": "Zomato",
+    "restaurant_name": "Domino's Pizza",
+    "estimated_delivery_minutes": 28,
+    "total_cost": 380,
+    "delivery_fee": 0,
+    "rating": 4.2,
+    "cuisine": "Pizza",
+    "discount_available": true,
+    "vegetarian_friendly": true
+  },
+  {
+    "id": "rest-mcdonalds",
+    "platform": "Swiggy",
+    "restaurant_name": "McDonald's",
+    "estimated_delivery_minutes": 25,
+    "total_cost": 280,
+    "delivery_fee": 30,
+    "rating": 4.0,
+    "cuisine": "Burgers",
+    "discount_available": true,
+    "vegetarian_friendly": true
+  },
+  {
+    "id": "rest-subway",
+    "platform": "Zomato",
+    "restaurant_name": "Subway",
+    "estimated_delivery_minutes": 30,
+    "total_cost": 320,
+    "delivery_fee": 40,
+    "rating": 4.1,
+    "cuisine": "Sandwiches",
+    "discount_available": false,
+    "vegetarian_friendly": true
+  },
+  {
+    "id": "rest-burger-king",
+    "platform": "Swiggy",
+    "restaurant_name": "Burger King",
+    "estimated_delivery_minutes": 27,
+    "total_cost": 260,
+    "delivery_fee": 30,
+    "rating": 4.0,
+    "cuisine": "Burgers",
+    "discount_available": true,
     "vegetarian_friendly": true
   },
   {
