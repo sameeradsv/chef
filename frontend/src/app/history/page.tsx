@@ -37,10 +37,13 @@ function formatDate(iso: string) {
   const d = new Date(iso);
   const today = new Date();
   const diff = Math.floor((today.getTime() - d.getTime()) / 86400000);
-  if (diff === 0) return "Today";
-  if (diff === 1) return "Yesterday";
-  if (diff < 7)  return `${diff}d ago`;
-  return d.toLocaleDateString("en-IN", { day: "numeric", month: "short" });
+  const time = d.toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit", hour12: true });
+  let label: string;
+  if (diff === 0) label = "Today";
+  else if (diff === 1) label = "Yesterday";
+  else if (diff < 7)  label = `${diff}d ago`;
+  else label = d.toLocaleDateString("en-IN", { day: "numeric", month: "short" });
+  return `${label}, ${time}`;
 }
 
 function StarRating({ value, onChange }: { value?: number; onChange?: (n: number) => void }) {
