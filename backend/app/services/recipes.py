@@ -129,9 +129,9 @@ _MEAL_HOURS: dict[str, tuple[int, int]] = {
 
 
 def current_meal_type() -> str:
-    from datetime import datetime, timedelta
+    from datetime import datetime, timedelta, timezone
     _IST = timedelta(hours=5, minutes=30)
-    hour = (datetime.utcnow() + _IST).hour
+    hour = (datetime.now(timezone.utc).replace(tzinfo=None) + _IST).hour
     for meal, (start, end) in _MEAL_HOURS.items():
         if start <= hour < end:
             return meal
@@ -203,6 +203,7 @@ def recommend_recipes(
     dietary_restrictions: list[str] | None = None,
     meal_type: str | None = None,
     recent_meal_names: list[str] | None = None,
+    satisfaction_by_name: dict[str, float] | None = None,
 ) -> list[RecipeResponse]:
     recipes = load_recipes()
     skipped = {s.strip().lower() for s in (skipped_ingredients or []) if s.strip()}
@@ -243,6 +244,15 @@ def recommend_recipes(
         # Penalise recently eaten dishes so variety is surfaced
         if recent_lower and raw.get("name", "").lower() in recent_lower:
             score -= 25
+        # Adjust score based on the user's own satisfaction history for this dish
+        if satisfaction_by_name:
+            recipe_name_lower = raw.get("name", "").lower()
+            past_sat = satisfaction_by_name.get(recipe_name_lower)
+            if past_sat is not None:
+                if past_sat >= 4.0:
+                    score += 10   # user loved it — resurface once recency penalty fades
+                elif past_sat <= 2.0:
+                    score -= 15   # user disliked it — deprioritise
         scored.append((score, raw))
 
     scored.sort(key=lambda x: x[0], reverse=True)

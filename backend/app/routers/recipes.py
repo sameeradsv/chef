@@ -90,15 +90,23 @@ def recommend(
     dr_set = {d.lower() for d in prefs.dietary_restrictions}
     effective_meal_type = meal_type or current_meal_type()
 
-    # Pull recent history for variety and personalization
-    recent_history = (
+    # Pull history for variety + satisfaction-aware personalization
+    history_entries = (
         db.query(CookingHistoryModel)
         .filter(CookingHistoryModel.user_id == current_user.id)
         .order_by(CookingHistoryModel.timestamp.desc())
-        .limit(15)
+        .limit(50)
         .all()
     )
-    recent_meal_names = [h.recipe_name for h in recent_history if h.recipe_name]
+    # Recency penalty: last 15 meal names suppress immediate repeats
+    recent_meal_names = [h.recipe_name for h in history_entries[:15] if h.recipe_name]
+
+    # Per-recipe average satisfaction from full history — boosts loved dishes, buries disliked ones
+    sat_buckets: dict[str, list[float]] = {}
+    for h in history_entries:
+        if h.recipe_name and h.satisfaction is not None:
+            sat_buckets.setdefault(h.recipe_name.lower(), []).append(float(h.satisfaction))
+    satisfaction_by_name = {name: sum(vals) / len(vals) for name, vals in sat_buckets.items()}
 
     # Use history-derived preferred cuisines when available, fall back to stored prefs
     profile = get_user_profile(current_user.id, db)
@@ -113,6 +121,7 @@ def recommend(
         dietary_restrictions=prefs.dietary_restrictions,
         meal_type=effective_meal_type,
         recent_meal_names=recent_meal_names,
+        satisfaction_by_name=satisfaction_by_name or None,
     )
 
     # Non-demo users: augment with Claude-generated recipes using full preference context
