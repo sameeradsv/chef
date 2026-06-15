@@ -36,8 +36,8 @@ def parse_image(
     payload: VisionParseRequest,
     current_user: UserAccountModel = Depends(get_current_user),
 ) -> Dict[str, Any]:
-    if payload.parse_type not in ("order", "ingredients"):
-        raise HTTPException(status_code=400, detail="parse_type must be 'order' or 'ingredients'")
+    if payload.parse_type not in ("order", "ingredients", "product"):
+        raise HTTPException(status_code=400, detail="parse_type must be 'order', 'ingredients', or 'product'")
 
     try:
         from app.services.llm import _get_client
@@ -54,6 +54,8 @@ def parse_image(
     try:
         if payload.parse_type == "order":
             return _parse_order(client, data_uri)
+        if payload.parse_type == "product":
+            return _parse_product(client, data_uri)
         return _parse_ingredients(client, data_uri)
     except HTTPException:
         raise
@@ -136,4 +138,47 @@ def _parse_ingredients(client: Any, data_uri: str) -> Dict[str, Any]:
             for item in raw_items
             if item.get("name", "").strip()
         ],
+    }
+
+
+def _parse_product(client: Any, data_uri: str) -> Dict[str, Any]:
+    prompt = (
+        "You are looking at a packaged food product (label, box, bottle, or pouch).\n\n"
+        "Extract product details and respond ONLY with this JSON (no markdown, no extra text):\n"
+        '{"name":null,"brand":null,"quantity":null,"unit":null,"expiry_date":null,"price":null,"storage_type":"pantry"}\n\n'
+        "Rules:\n"
+        "- name: product name in title case (e.g. 'Amul Butter', 'Tata Salt', 'Maggi Noodles')\n"
+        "- brand: brand name only (null if unclear)\n"
+        "- quantity: numeric pack size only (e.g. 500 for a 500g pack, 1 for a 1L bottle)\n"
+        "- unit: grams, kg, ml, liters, pieces — match the label unit exactly\n"
+        "- expiry_date: ISO YYYY-MM-DD from any 'Best Before', 'Exp', 'Use By' date visible; "
+        "if only month/year given (e.g. 08/2025) use last day of that month (2025-08-31); null if not visible\n"
+        "- price: MRP or printed price as a plain number in rupees (e.g. 65 for ₹65); null if not visible\n"
+        "- storage_type: 'fridge' for dairy/meat/eggs/fresh produce/paneer/curd/butter/cheese; "
+        "'freezer' for anything labelled frozen; 'pantry' for everything else\n"
+        "Return only the JSON object."
+    )
+
+    response = client.chat.completions.create(
+        model=_VISION_MODEL,
+        max_tokens=300,
+        messages=[{
+            "role": "user",
+            "content": [
+                {"type": "image_url", "image_url": {"url": data_uri}},
+                {"type": "text", "text": prompt},
+            ],
+        }],
+    )
+
+    data = _extract_json(response.choices[0].message.content.strip())
+    return {
+        "type": "product",
+        "name": (data.get("name") or "").strip() or None,
+        "brand": (data.get("brand") or "").strip() or None,
+        "quantity": data.get("quantity"),
+        "unit": (data.get("unit") or "").strip() or None,
+        "expiry_date": (data.get("expiry_date") or "").strip() or None,
+        "price": data.get("price"),
+        "storage_type": data.get("storage_type") or "pantry",
     }

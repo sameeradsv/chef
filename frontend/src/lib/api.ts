@@ -235,6 +235,17 @@ export interface ParsedIngredients {
   items: ParsedIngredientItem[];
 }
 
+export interface ParsedProduct {
+  type: "product";
+  name?: string;
+  brand?: string;
+  quantity?: number;
+  unit?: string;
+  expiry_date?: string;  // YYYY-MM-DD or null
+  price?: number;
+  storage_type?: string;
+}
+
 export interface NutrientStat {
   key: string;
   label: string;
@@ -366,8 +377,8 @@ export const api = {
     request<void>(`/history/${id}`, { method: "DELETE" }),
 
   // Vision
-  parseImage: (imageBase64: string, imageType: string, parseType: "order" | "ingredients") =>
-    request<ParsedOrder | ParsedIngredients>("/vision/parse", {
+  parseImage: (imageBase64: string, imageType: string, parseType: "order" | "ingredients" | "product") =>
+    request<ParsedOrder | ParsedIngredients | ParsedProduct>("/vision/parse", {
       method: "POST",
       body: JSON.stringify({ image_base64: imageBase64, image_type: imageType, parse_type: parseType }),
     }),

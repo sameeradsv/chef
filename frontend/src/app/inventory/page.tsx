@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { api, type BarcodeResult, type DiscardedIngredient, type Ingredient, type ParsedIngredientItem, type WasteSummaryItem } from "@/lib/api";
+import { api, type BarcodeResult, type DiscardedIngredient, type Ingredient, type ParsedIngredientItem, type ParsedProduct, type WasteSummaryItem } from "@/lib/api";
 import { fmtDateIST } from "@/lib/tz";
 
 async function fileToBase64(file: File, maxDim = 1024): Promise<{ base64: string; type: string }> {
@@ -568,6 +568,213 @@ function ParsedIngredientsSheet({
   );
 }
 
+/* ─── Product scan queue sheet ──────────────────────────────────────────── */
+type ProductQueueRow = {
+  id: string;
+  name: string;
+  quantity: number;
+  unit: string;
+  expiry_date: string;
+  cost: number;
+  storage_type: string;
+};
+
+function ProductQueueSheet({
+  onAdd,
+  onClose,
+}: {
+  onAdd: (items: Omit<ProductQueueRow, "id">[]) => Promise<void>;
+  onClose: () => void;
+}) {
+  const [queue, setQueue] = useState<ProductQueueRow[]>([]);
+  const [scanning, setScanning] = useState(false);
+  const [scanError, setScanError] = useState<string | null>(null);
+  const [adding, setAdding] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = "";
+    setScanning(true);
+    setScanError(null);
+    try {
+      const { base64, type } = await fileToBase64(file, 1500);
+      const result = await api.parseImage(base64, type, "product") as ParsedProduct;
+      if (result.type === "product" && result.name) {
+        setQueue(prev => [...prev, {
+          id: Math.random().toString(36).slice(2),
+          name: result.name ?? "",
+          quantity: result.quantity ?? 1,
+          unit: result.unit ?? "grams",
+          expiry_date: result.expiry_date ?? "",
+          cost: result.price ?? 0,
+          storage_type: result.storage_type ?? "pantry",
+        }]);
+      } else {
+        setScanError("Couldn't read product — try a clearer photo of the label");
+      }
+    } catch {
+      setScanError("Photo scan failed — check your connection");
+    } finally {
+      setScanning(false);
+    }
+  }
+
+  function update(id: string, field: keyof Omit<ProductQueueRow, "id">, value: string | number) {
+    setQueue(prev => prev.map(r => r.id === id ? { ...r, [field]: value } : r));
+  }
+
+  async function handleAddAll() {
+    if (!queue.length) return;
+    setAdding(true);
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    await onAdd(queue.map(({ id: _id, ...rest }) => rest));
+    setAdding(false);
+  }
+
+  const inputCls = "w-full bg-transparent text-xs text-kitchen-text outline-none";
+
+  return (
+    <div
+      className="fixed inset-0 z-60 flex items-end md:items-center justify-center"
+      style={{ background: "rgba(0,0,0,0.5)", backdropFilter: "blur(4px)" }}
+      onClick={(e) => e.target === e.currentTarget && onClose()}
+    >
+      <div
+        className="w-full max-w-md max-h-[88dvh] flex flex-col animate-fade-in"
+        style={{
+          background: "rgb(var(--kitchen-bg))",
+          borderRadius: "var(--radius-card) var(--radius-card) 0 0",
+          borderTop: "1px solid var(--kitchen-line2)",
+        }}
+      >
+        <div className="flex items-center justify-between px-5 pt-5 pb-3">
+          <div>
+            <h2 className="font-display text-lg">Scan products</h2>
+            <p className="text-xs text-kitchen-muted mt-0.5">
+              {queue.length === 0
+                ? "Photo each product label to add to pantry"
+                : `${queue.length} product${queue.length !== 1 ? "s" : ""} queued`}
+            </p>
+          </div>
+          <button type="button" onClick={onClose} className="text-kitchen-muted hover:text-kitchen-text w-8 h-8 flex items-center justify-center text-lg">×</button>
+        </div>
+
+        <div className="px-5 pb-3">
+          <input ref={fileRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handleFile} />
+          <button
+            type="button"
+            onClick={() => { fileRef.current?.click(); setScanError(null); }}
+            disabled={scanning}
+            className="w-full py-3 text-sm font-mono tracking-wide flex items-center justify-center gap-2 transition-opacity hover:opacity-80 disabled:opacity-50"
+            style={{
+              border: "1px dashed rgb(var(--kitchen-accent) / 0.5)",
+              borderRadius: "var(--radius-btn)",
+              color: "rgb(var(--kitchen-accent))",
+              background: "rgb(var(--kitchen-accent) / 0.05)",
+            }}
+          >
+            {scanning ? (
+              <>
+                <svg className="animate-spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
+                </svg>
+                READING LABEL…
+              </>
+            ) : (
+              <>
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="1" y="4" width="14" height="10" rx="1.5"/>
+                  <circle cx="8" cy="9" r="2.5"/>
+                  <path d="M5.5 4l.8-1.5h3.4L10.5 4"/>
+                </svg>
+                {queue.length === 0 ? "TAKE FIRST PHOTO" : "SCAN ANOTHER PRODUCT"}
+              </>
+            )}
+          </button>
+          {scanError && (
+            <p className="text-[10px] font-mono text-center mt-1.5" style={{ color: "rgb(var(--kitchen-warn))" }}>{scanError}</p>
+          )}
+          {!scanError && (
+            <p className="text-[10px] font-mono text-kitchen-muted text-center mt-1.5">
+              EXPIRY DATE IS USUALLY ON THE BOTTOM OR TOP FLAP
+            </p>
+          )}
+        </div>
+
+        {queue.length > 0 && (
+          <ul className="overflow-y-auto flex-1 px-5 pb-2 space-y-2">
+            {queue.map((row) => (
+              <li key={row.id} className="p-3" style={{ border: "1px solid var(--kitchen-line2)", borderRadius: "var(--radius-card)", background: "rgb(var(--kitchen-card))" }}>
+                <div className="flex items-start gap-2">
+                  <div className="flex-1 min-w-0 space-y-2">
+                    <input
+                      value={row.name}
+                      onChange={(e) => update(row.id, "name", e.target.value)}
+                      placeholder="Product name"
+                      className="w-full bg-transparent text-sm font-display text-kitchen-text outline-none border-b pb-0.5"
+                      style={{ borderColor: "var(--kitchen-line2)" }}
+                    />
+                    <div className="grid grid-cols-3 gap-3">
+                      <div>
+                        <MonoLabel className="text-kitchen-muted block mb-0.5">QTY</MonoLabel>
+                        <input type="number" min="0" value={row.quantity || ""} onChange={(e) => update(row.id, "quantity", parseFloat(e.target.value) || 0)} className={inputCls} placeholder="—" />
+                      </div>
+                      <div>
+                        <MonoLabel className="text-kitchen-muted block mb-0.5">UNIT</MonoLabel>
+                        <input value={row.unit} onChange={(e) => update(row.id, "unit", e.target.value)} className={inputCls} placeholder="grams" />
+                      </div>
+                      <div>
+                        <MonoLabel className="text-kitchen-muted block mb-0.5">STORE</MonoLabel>
+                        <select value={row.storage_type} onChange={(e) => update(row.id, "storage_type", e.target.value)} className={`${inputCls} cursor-pointer`}>
+                          <option value="pantry" style={{ background: "rgb(var(--kitchen-bg))" }}>Pantry</option>
+                          <option value="fridge" style={{ background: "rgb(var(--kitchen-bg))" }}>Fridge</option>
+                          <option value="freezer" style={{ background: "rgb(var(--kitchen-bg))" }}>Freezer</option>
+                        </select>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <MonoLabel className="text-kitchen-muted block mb-0.5">EXPIRY</MonoLabel>
+                        <input type="date" value={row.expiry_date} onChange={(e) => update(row.id, "expiry_date", e.target.value)} className={inputCls} />
+                      </div>
+                      <div>
+                        <MonoLabel className="text-kitchen-muted block mb-0.5">₹ COST</MonoLabel>
+                        <input type="number" min="0" value={row.cost || ""} onChange={(e) => update(row.id, "cost", parseFloat(e.target.value) || 0)} className={inputCls} placeholder="—" />
+                      </div>
+                    </div>
+                  </div>
+                  <button type="button" onClick={() => setQueue(prev => prev.filter(r => r.id !== row.id))} className="flex-shrink-0 text-kitchen-muted hover:text-kitchen-danger transition-colors mt-0.5" aria-label="Remove">
+                    <svg width="14" height="14" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+                      <path d="M2 3h8M5 3V2h2v1M4 3v6.5a.5.5 0 00.5.5h3a.5.5 0 00.5-.5V3"/>
+                    </svg>
+                  </button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+
+        <div className="px-5 py-4 flex gap-2" style={{ borderTop: "1px solid var(--kitchen-line)" }}>
+          <button
+            type="button"
+            onClick={handleAddAll}
+            disabled={adding || queue.length === 0}
+            className="flex-1 py-3 text-sm font-medium disabled:opacity-50 transition-opacity hover:opacity-90"
+            style={{ background: "rgb(var(--kitchen-accent))", color: "rgb(26 18 10)", borderRadius: "var(--radius-btn)" }}
+          >
+            {adding ? "Adding…" : queue.length === 0 ? "Scan a product first" : `Add ${queue.length} item${queue.length !== 1 ? "s" : ""}`}
+          </button>
+          <button type="button" onClick={onClose} className="px-4 py-3 text-sm text-kitchen-muted transition-colors hover:text-kitchen-text" style={{ border: "1px solid var(--kitchen-line2)", borderRadius: "var(--radius-btn)" }}>
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ─── Waste log view ────────────────────────────────────────────────────── */
 function WasteLogView() {
   const [discarded, setDiscarded] = useState<DiscardedIngredient[]>([]);
@@ -683,6 +890,7 @@ export default function InventoryPage() {
   const [imageParsing, setImageParsing] = useState(false);
   const [imageError, setImageError] = useState<string | null>(null);
   const [parsedItems, setParsedItems] = useState<ParsedIngredientItem[] | null>(null);
+  const [showProductQueue, setShowProductQueue] = useState(false);
   const imgFileRef = useRef<HTMLInputElement>(null);
 
   const load = useCallback(async () => {
@@ -816,6 +1024,23 @@ export default function InventoryPage() {
       )
     );
     setParsedItems(null);
+    load();
+  }
+
+  async function handleProductBatchAdd(items: Omit<ProductQueueRow, "id">[]) {
+    await Promise.all(
+      items.map((item) =>
+        api.createIngredient({
+          name: item.name,
+          quantity: item.quantity,
+          unit: item.unit,
+          expiry_date: item.expiry_date || undefined,
+          cost: item.cost,
+          storage_type: item.storage_type,
+        })
+      )
+    );
+    setShowProductQueue(false);
     load();
   }
 
@@ -1086,6 +1311,25 @@ export default function InventoryPage() {
           </button>
           <button
             type="button"
+            onClick={() => setShowProductQueue(true)}
+            title="Scan product labels"
+            className="w-12 h-12 flex items-center justify-center transition-transform hover:scale-105 active:scale-95"
+            style={{
+              background: "rgb(var(--kitchen-surface))",
+              border: "1px solid var(--kitchen-line2)",
+              borderRadius: "50%",
+              boxShadow: "0 4px 12px rgba(0,0,0,0.2)",
+            }}
+            aria-label="Scan product labels"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="rgb(var(--kitchen-ink2))" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/>
+              <polyline points="3.27 6.96 12 12.01 20.73 6.96"/>
+              <line x1="12" y1="22.08" x2="12" y2="12"/>
+            </svg>
+          </button>
+          <button
+            type="button"
             onClick={() => setShowScanner(true)}
             disabled={scanLoading}
             className="w-12 h-12 flex items-center justify-center transition-transform hover:scale-105 active:scale-95 disabled:opacity-50"
@@ -1171,6 +1415,14 @@ export default function InventoryPage() {
           items={parsedItems}
           onAdd={handleBulkAdd}
           onClose={() => setParsedItems(null)}
+        />
+      )}
+
+      {/* Product scan queue sheet */}
+      {showProductQueue && (
+        <ProductQueueSheet
+          onAdd={handleProductBatchAdd}
+          onClose={() => setShowProductQueue(false)}
         />
       )}
     </div>
