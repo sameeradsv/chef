@@ -77,8 +77,16 @@ function StarRating({ value, onChange }: { value?: number; onChange?: (n: number
 
 function localDatetimeValue(iso?: string) {
   const d = iso ? new Date(iso) : new Date();
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  // Always extract components in IST so the datetime-local input shows IST
+  // regardless of the browser's local timezone.
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Asia/Kolkata",
+    year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", hour12: false,
+  }).formatToParts(d);
+  const get = (t: string) => parts.find(p => p.type === t)?.value ?? "00";
+  const h = get("hour") === "24" ? "00" : get("hour");
+  return `${get("year")}-${get("month")}-${get("day")}T${h}:${get("minute")}`;
 }
 
 const TIME_FILTERS = ["Week", "Month", "Year", "All"] as const;
@@ -162,7 +170,7 @@ export default function HistoryPage() {
         recipe_name: logRecipe.trim() || undefined,
         cuisine: logCuisine.trim() || undefined,
         satisfaction: logSatisfaction,
-        timestamp: new Date(logTimestamp).toISOString(),
+        timestamp: logTimestamp + ":00",   // IST naive — backend converts to UTC
         cost: logCost ? parseFloat(logCost) : undefined,
       });
       setEntries((prev) => [entry, ...prev]);
@@ -193,7 +201,7 @@ export default function HistoryPage() {
         recipe_name: editRecipe.trim() || undefined,
         cuisine: editCuisine.trim() || undefined,
         satisfaction: editSatisfaction,
-        timestamp: editTimestamp ? new Date(editTimestamp).toISOString() : undefined,
+        timestamp: editTimestamp ? editTimestamp + ":00" : undefined,  // IST naive
         cost: editCost ? parseFloat(editCost) : undefined,
       });
       setEntries((prev) => prev.map((e) => (e.id === id ? updated : e)));
