@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { api, type HistoryEntry } from "@/lib/api";
+import { TZ, toISTDatetimeLocal, fromISTDatetimeLocal } from "@/lib/tz";
 
 async function fileToBase64(file: File, maxDim = 1024): Promise<{ base64: string; type: string }> {
   return new Promise((resolve, reject) => {
@@ -33,7 +34,6 @@ const MODE_META: Record<string, { label: string; color: string }> = {
   eat_out: { label: "ATE OUT",  color: "rgb(var(--kitchen-warn))"    },
 };
 
-const TZ = "Asia/Kolkata";
 
 function formatDate(iso: string) {
   const d = new Date(iso);
@@ -76,17 +76,7 @@ function StarRating({ value, onChange }: { value?: number; onChange?: (n: number
 }
 
 function localDatetimeValue(iso?: string) {
-  const d = iso ? new Date(iso) : new Date();
-  // Always extract components in IST so the datetime-local input shows IST
-  // regardless of the browser's local timezone.
-  const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone: "Asia/Kolkata",
-    year: "numeric", month: "2-digit", day: "2-digit",
-    hour: "2-digit", minute: "2-digit", hour12: false,
-  }).formatToParts(d);
-  const get = (t: string) => parts.find(p => p.type === t)?.value ?? "00";
-  const h = get("hour") === "24" ? "00" : get("hour");
-  return `${get("year")}-${get("month")}-${get("day")}T${h}:${get("minute")}`;
+  return toISTDatetimeLocal((iso ? new Date(iso) : new Date()).toISOString());
 }
 
 const TIME_FILTERS = ["Week", "Month", "Year", "All"] as const;

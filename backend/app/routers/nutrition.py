@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 _IST = timedelta(hours=5, minutes=30)
 
@@ -30,7 +30,7 @@ def nutrition_summary(
     db: Session = Depends(get_db),
     current_user: UserAccountModel = Depends(get_current_user),
 ):
-    cutoff = datetime.utcnow() - timedelta(days=days)
+    cutoff = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=days)
     entries = (
         db.query(CookingHistoryModel)
         .filter(

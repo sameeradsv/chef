@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone, timedelta, timezone
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -117,7 +117,7 @@ def get_history(
 
     if date:
         if date == "today":
-            filter_date = (datetime.utcnow() + _IST_TD).date()
+            filter_date = (datetime.now(timezone.utc).replace(tzinfo=None) + _IST_TD).date()
         else:
             try:
                 filter_date = datetime.strptime(date, "%Y-%m-%d").date()

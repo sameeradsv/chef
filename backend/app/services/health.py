@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Dict, List, Tuple
 
 DAILY_RDA: Dict[str, float] = {
@@ -193,7 +193,7 @@ def analyze_history(entries: List, days: int = 7) -> Dict[str, float]:
     Aggregate nutrition from CookingHistoryModel rows into daily averages.
     Only rows with a recipe_name contribute. Day boundaries use IST.
     """
-    cutoff = datetime.utcnow() - timedelta(days=days)
+    cutoff = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=days)
     recent = [e for e in entries if e.timestamp >= cutoff]
     if not recent:
         return {}

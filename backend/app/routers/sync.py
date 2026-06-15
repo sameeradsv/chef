@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, time as _time, timedelta
+from datetime import datetime, timezone, time as _time, timedelta
 
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
@@ -36,7 +36,7 @@ def energy_summary(
     Cook = 0.25 drain, eat_out = 0.12, order = 0.04.
     Day boundary is IST midnight, consistent with energy.py.
     """
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
     ist_today = (now + _IST).date()
     today_start = datetime(ist_today.year, ist_today.month, ist_today.day) - _IST
     today_end = today_start + timedelta(days=1)

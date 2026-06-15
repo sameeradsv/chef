@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
@@ -27,7 +27,7 @@ def set_user_state(
         db.add(row)
     for field, value in payload.model_dump().items():
         setattr(row, field, value)
-    row.updated_at = datetime.utcnow()
+    row.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
     db.commit()
     db.refresh(row)
     return UserStateResponse(

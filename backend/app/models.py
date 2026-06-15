@@ -14,7 +14,7 @@ class AuthSessionModel(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     token: Mapped[str] = mapped_column(String(64), unique=True, nullable=False, index=True)
     user_id: Mapped[str] = mapped_column(String(36), ForeignKey("user_accounts.id"), nullable=False, index=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
     expires_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
 
 
@@ -28,7 +28,7 @@ class UserAccountModel(Base):
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
     username: Mapped[str] = mapped_column(String(100), unique=True, nullable=False, index=True)
     hashed_passcode: Mapped[str] = mapped_column(String(200), nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
     # Set when this user was created via a Cortex account login
     cortex_user_id: Mapped[Optional[int]] = mapped_column(Integer, nullable=True, unique=True, index=True)
 
@@ -51,7 +51,7 @@ class IngredientModel(Base):
     cost: Mapped[float] = mapped_column(Float, default=0)
     brand: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     freshness_score: Mapped[float] = mapped_column(Float, default=10)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
 
 
 class UserStateModel(Base):
@@ -68,7 +68,7 @@ class UserStateModel(Base):
     craving: Mapped[str] = mapped_column(String(100), default="")
     willingness_to_cook: Mapped[int] = mapped_column(Integer, default=5)
     stress_level: Mapped[int] = mapped_column(Integer, default=5)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
 
 
 class UserPreferencesModel(Base):
@@ -101,7 +101,7 @@ class DiscardedIngredientModel(Base):
     buy_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
     expiry_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
     discard_reason: Mapped[str] = mapped_column(String(50), default="expired")
-    discarded_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    discarded_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
 
 
 class CookingHistoryModel(Base):
@@ -114,10 +114,10 @@ class CookingHistoryModel(Base):
     decision: Mapped[str] = mapped_column(String(20))  # cook | order | eat_out
     recipe_name: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
     cuisine: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
-    timestamp: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    timestamp: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
     satisfaction: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)  # 1-5
     cost: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
 
 
 class GroceryItemModel(Base):
@@ -131,7 +131,7 @@ class GroceryItemModel(Base):
     quantity: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     unit: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
     bought: Mapped[bool] = mapped_column(Boolean, default=False)
-    added_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    added_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
 
 
 class WebAuthnCredential(Base):
@@ -141,7 +141,7 @@ class WebAuthnCredential(Base):
     public_key: Mapped[str] = mapped_column(Text, nullable=False)
     sign_count: Mapped[int] = mapped_column(Integer, default=0)
     user_id: Mapped[str] = mapped_column(Text, nullable=False, index=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
 
 
 class WebAuthnChallenge(Base):
@@ -151,4 +151,4 @@ class WebAuthnChallenge(Base):
     challenge: Mapped[str] = mapped_column(String(128), nullable=False)
     user_id: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     expires_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))

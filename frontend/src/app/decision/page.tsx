@@ -4,6 +4,7 @@ import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { api, type CookVsOrderResult, type DecisionOption, type UserState, getToken } from "@/lib/api";
+import { TZ, istHour } from "@/lib/tz";
 import { formatCurrency } from "@/lib/utils";
 import dynamic from "next/dynamic";
 
@@ -91,7 +92,7 @@ async function gatherEnergyState(): Promise<{ state: Partial<UserState>; sources
 }
 
 function inferEnergyFromTime(): number {
-  const h = new Date().getHours();
+  const h = istHour();
   if (h >= 6  && h < 9)  return 7;
   if (h >= 9  && h < 12) return 8;
   if (h >= 12 && h < 15) return 6;
@@ -518,7 +519,7 @@ function DecisionPageInner() {
           </h1>
           {result && (
             <MonoLabel className="text-kitchen-muted flex-shrink-0">
-              {new Intl.DateTimeFormat("en", { hour: "2-digit", minute: "2-digit" }).format(new Date())}
+              {new Intl.DateTimeFormat("en-IN", { timeZone: TZ, hour: "2-digit", minute: "2-digit" }).format(new Date())}
             </MonoLabel>
           )}
         </div>

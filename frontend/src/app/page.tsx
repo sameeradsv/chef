@@ -5,16 +5,17 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTheme, type Theme } from "@/contexts/ThemeContext";
 import { api, type HistoryEntry, type Ingredient, type Recipe, type RecommendMealResult } from "@/lib/api";
+import { TZ, istHour } from "@/lib/tz";
 import { expiryBadge } from "@/lib/utils";
 
 /* ─── Helpers ──────────────────────────────────────────────────────────── */
 
 function todayLabel() {
-  return new Intl.DateTimeFormat("en", { weekday: "short", month: "short", day: "numeric" }).format(new Date());
+  return new Intl.DateTimeFormat("en-IN", { timeZone: TZ, weekday: "short", month: "short", day: "numeric" }).format(new Date());
 }
 
 function greeting() {
-  const h = new Date().getHours();
+  const h = istHour();
   if (h >= 5 && h < 12) return "Good morning";
   if (h >= 12 && h < 17) return "Good afternoon";
   if (h >= 17 && h < 21) return "Good evening";

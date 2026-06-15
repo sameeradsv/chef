@@ -104,7 +104,7 @@ Custom Tailwind color tokens are defined as CSS variables (`--kitchen-bg`, `--ki
 ### Deployment
 
 - **Frontend**: GitHub Actions builds `next export` (static) with `basePath: "/chef"`, deploys to GitHub Pages. PWA is disabled in dev and on GitHub Pages build.
-- **Backend**: Render Blueprint (`render.yaml`) — Python 3.11, `uvicorn app.main:app --host 0.0.0.0 --port $PORT`; health check path `/health`. Database is **Neon PostgreSQL** (free tier, external) — set `DATABASE_URL` manually in Render dashboard after deploy. Set `GROQ_API_KEY` manually in Render dashboard to enable LLM narratives and vision parsing.
+- **Backend**: Render Blueprint (`render.yaml`) — Python 3.12, `uvicorn app.main:app --host 0.0.0.0 --port $PORT`; health check path `/health`. Database is **Neon PostgreSQL** (free tier, external) — set `DATABASE_URL` manually in Render dashboard after deploy. Set `GROQ_API_KEY` manually in Render dashboard to enable LLM narratives and vision parsing. Set `ANTHROPIC_API_KEY` to enable recipe generation.
 - **CI/CD** (`.github/workflows/deploy.yml`): `CHEF_API_URL` repo Actions variable sets the backend URL baked into the frontend build. `RENDER_DEPLOY_HOOK` secret triggers backend redeploy.
 
 ### Stubbed / Not Yet Implemented
@@ -116,6 +116,7 @@ These are in-scope future features still using placeholder/seed data:
 ### Implemented but needs configuration
 - **LLM narrative explanations** — `services/llm.py` calls Groq Llama 3.1 8B; requires `GROQ_API_KEY` set in Render dashboard
 - **Vision / screenshot parsing** — `routers/vision.py` calls Groq Llama 4 Scout (`meta-llama/llama-4-scout-17b-16e-instruct`); requires same `GROQ_API_KEY`. Used by history page screenshot-to-log feature.
+- **Recipe generation** — `services/mealdb.py:generate_recipes()` calls Anthropic Claude; requires `ANTHROPIC_API_KEY`. Without it, recipe suggestions silently return MealDB results only.
 - **TheMealDB live search** — `services/mealdb.py` fetches live results; wired into `/recipes/search` alongside seed data
 - **WebAuthn passkey / biometric sign-in** — `routers/webauthn.py`; requires `WEBAUTHN_RP_ID`, `WEBAUTHN_ORIGIN`, `WEBAUTHN_RP_NAME` env vars in production. Endpoints: `POST /auth/webauthn/register/begin|complete` (requires Bearer token), `POST /auth/webauthn/login/begin|complete` (public, returns JWT). Frontend: `src/hooks/usePasskey.ts` + `PasskeyBanner` post-login prompt.
 
