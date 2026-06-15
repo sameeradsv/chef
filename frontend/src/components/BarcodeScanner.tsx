@@ -27,10 +27,24 @@ export function BarcodeScanner({ onDetected, onClose }: Props) {
 
     async function start() {
       try {
-        const { BrowserMultiFormatReader } = await import("@zxing/browser");
+        const [{ BrowserMultiFormatReader }, { DecodeHintType, BarcodeFormat }] = await Promise.all([
+          import("@zxing/browser"),
+          import("@zxing/library"),
+        ]);
         if (cancelled) return;
 
-        const reader = new BrowserMultiFormatReader();
+        const hints = new Map();
+        hints.set(DecodeHintType.POSSIBLE_FORMATS, [
+          BarcodeFormat.EAN_13,
+          BarcodeFormat.EAN_8,
+          BarcodeFormat.UPC_A,
+          BarcodeFormat.UPC_E,
+          BarcodeFormat.CODE_128,
+          BarcodeFormat.CODE_39,
+          BarcodeFormat.QR_CODE,
+        ]);
+        hints.set(DecodeHintType.TRY_HARDER, true);
+        const reader = new BrowserMultiFormatReader(hints);
         const controls = await reader.decodeFromConstraints(
           { video: { facingMode: { ideal: "environment" } } },
           videoRef.current!,
@@ -218,8 +232,9 @@ export function BarcodeScanner({ onDetected, onClose }: Props) {
 
       {/* Status text when scanning */}
       {status === "scanning" && (
-        <div className="absolute text-center" style={{ top: "calc(50% + 110px)", left: 0, right: 0 }}>
-          <p className="text-white text-[11px] font-mono tracking-[0.15em]">POINT AT BARCODE OR LABEL</p>
+        <div className="absolute text-center px-4" style={{ top: "calc(50% + 110px)", left: 0, right: 0 }}>
+          <p className="text-white text-[11px] font-mono tracking-[0.15em]">ALIGN THE VERTICAL STRIPES IN THE BOX</p>
+          <p className="text-white/50 text-[10px] font-mono tracking-[0.08em] mt-1">not the numbers — the black &amp; white bars above them</p>
         </div>
       )}
 

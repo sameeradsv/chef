@@ -244,6 +244,7 @@ class UserAccountResponse(BaseModel):
 class CookingHistoryCreate(BaseModel):
     decision: Literal["cook", "order", "eat_out"]
     recipe_name: Optional[str] = None
+    restaurant_name: Optional[str] = None
     cuisine: Optional[str] = None
     satisfaction: Optional[int] = Field(None, ge=1, le=5)
     timestamp: Optional[datetime] = None
@@ -253,6 +254,7 @@ class CookingHistoryCreate(BaseModel):
 class CookingHistoryUpdate(BaseModel):
     decision: Optional[Literal["cook", "order", "eat_out"]] = None
     recipe_name: Optional[str] = None
+    restaurant_name: Optional[str] = None
     cuisine: Optional[str] = None
     satisfaction: Optional[int] = Field(None, ge=1, le=5)
     timestamp: Optional[datetime] = None
@@ -263,6 +265,7 @@ class CookingHistoryResponse(BaseModel):
     id: str
     decision: str
     recipe_name: Optional[str]
+    restaurant_name: Optional[str] = None
     cuisine: Optional[str]
     timestamp: datetime
     satisfaction: Optional[int]

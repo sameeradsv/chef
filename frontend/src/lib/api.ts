@@ -207,6 +207,7 @@ export interface HistoryEntry {
   id: string;
   decision: "cook" | "order" | "eat_out";
   recipe_name?: string;
+  restaurant_name?: string;
   cuisine?: string;
   timestamp: string;    // the meal's date/time (user-set, can be backdated)
   created_at?: string;  // when the entry was added to the app
@@ -357,9 +358,9 @@ export const api = {
 
   // History
   getHistory: (limit = 20) => request<HistoryEntry[]>(`/history?limit=${limit}`),
-  logHistory: (data: { decision: string; recipe_name?: string; cuisine?: string; satisfaction?: number; timestamp?: string; cost?: number }) =>
+  logHistory: (data: { decision: string; recipe_name?: string; restaurant_name?: string; cuisine?: string; satisfaction?: number; timestamp?: string; cost?: number }) =>
     request<HistoryEntry>("/history", { method: "POST", body: JSON.stringify(data) }),
-  updateHistory: (id: string, data: { decision?: string; recipe_name?: string; cuisine?: string; satisfaction?: number; timestamp?: string; cost?: number }) =>
+  updateHistory: (id: string, data: { decision?: string; recipe_name?: string; restaurant_name?: string; cuisine?: string; satisfaction?: number; timestamp?: string; cost?: number }) =>
     request<HistoryEntry>(`/history/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
   deleteHistory: (id: string) =>
     request<void>(`/history/${id}`, { method: "DELETE" }),

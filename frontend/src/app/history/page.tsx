@@ -102,6 +102,7 @@ export default function HistoryPage() {
   // Log form state
   const [logDecision, setLogDecision] = useState<"cook" | "order" | "eat_out">("cook");
   const [logRecipe, setLogRecipe]     = useState("");
+  const [logRestaurant, setLogRestaurant] = useState("");
   const [logCuisine, setLogCuisine]   = useState("");
   const [logCost, setLogCost]         = useState<string>("");
   const [logSatisfaction, setLogSatisfaction] = useState<number | undefined>();
@@ -115,6 +116,7 @@ export default function HistoryPage() {
   const [editingId, setEditingId]         = useState<string | null>(null);
   const [editDecision, setEditDecision]   = useState<"cook" | "order" | "eat_out">("cook");
   const [editRecipe, setEditRecipe]       = useState("");
+  const [editRestaurant, setEditRestaurant] = useState("");
   const [editCuisine, setEditCuisine]     = useState("");
   const [editCost, setEditCost]           = useState<string>("");
   const [editSatisfaction, setEditSatisfaction] = useState<number | undefined>();
@@ -141,6 +143,7 @@ export default function HistoryPage() {
       if (result.type === "order") {
         if (result.decision) setLogDecision(result.decision as "cook" | "order" | "eat_out");
         if (result.meal_name) setLogRecipe(result.meal_name);
+        if (result.restaurant_name) setLogRestaurant(result.restaurant_name);
         if (result.cuisine) setLogCuisine(result.cuisine);
         if (result.timestamp) setLogTimestamp(localDatetimeValue(result.timestamp));
       }
@@ -158,6 +161,7 @@ export default function HistoryPage() {
       const entry = await api.logHistory({
         decision: logDecision,
         recipe_name: logRecipe.trim() || undefined,
+        restaurant_name: logRestaurant.trim() || undefined,
         cuisine: logCuisine.trim() || undefined,
         satisfaction: logSatisfaction,
         timestamp: logTimestamp + ":00",   // IST naive — backend converts to UTC
@@ -165,7 +169,7 @@ export default function HistoryPage() {
       });
       setEntries((prev) => [entry, ...prev]);
       setShowLog(false);
-      setLogRecipe(""); setLogCuisine(""); setLogCost(""); setLogSatisfaction(undefined); setLogTimestamp(localDatetimeValue());
+      setLogRecipe(""); setLogRestaurant(""); setLogCuisine(""); setLogCost(""); setLogSatisfaction(undefined); setLogTimestamp(localDatetimeValue());
     } catch {
       setError("Failed to save. Please try again.");
     } finally {
@@ -177,6 +181,7 @@ export default function HistoryPage() {
     setEditingId(entry.id);
     setEditDecision(entry.decision);
     setEditRecipe(entry.recipe_name ?? "");
+    setEditRestaurant(entry.restaurant_name ?? "");
     setEditCuisine(entry.cuisine ?? "");
     setEditCost(entry.cost != null ? String(entry.cost) : "");
     setEditSatisfaction(entry.satisfaction ?? undefined);
@@ -189,6 +194,7 @@ export default function HistoryPage() {
       const updated = await api.updateHistory(id, {
         decision: editDecision,
         recipe_name: editRecipe.trim() || undefined,
+        restaurant_name: editRestaurant.trim() || undefined,
         cuisine: editCuisine.trim() || undefined,
         satisfaction: editSatisfaction,
         timestamp: editTimestamp ? editTimestamp + ":00" : undefined,  // IST naive
@@ -346,6 +352,12 @@ export default function HistoryPage() {
               <MonoLabel className="text-kitchen-muted block mb-1.5">CUISINE (OPTIONAL)</MonoLabel>
               <input value={logCuisine} onChange={(e) => setLogCuisine(e.target.value)} placeholder="e.g. Indian" className={inputCls} style={inputStyle} />
             </div>
+            {(logDecision === "order" || logDecision === "eat_out") && (
+              <div className="col-span-2">
+                <MonoLabel className="text-kitchen-muted block mb-1.5">RESTAURANT (OPTIONAL)</MonoLabel>
+                <input value={logRestaurant} onChange={(e) => setLogRestaurant(e.target.value)} placeholder="e.g. Meghana Foods" className={inputCls} style={inputStyle} />
+              </div>
+            )}
             <div>
               <MonoLabel className="text-kitchen-muted block mb-1.5">COST ₹ (OPTIONAL)</MonoLabel>
               <input type="number" min="0" step="0.01" value={logCost} onChange={(e) => setLogCost(e.target.value)} placeholder="e.g. 350" className={inputCls} style={inputStyle} />
@@ -522,6 +534,17 @@ export default function HistoryPage() {
                         className={inputCls}
                         style={inputStyle}
                       />
+                      {(editDecision === "order" || editDecision === "eat_out") && (
+                        <div className="col-span-2">
+                          <input
+                            value={editRestaurant}
+                            onChange={(e) => setEditRestaurant(e.target.value)}
+                            placeholder="Restaurant (optional)"
+                            className={inputCls}
+                            style={inputStyle}
+                          />
+                        </div>
+                      )}
                       <input
                         type="number" min="0" step="0.01"
                         value={editCost}
@@ -603,6 +626,9 @@ export default function HistoryPage() {
                       </div>
                       {entry.recipe_name && (
                         <p className="text-sm font-display font-normal text-kitchen-text mt-0.5 truncate">{entry.recipe_name}</p>
+                      )}
+                      {entry.restaurant_name && (
+                        <p className="text-xs font-mono mt-0.5 truncate" style={{ color: "rgb(var(--kitchen-accent))" }}>{entry.restaurant_name}</p>
                       )}
                       {entry.cuisine && (
                         <MonoLabel className="text-kitchen-muted">{entry.cuisine}</MonoLabel>
