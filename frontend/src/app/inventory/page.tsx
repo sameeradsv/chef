@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api, type BarcodeResult, type DiscardedIngredient, type Ingredient, type ParsedIngredientItem, type WasteSummaryItem } from "@/lib/api";
+import { fmtDateIST } from "@/lib/tz";
 
 async function fileToBase64(file: File, maxDim = 1024): Promise<{ base64: string; type: string }> {
   return new Promise((resolve, reject) => {
@@ -655,7 +656,7 @@ function WasteLogView() {
                   <p className="text-xs font-mono text-kitchen-muted">{formatCurrency(d.cost)}</p>
                 )}
                 <MonoLabel className="text-kitchen-muted">
-                  {new Date(d.discarded_at).toLocaleDateString("en", { day: "numeric", month: "short" })}
+                  {fmtDateIST(d.discarded_at, { day: "numeric", month: "short" })}
                 </MonoLabel>
               </div>
             </li>
