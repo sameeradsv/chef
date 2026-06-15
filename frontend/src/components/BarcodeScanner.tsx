@@ -46,7 +46,16 @@ export function BarcodeScanner({ onDetected, onClose }: Props) {
         hints.set(DecodeHintType.TRY_HARDER, true);
         const reader = new BrowserMultiFormatReader(hints);
         const controls = await reader.decodeFromConstraints(
-          { video: { facingMode: { ideal: "environment" } } },
+          {
+            video: {
+              facingMode: { ideal: "environment" },
+              width:  { ideal: 1920 },
+              height: { ideal: 1080 },
+              // continuous autofocus — keeps the camera sharp as you move closer/further
+              // "advanced" constraints are silently ignored if the device doesn't support them
+              advanced: [{ focusMode: "continuous" } as MediaTrackConstraintSet],
+            },
+          },
           videoRef.current!,
           async (result) => {
             if (result && !detectedRef.current && !cancelled) {
@@ -234,7 +243,7 @@ export function BarcodeScanner({ onDetected, onClose }: Props) {
       {status === "scanning" && (
         <div className="absolute text-center px-4" style={{ top: "calc(50% + 110px)", left: 0, right: 0 }}>
           <p className="text-white text-[11px] font-mono tracking-[0.15em]">ALIGN THE VERTICAL STRIPES IN THE BOX</p>
-          <p className="text-white/50 text-[10px] font-mono tracking-[0.08em] mt-1">not the numbers — the black &amp; white bars above them</p>
+          <p className="text-white/50 text-[10px] font-mono tracking-[0.08em] mt-1">hold 15–20 cm away · not the numbers, the bars above them</p>
         </div>
       )}
 
