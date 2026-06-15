@@ -2,7 +2,7 @@
 
 **When to read this:** When building UI screens, components, or client calls to the API.
 
-Stack: [ARCHITECTURE.md](./ARCHITECTURE.md) (React, Next.js, TailwindCSS, TypeScript). Endpoints: [API.md](./API.md).
+Stack: Next.js 15 / React 19 / TypeScript / Tailwind CSS — static export deployed to GitHub Pages. Endpoints: [API.md](./API.md).
 
 ---
 
@@ -85,21 +85,51 @@ Substitutions: [AI.md](./AI.md). Recipe model: [DATA_MODELS.md](./DATA_MODELS.md
 ## History screen
 
 - chronological decision log with food swatches and mode icons
-- satisfaction star ratings
-- log from order screenshot (vision AI → `POST /vision/parse`)
+- satisfaction star ratings (1–5 stars per entry)
+- datetime picker on the log form — `timestamp` sent to backend is the meal's actual time, not the entry time; energy and nutrition endpoints filter by this field
+- log from order screenshot (vision AI → `POST /vision/parse` pre-fills form)
+- edit and delete entries
 
-**Data sources:** `GET /history`, `POST /history`, `PATCH /history/{id}`, `DELETE /history/{id}`.
+**Data sources:** `GET /history`, `POST /history`, `PATCH /history/{id}`, `DELETE /history/{id}`, `POST /vision/parse`.
+
+---
+
+## Health screen
+
+- SVG macro rings — calories, protein, carbs, fat, fiber, sugar, sodium
+- per-nutrient RDA status bars (low/ok/high) for vitamins and minerals
+- food gap suggestions keyed by meal type (breakfast/lunch/snack/dinner)
+- time window selector (7 / 30 / 90 days)
+
+**Data sources:** `GET /nutrition/summary?days=N`.
+
+---
+
+## Chat screen
+
+- terminal-style text interface powered by Conduit backend (`scope=chef` tool set)
+- queries like "What should I cook?", "Should I order tonight?", "Log that I ate sushi"
+- requires `NEXT_PUBLIC_CONDUIT_API_URL` in `.env.local`; shows "not configured" message if unset
+
+---
+
+## Recipe browse screen
+
+- grid of all seed + TheMealDB recipes with pantry match %, time, difficulty
+- `RecipeCoverageScatter` visualisation — pantry coverage vs estimated cost scatter plot
+- links through to `/recipe/[id]` for detail
+
+**Data sources:** `GET /recipes/search`, `GET /recipes/recommend`.
 
 ---
 
 ## Settings screen
 
-- cuisines, spice level, dietary restrictions, cooking skill
-- appearance (theme picker, reduce motion toggle)
-- kitchen defaults (cook time, effort budget sliders)
-- notifications (expiring ingredients, time-to-start alerts)
+- cuisines, spice level, dietary restrictions, vegetarian toggle, cooking skill, city, people count
+- appearance (theme picker — Hearth dark / Mise warm)
+- Security section — WebAuthn passkey registration (`POST /auth/webauthn/register/begin|complete`)
 
-**Data sources:** `GET /user/preferences`, `PUT /user/preferences`. Theme + appearance are localStorage-only.
+**Data sources:** `GET /user/preferences`, `PUT /user/preferences`. Theme is localStorage-only.
 
 ---
 
@@ -109,3 +139,6 @@ Substitutions: [AI.md](./AI.md). Recipe model: [DATA_MODELS.md](./DATA_MODELS.md
 - Show three options side-by-side with cost, time, effort, and bullet reasons from API structured fields.
 - Expiry alerts on dashboard must match backend expiry logic ([AI.md](./AI.md) prohibitions).
 - The frontend is a Next.js static export (PWA) deployed to GitHub Pages — no React Native.
+- Nav has 8 tabs: Home / Pantry / Decide / Grocery / History / Health / Chat / You (Settings).
+- Timestamp semantics: always send `timestamp` as IST naive string; backend converts to UTC. Energy/nutrition filters use `timestamp` (meal time), so a backdated entry lands on the correct date.
+- Pantry theme (third colour scheme) and density control were deliberately dropped — do not re-add without approval.

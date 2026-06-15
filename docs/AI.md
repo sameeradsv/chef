@@ -4,12 +4,14 @@
 
 ---
 
-## Providers (initial)
+## Providers (current)
 
-- OpenAI
-- Anthropic
+- **Groq** — primary LLM provider
+  - `llama-3.1-8b-instant` via `services/llm.py` — narrative explanations for decision engine
+  - `meta-llama/llama-4-scout-17b-16e-instruct` via `routers/vision.py` — image parsing (order screenshots, ingredient photos)
+- Requires `GROQ_API_KEY` env var; features degrade gracefully if absent (no narratives, no vision parsing)
 
-Stack context: [ARCHITECTURE.md](./ARCHITECTURE.md).
+Stack context: FastAPI backend on Render, Neon PostgreSQL. See CLAUDE.md for full stack detail.
 
 ---
 
@@ -70,7 +72,7 @@ Search recipes using:
 - effort constraints
 - dietary restrictions
 
-Sources and APIs: [INTEGRATIONS.md](./INTEGRATIONS.md). Embeddings: pgvector per [ARCHITECTURE.md](./ARCHITECTURE.md).
+Sources and APIs: [INTEGRATIONS.md](./INTEGRATIONS.md). Embeddings: pgvector (stubbed — keyword search only for now).
 
 ---
 
@@ -112,9 +114,15 @@ Prefer reducing food waste.
 
 ---
 
+## Vision parsing
+
+`POST /vision/parse` accepts a base64-encoded image and a `parse_type` ("order" or "ingredients"). Returns structured fields (decision, meal_name, cuisine, timestamp for orders; ingredient list for pantry photos). Used by:
+- History page screenshot-to-log feature
+- Inventory page photo-add flow
+
 ## Phase alignment
 
-- **Week 3 (MVP):** AI recommendation layer + natural language queries ([ROADMAP.md](./ROADMAP.md))
+- **MVP (complete):** AI recommendation layer, narrative explanations, vision parsing, ingredient normalization
 - **Phase 2–3:** personalization and predictive copy—not a substitute for deterministic core
 
 ---

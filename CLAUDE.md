@@ -48,18 +48,33 @@ docker compose up -d postgres
 | File | Responsibility |
 |---|---|
 | `main.py` | FastAPI app init, router registration, CORS, DB seed on startup |
-| `models.py` | SQLAlchemy ORM: `Ingredient`, `UserState`, `UserPreferences` |
+| `models.py` | SQLAlchemy ORM: `Ingredient`, `UserState`, `UserPreferences`, `CookingHistory`, `GroceryItem`, `DiscardedIngredient`, `AuthSession`, `WebAuthnCredential`, `WebAuthnChallenge` |
 | `schemas.py` | Pydantic request/response types |
 | `database.py` | DB session factory; SQLite default, PostgreSQL via `DATABASE_URL` env var |
 | `seed.py` | Populates `data/seed_recipes.json` + `data/seed_restaurants.json` on first run |
 
-**Routers**: `/ingredients` (CRUD), `/recipes/recommend|search/{id}`, `/decision/cook-vs-order|recommend-meal`, `/user/state|preferences (GET+PUT)`, `/grocery` (CRUD + suggestions), `/history` (log+list), `/auth/register|login|me`, `/health`
+**Routers**:
+- `/ingredients` (CRUD), `/recipes/recommend|search/{id}`, `/decision/cook-vs-order|recommend-meal`, `/user/state|preferences (GET+PUT)`, `/grocery` (CRUD + suggestions), `/history` (log+list+patch+delete), `/auth/register|login|me`, `/health`
+- `/energy/timeline` — per-meal energy score (satisfaction-weighted; cook 0.55, order 0.70, eat_out 0.75 base)
+- `/sync/energy` — today's cumulative decision drain (cook 0.25, eat_out 0.12, order 0.04)
+- `/nutrition/summary` — keyword-based macro/micronutrient averages + RDA gap analysis + food suggestions
+- `/vision/parse` — image-to-meal/ingredient parsing via Groq Llama 4 Scout
+- `/auth/webauthn/register/begin|complete` (Bearer), `/auth/webauthn/login/begin|complete` (public, returns JWT)
 
 **Services** (the core logic):
-- `decision_engine.py` — Deterministic scoring: cook score = `pantry_urgency + health + cost_savings − effort_cost − cleanup`; order score = `convenience + craving_match − delivery_delay − budget_penalty`; eat-out score similar with travel time (~25 min). Expiring-ingredient bonus: +2 for cook.
+- `decision_engine.py` — Deterministic scoring: cook score = `pantry_urgency + health + cost_savings − effort_cost − cleanup`; order score = `convenience + craving_match − delivery_delay − budget_penalty`; eat-out score similar with travel time (~25 min). Expiring-ingredient bonus: +2 for cook. Energy-aware restaurant selection.
 - `freshness.py` — `compute_freshness_score(expiry_date, buy_date, opened)` → 0–10; `compute_expiry_urgency(expiry_date)` → 0–10
-- `recipes.py` — Recipe matching against pantry inventory + ingredient substitutions
+- `recipes.py` — Recipe matching against pantry inventory + ingredient substitutions; history-aware recommendations
 - `normalize.py` — Ingredient name normalization before DB storage
+- `health.py` — Keyword-based nutrition estimation (`estimate_meal_nutrition`), daily RDA averages (`analyze_history`), gap-driven food suggestions (`build_suggestions`)
+- `personalization.py` — `get_user_profile`: analyzes last 30 history entries + stored prefs to derive favorite cuisines, cook frequency, weekday patterns
+- `barcode.py` — Open Food Facts API (`world.openfoodfacts.org`) lookup; parses quantity/unit from product data
+- `restaurants.py` — Seed-data restaurant scoring + filtering; energy-aware fast-food option injection
+- `grocery.py` — Grocery suggestion logic
+- `llm.py` — Groq Llama 3.1 8B narrative explanations (requires `GROQ_API_KEY`)
+- `mealdb.py` — TheMealDB live recipe search; wired into `/recipes/search` alongside seed data
+
+**`CookingHistoryModel` field semantics**: `timestamp` = the meal's actual date/time (user-specified, defaults to insert time if omitted); `created_at` = DB insert time (always entry time). Energy and nutrition endpoints filter by `timestamp` so backdated entries land on their original date, not today.
 
 Data is multi-user — all tables keyed by `user_id`. JWT auth (30-day tokens, bcrypt passcodes). Demo account: `demo` / `demo1234`.
 
@@ -68,25 +83,28 @@ Data is multi-user — all tables keyed by `user_id`. JWT auth (30-day tokens, b
 | Path | Responsibility |
 |---|---|
 | `app/layout.tsx` | Root layout wrapped in `<AuthWrapper>` |
-| `app/page.tsx` | Dashboard — expiring items, recommendations, quick recipe list |
+| `app/page.tsx` | Dashboard — expiring items, recommendations, `WeekGlance` strip, `ThemeToggle` |
 | `app/inventory/page.tsx` | Pantry CRUD |
 | `app/decision/page.tsx` | Cook vs order vs eat out comparison UI |
-| `app/recipe/[id]/page.tsx` | Recipe detail with pantry ingredient usage |
+| `app/recipe/page.tsx` | Recipe browse + `RecipeCoverageScatter` pantry coverage chart |
+| `app/recipe/[id]/page.tsx` | Recipe detail with pantry ingredient usage and interactive cooking steps |
 | `app/grocery/page.tsx` | Grocery list — add/buy/delete items + AI suggestions |
-| `app/history/page.tsx` | Decision history — log + satisfaction ratings |
+| `app/history/page.tsx` | Decision history — log (with datetime picker), edit, delete, satisfaction ratings; screenshot-to-log via vision API |
+| `app/health/page.tsx` | Nutrition health — macro rings (SVG), per-nutrient RDA bars, meal-type-keyed food suggestions |
+| `app/chat/page.tsx` | Terminal-style chat UI (`<TerminalChat>` component) |
 | `app/settings/page.tsx` | User preferences — cuisines, spice level, dietary |
-| `app/login/page.tsx` | Login / register |
+| `app/login/page.tsx` | Login / register; pings `/health` to check backend reachability |
 | `lib/api.ts` | Typed fetch wrapper; all API types live here; reads `NEXT_PUBLIC_API_URL` |
 | `lib/utils.ts` | `expiryBadge`, `formatCurrency` helpers |
 | `contexts/AuthContext.tsx` | JWT token state, login/register/logout, localStorage persistence |
-| `components/` | `Layout.tsx` (nav), `AuthWrapper.tsx`, `Card.tsx`, `DecisionCard.tsx` |
+| `components/` | `Layout.tsx` (nav — 8 tabs: Home/Pantry/Decide/Grocery/History/Health/Chat/You), `AuthWrapper.tsx`, `Card.tsx`, `DecisionCard.tsx`, `TerminalChat.tsx`, `BarcodeScanner.tsx` |
 
 Custom Tailwind color tokens are defined as CSS variables (`--kitchen-bg`, `--kitchen-accent`, `--kitchen-warn`, etc.) in `globals.css`.
 
 ### Deployment
 
 - **Frontend**: GitHub Actions builds `next export` (static) with `basePath: "/chef"`, deploys to GitHub Pages. PWA is disabled in dev and on GitHub Pages build.
-- **Backend**: Render Blueprint (`render.yaml`) — Python 3.11, `uvicorn app.main:app --host 0.0.0.0 --port $PORT`. Database is **Neon PostgreSQL** (free tier, external) — set `DATABASE_URL` manually in Render dashboard after deploy. Set `ANTHROPIC_API_KEY` manually in Render dashboard to enable LLM narratives.
+- **Backend**: Render Blueprint (`render.yaml`) — Python 3.11, `uvicorn app.main:app --host 0.0.0.0 --port $PORT`; health check path `/health`. Database is **Neon PostgreSQL** (free tier, external) — set `DATABASE_URL` manually in Render dashboard after deploy. Set `GROQ_API_KEY` manually in Render dashboard to enable LLM narratives and vision parsing.
 - **CI/CD** (`.github/workflows/deploy.yml`): `CHEF_API_URL` repo Actions variable sets the backend URL baked into the frontend build. `RENDER_DEPLOY_HOOK` secret triggers backend redeploy.
 
 ### Stubbed / Not Yet Implemented
@@ -97,6 +115,7 @@ These are in-scope future features still using placeholder/seed data:
 
 ### Implemented but needs configuration
 - **LLM narrative explanations** — `services/llm.py` calls Groq Llama 3.1 8B; requires `GROQ_API_KEY` set in Render dashboard
+- **Vision / screenshot parsing** — `routers/vision.py` calls Groq Llama 4 Scout (`meta-llama/llama-4-scout-17b-16e-instruct`); requires same `GROQ_API_KEY`. Used by history page screenshot-to-log feature.
 - **TheMealDB live search** — `services/mealdb.py` fetches live results; wired into `/recipes/search` alongside seed data
 - **WebAuthn passkey / biometric sign-in** — `routers/webauthn.py`; requires `WEBAUTHN_RP_ID`, `WEBAUTHN_ORIGIN`, `WEBAUTHN_RP_NAME` env vars in production. Endpoints: `POST /auth/webauthn/register/begin|complete` (requires Bearer token), `POST /auth/webauthn/login/begin|complete` (public, returns JWT). Frontend: `src/hooks/usePasskey.ts` + `PasskeyBanner` post-login prompt.
 
@@ -127,10 +146,17 @@ The design handoff (`Claude Design/chef-designs/design_handoff_kitchen_intellige
 | Add Ingredient — Voice mode | `app/inventory/page.tsx` — Manual / Voice switcher in `IngredientSheet`; Web Speech API |
 | Recipe Method — interactive cooking steps | `app/recipe/[id]/RecipeClient.tsx` — "Begin cooking" CTA, active-step highlight, "Step done →" advance |
 | Barcode Scanner — detected-product overlay | `components/BarcodeScanner.tsx` — full-screen camera, amber reticle, bottom confirm sheet with qty + storage |
+| Nutrition / Health page | `app/health/page.tsx` — macro rings, per-nutrient RDA status, meal-type-keyed food suggestions; backed by `/nutrition/summary` |
+| Chat page | `app/chat/page.tsx` + `components/TerminalChat.tsx` — terminal-style LLM chat |
+| Recipe browse page | `app/recipe/page.tsx` — recipe list with pantry coverage scatter chart |
 
 ### Additions Beyond Design Spec
 
 These components were built during implementation and are intentional additions not in the original design handoff:
 
 - `components/DecisionScoreWaterfall.tsx` — horizontal bar chart breaking down score factors per decision mode; shown as collapsible section on the Decision page
-- `components/RecipeCoverageScatter.tsx` — scatter/coverage visualisation for recipe pantry match; newly implemented, keep
+- `components/RecipeCoverageScatter.tsx` — scatter/coverage visualisation for recipe pantry match; used on `app/recipe/page.tsx`
+- `routers/energy.py` + `routers/sync.py` — per-meal energy scoring and today's cumulative drain; consumed by cross-app energy integrations
+- `routers/nutrition.py` + `services/health.py` — keyword-based macro/micronutrient analysis with RDA gap detection and Indian-diet-aware food suggestions
+- `routers/vision.py` — Groq Llama 4 Scout image parser; powers screenshot-to-log on the history page
+- `services/personalization.py` — user profile derived from cooking history; feeds history-aware meal recommendations

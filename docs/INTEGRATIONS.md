@@ -8,21 +8,17 @@ Decision scoring consumes outputs here: [DECISION_ENGINE.md](./DECISION_ENGINE.m
 
 ## Recipe sources
 
-Possible approaches:
+### Implemented
 
-### APIs
+- **TheMealDB** (`services/mealdb.py`) — live keyword search; results merged with seed data in `GET /recipes/search` and `GET /recipes/recommend`. No API key required.
+- **Seed data** (`data/seed_recipes.json`) — static recipe library seeded on first backend run.
 
-- Spoonacular
-- Edamam
-- TheMealDB
+### Stubbed / not yet integrated
 
-### Web retrieval
+- Spoonacular, Edamam — not integrated
+- pgvector semantic search — keyword `q` filter only; needs PostgreSQL + pgvector extension
 
-- recipe websites
-- structured scraping
-- semantic extraction
-
-Use for `GET /recipes/search` and `GET /recipes/recommend` ([API.md](./API.md)). Semantic layer: pgvector ([ARCHITECTURE.md](./ARCHITECTURE.md)).
+Use for `GET /recipes/search` and `GET /recipes/recommend` ([API.md](./API.md)).
 
 ---
 

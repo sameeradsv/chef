@@ -48,7 +48,7 @@ Chef should **not** rely entirely on AI for the decision engine. Use determinist
 4. **Explain every recommendation** — Cost, time, effort, and expiry reasons must be visible ([FRONTEND.md](./FRONTEND.md) Decision screen).
 5. **Protect deterministic truth** — Quantities, dates, and scores computed in code; LLM narrates and retrieves ([AI.md](./AI.md)).
 
-Vision and philosophy: [VISION.md](./VISION.md). Agent guardrails: [AGENTS.md](./AGENTS.md).
+Agent guardrails: [AGENTS.md](./AGENTS.md).
 
 ---
 

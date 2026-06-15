@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, time as _time, timedelta, timezone
 from typing import Optional
 from zoneinfo import ZoneInfo
 
@@ -22,6 +22,16 @@ _DECISION_BASE: dict[str, float] = {
     "eat_out":  0.75,  # social, usually enjoyable
 }
 
+# Expected meal windows in IST — (name, window_open, window_close)
+_MEAL_WINDOWS: list[tuple[str, _time, _time]] = [
+    ("breakfast", _time(7, 0),  _time(10, 30)),
+    ("lunch",     _time(12, 0), _time(15, 0)),
+    ("dinner",    _time(19, 0), _time(22, 0)),
+]
+
+# Energy value assigned to a skipped meal event (clearly below the 0.35 "draining" threshold)
+_SKIP_ENERGY = 0.10
+
 
 def _meal_energy(entry: CookingHistoryModel) -> float:
     base = _DECISION_BASE.get(entry.decision, 0.60)
@@ -30,6 +40,34 @@ def _meal_energy(entry: CookingHistoryModel) -> float:
         # satisfaction dominates (70%), decision type is context (30%)
         return round(base * 0.3 + sat * 0.7, 3)
     return round(base, 3)
+
+
+def _skipped_events(entries: list, target, now_utc_naive: datetime) -> list:
+    """Return synthetic draining events for meal windows that closed with no logged entry."""
+    result = []
+    for name, w_start, w_end in _MEAL_WINDOWS:
+        win_start_ist = datetime(target.year, target.month, target.day,
+                                 w_start.hour, w_start.minute, tzinfo=_IST)
+        win_end_ist   = datetime(target.year, target.month, target.day,
+                                 w_end.hour, w_end.minute, tzinfo=_IST)
+        win_end_utc   = win_end_ist.astimezone(timezone.utc).replace(tzinfo=None)
+        # Only flag windows that have fully closed
+        if now_utc_naive < win_end_utc:
+            continue
+        win_start_utc = win_start_ist.astimezone(timezone.utc).replace(tzinfo=None)
+        # If any entry's meal timestamp falls inside this window, it's not skipped
+        if any(win_start_utc <= e.timestamp < win_end_utc for e in entries):
+            continue
+        result.append({
+            "occurred_at": win_end_utc.isoformat() + "Z",
+            "time":        win_end_ist.strftime("%H:%M"),
+            "energy":      _SKIP_ENERGY,
+            "label":       "draining",
+            "note":        f"no {name}",
+            "source":      "chef",
+            "skipped":     True,
+        })
+    return result
 
 
 @router.get("/timeline")
@@ -66,6 +104,8 @@ def energy_timeline(
         .all()
     )
 
+    now_utc = datetime.now(timezone.utc).replace(tzinfo=None)
+
     events = []
     for entry in entries:
         energy = _meal_energy(entry)
@@ -81,7 +121,11 @@ def energy_timeline(
             "label": label,
             "note": note[:80],
             "source": "chef",
+            "skipped": False,
         })
+
+    events += _skipped_events(entries, target, now_utc)
+    events.sort(key=lambda e: e["occurred_at"])
 
     avg = round(sum(e["energy"] for e in events) / len(events), 3) if events else None
     return {

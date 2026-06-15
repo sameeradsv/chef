@@ -121,12 +121,14 @@ export DATABASE_URL=postgresql://chef:chef@localhost:5432/chef
 
 | Route | Purpose |
 |-------|---------|
-| `/` | Dashboard — expiring items, mood-aware recommendation, quick recipes |
+| `/` | Dashboard — expiring items, mood-aware recommendation, quick recipes, week glance strip |
 | `/inventory` | Pantry CRUD, barcode/photo add, expiry badges, discard + waste log |
-| `/decision` | Cook vs order vs eat out — factor breakdown, context sliders |
-| `/recipe/[id]` | Recipe detail, pantry match, substitutions, link to compare |
+| `/decision` | Cook vs order vs eat out — factor breakdown, context sliders, score waterfall |
+| `/recipe` | Recipe browse — list + pantry coverage scatter chart |
+| `/recipe/[id]` | Recipe detail, pantry match, substitutions, interactive cooking steps |
 | `/grocery` | Grocery list — add/buy/delete, AI suggestions |
-| `/history` | Decision log, satisfaction ratings, auto-fill from screenshot |
+| `/history` | Decision log, satisfaction ratings, datetime picker for backdating, auto-fill from screenshot |
+| `/health` | Nutrition health — macro rings, per-nutrient RDA status, meal-type food suggestions |
 | `/chat` | Terminal chat — ask "What should I cook?", "Should I order tonight?", "Log that I ate sushi" |
 | `/settings` | Cuisines, spice level, dietary restrictions, cooking skill, biometric sign-in (Security section) |
 
@@ -200,6 +202,22 @@ export DATABASE_URL=postgresql://chef:chef@localhost:5432/chef
 |--------|------|-------------|
 | POST | `/vision/parse` | Parse screenshot or photo → pre-fill form fields |
 
+### Energy
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/energy/timeline` | Per-meal energy events for a calendar day (`?date=YYYY-MM-DD`, default today IST) |
+| GET | `/sync/energy` | Today's cumulative decision drain + meals detail |
+
+### Nutrition
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/nutrition/summary` | Macro/micronutrient daily averages + RDA gap analysis + food suggestions (`?days=7`) |
+
+### Health check
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/health` | `{"status":"ok","service":"chef-api"}` — used by Render health check and login page connectivity probe |
+
 ---
 
 ## Decision scoring
@@ -243,19 +261,24 @@ Open the GitHub Pages URL in Safari (iOS) or Chrome (Android) and install from t
 chef/
   backend/
     app/
-      routers/      # ingredients, recipes, decision, user, grocery, history, vision, auth
-      services/     # decision_engine, freshness, recipes, normalize, barcode, llm
-      models.py     # SQLAlchemy ORM
+      routers/      # ingredients, recipes, decision, user, grocery, history, vision, auth,
+                    # webauthn, energy, sync, nutrition
+      services/     # decision_engine, freshness, recipes, normalize, barcode, llm,
+                    # health, personalization, restaurants, grocery, mealdb
+      models.py     # SQLAlchemy ORM (Ingredient, UserState, UserPrefs, CookingHistory,
+                    # GroceryItem, DiscardedIngredient, AuthSession, WebAuthnCredential/Challenge)
       schemas.py    # Pydantic request/response types
       database.py   # session factory + migration helpers
     data/           # seed_recipes.json, seed_restaurants.json
   frontend/
     src/
-      app/          # Next.js pages
-      components/   # Layout, AuthWrapper, BarcodeScanner, Card
+      app/          # Next.js pages (/, /inventory, /decision, /recipe, /recipe/[id],
+                    # /grocery, /history, /health, /chat, /settings, /login)
+      components/   # Layout (8-tab nav), AuthWrapper, BarcodeScanner, Card,
+                    # DecisionScoreWaterfall, RecipeCoverageScatter, TerminalChat
       lib/          # api.ts (typed fetch), utils.ts
       contexts/     # AuthContext
-  docs/             # Architecture, decision engine, API, roadmap docs
+  docs/             # Architecture, decision engine, API, data models, roadmap docs
   render.yaml       # Render deploy blueprint
   docker-compose.yml
 ```

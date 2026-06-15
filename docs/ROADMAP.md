@@ -64,30 +64,22 @@ Sources: [INTEGRATIONS.md](./INTEGRATIONS.md). AI behavior: [AI.md](./AI.md).
 
 ## Phase 2 — Personalization
 
-### User modeling
+### User modeling ✅ partially done
 
-Track:
+- `services/personalization.py` — `get_user_profile` analyzes last 30 history entries + stored prefs to derive favorite cuisines, cook frequency, weekday patterns
+- Stored prefs: cooking skill, city, people count, vegetarian toggle, dietary restrictions, favorite cuisines, spice level
 
-- cooking habits
-- effort tolerance
-- weekday behavior
-- weekend behavior
-- favorite cuisines
-- preferred spice levels
-- ordering frequency
+### Smarter recommendations ✅ partially done
 
-### Smarter recommendations
-
-- personalized recipes
-- comfort food suggestions
-- energy-aware recommendations
-- seasonal recommendations
+- History-aware recipe recommendations (avoids recently cooked meals)
+- Energy-aware restaurant selection (low-energy state injects fast-food options)
+- Cross-app energy influence on decision scoring (Cortex integration)
+- Nutrition gap analysis (`/nutrition/summary`) drives food suggestions per meal type
 
 ### Grocery optimization
 
-- frequently missing ingredients
-- predictive grocery suggestions
-- shopping frequency optimization
+- AI suggestions (`GET /grocery/suggestions`) based on pantry gaps — implemented
+- Predictive / frequency-based suggestions — not yet built
 
 ---
 

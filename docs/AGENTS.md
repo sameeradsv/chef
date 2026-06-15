@@ -31,7 +31,7 @@ Chef **is**:
 - inventory + expiry-aware recommendations
 - a **deterministic decision engine** augmented by LLM reasoning—not replaced by it
 
-Deeper vision: [VISION.md](./VISION.md). Moat and anti-goals: [FOUNDING_PRINCIPLES.md](./FOUNDING_PRINCIPLES.md).
+Moat and anti-goals: [FOUNDING_PRINCIPLES.md](./FOUNDING_PRINCIPLES.md).
 
 ---
 
@@ -46,7 +46,7 @@ Priority order:
 5. **Retrieval quality** (recipes, substitutions)
 6. **AI augmentation** (NL, normalization, narrative)—never sole authority for scores
 
-Stack and layers: [ARCHITECTURE.md](./ARCHITECTURE.md). Schemas: [DATA_MODELS.md](./DATA_MODELS.md).
+Schemas: [DATA_MODELS.md](./DATA_MODELS.md). Stack detail: CLAUDE.md at repo root.
 
 ---
 

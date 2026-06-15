@@ -138,9 +138,76 @@ MVP sourcing: [INTEGRATIONS.md](./INTEGRATIONS.md)—not full platform API integ
 
 ---
 
+## Cooking history entry
+
+```json
+{
+  "id": "uuid",
+  "decision": "cook",
+  "recipe_name": "Dal Tadka",
+  "cuisine": "Indian",
+  "timestamp": "2026-06-13T19:30:00+05:30",
+  "satisfaction": 4,
+  "cost": 80.0,
+  "created_at": "2026-06-15T10:00:00+05:30"
+}
+```
+
+| Field | Semantics |
+|-------|-----------|
+| `decision` | `cook` \| `order` \| `eat_out` |
+| `timestamp` | **Meal time** — user-specified via datetime picker; defaults to entry time if omitted. This is the anchor for energy and nutrition date filtering. Always sent as IST naive, stored as UTC. |
+| `created_at` | **Entry time** — when the DB record was created; always entry time. Used for sorting the history feed (most recently logged first). |
+| `satisfaction` | Optional 1–5 star rating; drives energy score (70% weight). |
+
+**Key invariant:** `timestamp` ≠ `created_at` when the user backdates an entry. Energy (`/energy/timeline`) and nutrition (`/nutrition/summary`) filter by `timestamp`, so backdated entries land on their original date.
+
+---
+
+## Grocery item
+
+```json
+{
+  "id": "uuid",
+  "ingredient_name": "Spinach",
+  "quantity": 200.0,
+  "unit": "grams",
+  "bought": false,
+  "added_at": "2026-06-15T10:00:00Z"
+}
+```
+
+| Field | Semantics |
+|-------|-----------|
+| `bought` | Toggle via `PUT /grocery/{id}`; bought items are filtered out of active list |
+
+---
+
+## Discarded ingredient
+
+```json
+{
+  "id": "uuid",
+  "ingredient_name": "Paneer",
+  "normalized_name": "paneer",
+  "quantity": 100.0,
+  "unit": "grams",
+  "cost": 60.0,
+  "buy_date": "2026-06-01",
+  "expiry_date": "2026-06-10",
+  "discard_reason": "expired",
+  "discarded_at": "2026-06-11T08:00:00Z"
+}
+```
+
+`discard_reason` values: `expired` \| `spoiled` \| `other`. Used by `/ingredients/waste-summary` to compute most-wasted items and cumulative cost.
+
+---
+
 ## Implementation notes for agents
 
 - Compute `freshness_score` and expiry urgency in application code; do not use AI for expiry calculations ([AI.md](./AI.md)).
 - Normalize ingredient names on write or ingest; store both `name` and `normalized_name`.
 - Keep `ingredients` on Recipe resolvable to pantry `normalized_name` for availability and substitution flows.
 - Restaurant options are comparison inputs to the decision engine, not the source of truth for user inventory.
+- When logging history, always pass `timestamp` as the meal's actual date/time (IST naive); the backend converts to UTC and uses it for all time-based filtering.
