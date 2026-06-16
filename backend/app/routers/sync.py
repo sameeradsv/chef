@@ -8,7 +8,12 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.dependencies import get_current_user
 from app.models import CookingHistoryModel, UserAccountModel
-from app.tz_utils import ist_today, utc_naive_to_ist_str
+from app.tz_utils import (
+    current_meal_day,
+    logical_meal_date_from_utc_naive,
+    meal_day_bounds,
+    utc_naive_to_ist_str,
+)
 
 router = APIRouter(prefix="/sync", tags=["sync"])
 
@@ -41,12 +46,11 @@ def energy_summary(
     Logged meal drain: cook=0.12, eat_out=0.07, order=0.03
     Skipped window drain: breakfast=0.20, lunch=0.25, dinner=0.15
     Having any meal always drains less than skipping it.
-    Day boundary is IST midnight, consistent with energy.py.
+    Day boundary is meal-log day (06:00 IST → next 06:00), consistent with energy.py.
     """
     now = datetime.now(timezone.utc).replace(tzinfo=None)
-    ist_today_date = ist_today()
-    today_start = datetime(ist_today_date.year, ist_today_date.month, ist_today_date.day) - _IST
-    today_end = today_start + timedelta(days=1)
+    meal_day = current_meal_day()
+    today_start, today_end = meal_day_bounds(meal_day.isoformat())
 
     meals_today = (
         db.query(CookingHistoryModel)
@@ -64,14 +68,25 @@ def energy_summary(
     # Add biological drain for meal windows that closed without any logged entry
     skipped_meals = []
     for name, w_start, w_end, skip_drain in _MEAL_WINDOWS:
-        win_start_naive = datetime(ist_today_date.year, ist_today_date.month, ist_today_date.day,
+        win_start_naive = datetime(meal_day.year, meal_day.month, meal_day.day,
                                    w_start.hour, w_start.minute) - _IST
-        win_end_naive   = datetime(ist_today_date.year, ist_today_date.month, ist_today_date.day,
+        win_end_naive   = datetime(meal_day.year, meal_day.month, meal_day.day,
                                    w_end.hour, w_end.minute) - _IST
-        if now < win_end_naive:  # window hasn't closed yet
+        if name == "dinner":
+            if now < today_end:
+                continue
+        elif now < win_end_naive:
             continue
-        if any(win_start_naive <= m.timestamp < win_end_naive for m in meals_today):
-            continue  # at least one entry logged in this window
+        covered = any(
+            logical_meal_date_from_utc_naive(m.timestamp) == meal_day
+            and (
+                (name == "dinner" and (m.timestamp + _IST).hour < 6)
+                or (win_start_naive <= m.timestamp < win_end_naive)
+            )
+            for m in meals_today
+        )
+        if covered:
+            continue
         past_drain += skip_drain
         skipped_meals.append({"meal": name, "drain": skip_drain})
 

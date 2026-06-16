@@ -68,10 +68,33 @@ export function istHour(d: Date = new Date()): number {
   return parseInt(new Intl.DateTimeFormat("en-IN", { timeZone: TZ, hour: "numeric", hour12: false }).format(d), 10);
 }
 
+export const MEAL_DAY_START_HOUR = 6;
+
 /** YYYY-MM-DD in IST. */
 export function istDateKey(d: Date | string | number): string {
   if (typeof d === "string" && /^\d{4}-\d{2}-\d{2}/.test(d)) return d.slice(0, 10);
   return new Intl.DateTimeFormat("en-CA", { timeZone: TZ }).format(istInstant(d));
+}
+
+/** Meal-log day key — entries before 06:00 IST roll to the previous day. */
+export function mealLogDateKey(d: Date | string | number): string {
+  const key = istDateKey(d);
+  const hour = typeof d === "string" ? istHour(istInstant(d)) : istHour(d instanceof Date ? d : istInstant(d));
+  return hour < MEAL_DAY_START_HOUR ? addDaysIST(key, -1) : key;
+}
+
+/** Current meal-log day (before 06:00 IST still counts as yesterday). */
+export function currentMealDayKey(): string {
+  return mealLogDateKey(new Date());
+}
+
+export function mealTypeFromIST(d: Date | string | number = new Date()): "breakfast" | "lunch" | "snacks" | "dinner" {
+  const hour = typeof d === "string" ? istHour(istInstant(d)) : istHour(d instanceof Date ? d : istInstant(d));
+  if (hour < MEAL_DAY_START_HOUR) return "dinner";
+  if (hour < 11) return "breakfast";
+  if (hour < 16) return "lunch";
+  if (hour < 19) return "snacks";
+  return "dinner";
 }
 
 export function addDaysIST(dateKey: string, delta: number): string {
@@ -99,8 +122,8 @@ function daysBetweenIST(fromKey: string, toKey: string): number {
 
 /** e.g. "Today, 6:30 pm" — all IST, no UTC conversion on the client. */
 export function formatRelativeIST(ist: string): string {
-  const dateKey = istDateKey(ist);
-  const diff = daysBetweenIST(dateKey, todayIST());
+  const dateKey = mealLogDateKey(ist);
+  const diff = daysBetweenIST(dateKey, currentMealDayKey());
   const time = fmtTimeIST(ist);
   let label: string;
   if (diff === 0) label = "Today";
@@ -117,7 +140,7 @@ export function istMinutesApart(a: string, b: string): number {
 export type HistoryTimeFilter = "Week" | "Month" | "Year" | "All";
 
 export function historyDateRange(filter: HistoryTimeFilter): { from?: string; to?: string } {
-  const today = todayIST();
+  const today = currentMealDayKey();
   if (filter === "All") return {};
   if (filter === "Week") return { from: startOfISTWeek(today), to: today };
   if (filter === "Month") return { from: `${today.slice(0, 7)}-01`, to: today };

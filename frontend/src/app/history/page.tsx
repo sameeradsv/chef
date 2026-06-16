@@ -5,8 +5,8 @@ import { api, type HistoryEntry, type HistorySummary } from "@/lib/api";
 import {
   historyDateRange,
   startOfISTWeek,
-  istDateKey,
-  todayIST,
+  mealLogDateKey,
+  currentMealDayKey,
   addDaysIST,
   toDatetimeLocalInput,
   datetimeLocalToIST,
@@ -79,11 +79,11 @@ const TIME_FILTERS = ["Week", "Month", "Year", "All"] as const;
 const PAGE_SIZE = 20;
 
 function groupFeed(items: HistoryEntry[]) {
-  const thisWeekStart = startOfISTWeek(todayIST());
+  const thisWeekStart = startOfISTWeek(currentMealDayKey());
   const lastWeekStart = addDaysIST(thisWeekStart, -7);
 
   function weekStartFor(entry: HistoryEntry): string {
-    return startOfISTWeek(istDateKey(entry.timestamp));
+    return startOfISTWeek(mealLogDateKey(entry.timestamp));
   }
 
   const groups: { label: string; entries: HistoryEntry[] }[] = [

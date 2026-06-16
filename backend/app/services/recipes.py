@@ -129,13 +129,10 @@ _MEAL_HOURS: dict[str, tuple[int, int]] = {
 
 
 def current_meal_type() -> str:
-    from datetime import datetime, timedelta, timezone
-    _IST = timedelta(hours=5, minutes=30)
-    hour = (datetime.now(timezone.utc).replace(tzinfo=None) + _IST).hour
-    for meal, (start, end) in _MEAL_HOURS.items():
-        if start <= hour < end:
-            return meal
-    return "any"
+    from app.tz_utils import meal_type_from_utc_naive
+    from datetime import datetime, timezone
+
+    return meal_type_from_utc_naive(datetime.now(timezone.utc).replace(tzinfo=None))
 
 
 def _recipe_to_response(raw: dict, pantry: list | None = None) -> RecipeResponse:

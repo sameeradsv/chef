@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import os
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Any, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -31,11 +31,9 @@ from app.services.recipes import (
     recommend_recipes,
 )
 from app.services.restaurants import pick_restaurant_for_user
-from app.tz_utils import ist_day_bounds, ist_today
+from app.tz_utils import current_meal_day, ist_today, meal_day_bounds
 
 router = APIRouter(prefix="/agent", tags=["agent"])
-
-_IST_TD = timedelta(hours=5, minutes=30)
 
 _TOOLS = [
     {
@@ -296,11 +294,9 @@ def _tool_food_log(db: Session, user_id: str, inputs: dict[str, Any]) -> Any:
     date_param = inputs.get("date", "today")
     q = db.query(CookingHistoryModel).filter(CookingHistoryModel.user_id == user_id)
     if date_param == "today":
-        filter_date = ist_today()
-        day_start_utc = datetime(filter_date.year, filter_date.month, filter_date.day) - _IST_TD
-        day_end_utc = day_start_utc + timedelta(days=1)
+        day_start_utc, day_end_utc = meal_day_bounds(current_meal_day().isoformat())
     else:
-        day_start_utc, day_end_utc = ist_day_bounds(date_param)
+        day_start_utc, day_end_utc = meal_day_bounds(date_param)
     entries = (
         q.filter(
             CookingHistoryModel.timestamp >= day_start_utc,

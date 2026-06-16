@@ -185,13 +185,10 @@ def estimate_meal_nutrition(recipe_name: str) -> Dict[str, float]:
     return result
 
 
-_IST = timedelta(hours=5, minutes=30)
-
-
-def analyze_history(entries: List, days: int = 7) -> Dict[str, float]:
+from app.tz_utils import logical_meal_date_from_utc_naive
     """
     Aggregate nutrition from CookingHistoryModel rows into daily averages.
-    Only rows with a recipe_name contribute. Day boundaries use IST.
+    Only rows with a recipe_name contribute. Day boundaries use meal-log days (IST).
     """
     cutoff = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=days)
     recent = [e for e in entries if e.timestamp >= cutoff]
@@ -202,8 +199,7 @@ def analyze_history(entries: List, days: int = 7) -> Dict[str, float]:
     for e in recent:
         if not e.recipe_name:
             continue
-        ist_date = (e.timestamp + _IST).date()
-        day_key = ist_date.isoformat()
+        day_key = logical_meal_date_from_utc_naive(e.timestamp).isoformat()
         nutrition = estimate_meal_nutrition(e.recipe_name)
         for k, v in nutrition.items():
             daily[day_key][k] = daily[day_key][k] + v

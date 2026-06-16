@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTheme, type Theme } from "@/contexts/ThemeContext";
 import { api, type HistoryEntry, type Ingredient, type Recipe, type RecommendMealResult } from "@/lib/api";
-import { TZ, istHour, startOfISTWeek, todayIST, addDaysIST, istDateKey, istWeekdayShort } from "@/lib/tz";
+import { TZ, istHour, startOfISTWeek, addDaysIST, mealLogDateKey, currentMealDayKey, istWeekdayShort } from "@/lib/tz";
 import { expiryBadge } from "@/lib/utils";
 
 /* ─── Helpers ──────────────────────────────────────────────────────────── */
@@ -36,9 +36,10 @@ type MealType = typeof MEAL_TYPES[number];
 
 function detectMealType(): MealType {
   const h = istHour();
-  if (h >= 6 && h < 11) return "breakfast";
-  if (h >= 11 && h < 16) return "lunch";
-  if (h >= 16 && h < 19) return "snacks";
+  if (h < 6) return "dinner";
+  if (h < 11) return "breakfast";
+  if (h < 16) return "lunch";
+  if (h < 19) return "snacks";
   return "dinner";
 }
 
@@ -105,12 +106,12 @@ const DOT_COLOR: Record<string, string> = {
   eat_out: "rgb(var(--kitchen-warn))",
 };
 function WeekGlance({ entries }: { entries: HistoryEntry[] }) {
-  const today = todayIST();
+  const today = currentMealDayKey();
   const weekStart = startOfISTWeek(today);
   const days = Array.from({ length: 7 }, (_, i) => addDaysIST(weekStart, i));
 
   function kindForDay(dateKey: string) {
-    return entries.find((e) => istDateKey(e.timestamp) === dateKey)?.decision ?? null;
+    return entries.find((e) => mealLogDateKey(e.timestamp) === dateKey)?.decision ?? null;
   }
 
   return (
@@ -435,7 +436,7 @@ export default function DashboardPage() {
   // Load immediately on mount
   useEffect(() => {
     loadRecommendations(null);
-    const today = todayIST();
+    const today = currentMealDayKey();
     api.getHistoryPage({ from: startOfISTWeek(today), to: today, limit: 50 })
       .then((page) => setWeekHistory(page.items))
       .catch(() => {});

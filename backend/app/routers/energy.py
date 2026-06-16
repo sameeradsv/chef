@@ -10,7 +10,12 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.dependencies import get_current_user
 from app.models import CookingHistoryModel, UserAccountModel
-from app.tz_utils import utc_naive_to_ist_str
+from app.tz_utils import (
+    current_meal_day,
+    logical_meal_date_from_utc_naive,
+    meal_day_bounds,
+    utc_naive_to_ist_str,
+)
 
 router = APIRouter(prefix="/energy", tags=["energy"])
 
@@ -49,6 +54,16 @@ def _meal_delta(entry: CookingHistoryModel) -> float:
     return {"cook": -0.04, "order": 0.0, "eat_out": 0.03}.get(entry.decision, -0.02)
 
 
+def _entry_covers_meal_window(entry, name: str, w_start: _time, w_end: _time, target) -> bool:
+    if logical_meal_date_from_utc_naive(entry.timestamp) != target:
+        return False
+    ist = entry.timestamp.replace(tzinfo=timezone.utc).astimezone(_IST)
+    if name == "dinner" and ist.hour < 6:
+        return True
+    t = ist.time()
+    return w_start <= t < w_end
+
+
 def _skipped_events(entries: list, target, now_utc_naive: datetime) -> list:
     """Return synthetic draining events for meal windows that closed with no logged entry."""
     result = []
@@ -58,10 +73,17 @@ def _skipped_events(entries: list, target, now_utc_naive: datetime) -> list:
         win_end_ist   = datetime(target.year, target.month, target.day,
                                  w_end.hour, w_end.minute, tzinfo=_IST)
         win_end_utc   = win_end_ist.astimezone(timezone.utc).replace(tzinfo=None)
-        if now_utc_naive < win_end_utc:
+        if now_utc_naive < win_end_utc and name != "dinner":
             continue
-        win_start_utc = win_start_ist.astimezone(timezone.utc).replace(tzinfo=None)
-        if any(win_start_utc <= e.timestamp < win_end_utc for e in entries):
+        # Dinner skip applies after the late-night cutoff (next day 06:00 IST).
+        if name == "dinner":
+            dinner_cutoff_ist = datetime(
+                target.year, target.month, target.day, 6, 0, tzinfo=_IST
+            ) + timedelta(days=1)
+            dinner_cutoff_utc = dinner_cutoff_ist.astimezone(timezone.utc).replace(tzinfo=None)
+            if now_utc_naive < dinner_cutoff_utc:
+                continue
+        if any(_entry_covers_meal_window(e, name, w_start, w_end, target) for e in entries):
             continue
         delta = _SKIP_DELTA[name]
         result.append({
@@ -85,7 +107,7 @@ def energy_timeline(
     current_user: UserAccountModel = Depends(get_current_user),
 ):
     """
-    Cumulative meal-energy timeline for a calendar day (default: today IST).
+    Cumulative meal-energy timeline for a meal-log day (default: current meal day IST).
 
     Each event carries `delta` (signed energy change) and `running_energy`
     (balance after that event). Good meals (satisfaction 4–5/5) restore
@@ -98,10 +120,9 @@ def energy_timeline(
         except ValueError:
             raise HTTPException(400, "date must be YYYY-MM-DD")
     else:
-        target = datetime.now(_IST).date()
+        target = current_meal_day()
 
-    day_start_utc = datetime(target.year, target.month, target.day, tzinfo=_IST).astimezone(timezone.utc).replace(tzinfo=None)
-    day_end_utc = day_start_utc + timedelta(days=1)
+    day_start_utc, day_end_utc = meal_day_bounds(target.isoformat())
 
     entries = (
         db.query(CookingHistoryModel)

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -17,11 +17,9 @@ from app.schemas import (
     HistoryPageResponse,
     HistorySummary,
 )
-from app.tz_utils import ist_day_bounds, ist_today
+from app.tz_utils import current_meal_day, meal_day_bounds
 
 router = APIRouter(prefix="/history", tags=["history"])
-
-_IST_TD = timedelta(hours=5, minutes=30)
 
 
 def _to_response(entry: CookingHistoryModel) -> CookingHistoryResponse:
@@ -31,20 +29,19 @@ def _to_response(entry: CookingHistoryModel) -> CookingHistoryResponse:
 def _apply_date_filters(q, date: Optional[str], from_date: Optional[str], to_date: Optional[str]):
     if date:
         if date == "today":
-            filter_date = ist_today()
-            day_start_utc = datetime(filter_date.year, filter_date.month, filter_date.day) - _IST_TD
-            day_end_utc = day_start_utc + timedelta(days=1)
+            filter_date = current_meal_day()
         else:
-            day_start_utc, day_end_utc = ist_day_bounds(date)
+            filter_date = datetime.strptime(date, "%Y-%m-%d").date()
+        day_start_utc, day_end_utc = meal_day_bounds(filter_date.isoformat())
         q = q.filter(
             CookingHistoryModel.timestamp >= day_start_utc,
             CookingHistoryModel.timestamp < day_end_utc,
         )
     if from_date:
-        day_start_utc, _ = ist_day_bounds(from_date)
+        day_start_utc, _ = meal_day_bounds(from_date)
         q = q.filter(CookingHistoryModel.timestamp >= day_start_utc)
     if to_date:
-        _, day_end_utc = ist_day_bounds(to_date)
+        _, day_end_utc = meal_day_bounds(to_date)
         q = q.filter(CookingHistoryModel.timestamp < day_end_utc)
     return q
 
