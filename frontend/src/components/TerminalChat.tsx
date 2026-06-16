@@ -2,8 +2,7 @@
 
 import { useState, useRef, useCallback, useEffect } from "react";
 
-const CONDUIT = (process.env.NEXT_PUBLIC_CONDUIT_API_URL ?? "").replace(/\/$/, "");
-const SCOPE = "chef";
+const API_BASE = (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000").replace(/\/$/, "");
 const TOKEN_KEY = "chef_auth_token";
 
 type Role = "user" | "assistant" | "system";
@@ -16,7 +15,7 @@ function friendlyFetchError(err: unknown): string {
   if (err instanceof Error) {
     const m = err.message.toLowerCase();
     if (m.includes("load failed") || m.includes("failed to fetch") || m.includes("networkerror") || m.includes("network request failed")) {
-      return "Chat service unreachable — NEXT_PUBLIC_CONDUIT_API_URL may not be configured";
+      return "Chat service unreachable — is the Chef backend running?";
     }
     return err.message;
   }
@@ -29,16 +28,15 @@ async function* agentStream(
   signal: AbortSignal,
   onTool: (name: string) => void,
 ): AsyncGenerator<string> {
-  if (!CONDUIT) throw new Error("Chat service not configured (NEXT_PUBLIC_CONDUIT_API_URL is unset)");
-  const res = await fetch(`${CONDUIT}/api/agent/chat`, {
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+  const res = await fetch(`${API_BASE}/agent/chat`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers,
     body: JSON.stringify({
       messages: history,
       model: "llama-3.3-70b-versatile",
       sibling_token: token,
-      scope: SCOPE,
-      diary: false,
     }),
     signal,
   });
@@ -77,9 +75,7 @@ export function TerminalChat() {
     {
       id: uid(),
       role: "system",
-      content: CONDUIT
-        ? "Ask what to cook, whether to order, or log a meal."
-        : "Chat is not available — NEXT_PUBLIC_CONDUIT_API_URL is not configured.",
+      content: "Ask what to cook, whether to order, or log a meal.",
     },
   ]);
   const [value, setValue] = useState("");
