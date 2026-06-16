@@ -326,6 +326,7 @@ def pick_restaurant_for_user(
     city: str = "",
     cuisines: list[str] | None = None,
     restaurant_id: str | None = None,
+    skip_ai: bool = False,
 ) -> dict:
     """Resolve a restaurant: explicit id → history → AI (city) → seed fallback."""
     from app.services.recipes import best_restaurant_for_state, get_restaurant_by_id
@@ -340,7 +341,7 @@ def pick_restaurant_for_user(
     known_names = [r["restaurant_name"] for r in history]
 
     ai: list[dict] = []
-    if city.strip():
+    if city.strip() and not skip_ai:
         ai = generate_restaurant_suggestions(
             city=city,
             cuisines=fav_cuisines,

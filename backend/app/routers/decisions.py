@@ -5,7 +5,7 @@ import json
 import time
 from typing import Any
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 # Simple in-process TTL cache for decision scoring (deterministic given same inputs).
@@ -177,6 +177,7 @@ def cook_vs_order(
 
 @router.post("/recommend-meal", response_model=RecommendMealResponse)
 def recommend_meal_endpoint(
+    fast: bool = Query(False, description="Skip Groq narrative and AI restaurant lookup"),
     db: Session = Depends(get_db),
     current_user: UserAccountModel = Depends(get_current_user),
 ):
@@ -186,6 +187,7 @@ def recommend_meal_endpoint(
     rkey = _dcache_key(
         current_user.id, "recommend", sorted(p.id for p in pantry),
         state.energy_level, state.craving, state.budget_today, state.time_available_minutes,
+        fast,
     )
     if cached := _dcache_get(rkey):
         return cached
@@ -201,6 +203,8 @@ def recommend_meal_endpoint(
         spice_level=spice_level,
         dietary_restrictions=diet_restrictions,
         meal_type=meal_type,
+        prefer_groq=True,
+        fast=fast,
     )
     recipe = recs[0] if recs else get_recipe_by_id("r-dal-tadka", pantry)
     rest_raw = pick_restaurant_for_user(
@@ -210,6 +214,7 @@ def recommend_meal_endpoint(
         vegetarian=vegetarian,
         city=city,
         cuisines=fav_cuisines,
+        skip_ai=fast,
     )
     restaurant = _restaurant_dto(rest_raw)
     result = recommend_meal(
@@ -222,6 +227,7 @@ def recommend_meal_endpoint(
         pref_people,
         cooking_skill,
     )
-    result.narrative = generate_decision_narrative(result)
+    if not fast:
+        result.narrative = generate_decision_narrative(result)
     _dcache_set(rkey, result)
     return result

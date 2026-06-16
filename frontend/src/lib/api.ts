@@ -341,9 +341,10 @@ export const api = {
     request<BarcodeResult>(`/ingredients/barcode/${barcode}`),
 
   // Recipes
-  recommendRecipes: (limit = 5, meal_type?: string) => {
+  recommendRecipes: (limit = 5, meal_type?: string, fast = false) => {
     const params = new URLSearchParams({ limit: String(limit) });
     if (meal_type) params.set("meal_type", meal_type);
+    if (fast) params.set("fast", "true");
     return request<Recipe[]>(`/recipes/recommend?${params}`);
   },
   getMealSuggestion: (meal_type: string) =>
@@ -377,11 +378,14 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ people_count, ...(recipe_id ? { recipe_id } : {}) }),
     }),
-  recommendMeal: () =>
-    request<RecommendMealResult>("/decision/recommend-meal", {
-      method: "POST",
-      body: JSON.stringify({}),
-    }),
+  recommendMeal: (fast = false) =>
+    request<RecommendMealResult>(
+      `/decision/recommend-meal${fast ? "?fast=true" : ""}`,
+      {
+        method: "POST",
+        body: JSON.stringify({}),
+      },
+    ),
 
   // Grocery
   listGrocery: () => request<GroceryItem[]>("/grocery"),

@@ -1,3 +1,5 @@
+"""Recipe generation via Groq, with TheMealDB as secondary fallback."""
+
 from __future__ import annotations
 
 import json
@@ -7,12 +9,40 @@ import uuid
 
 import httpx
 
-logger = logging.getLogger(__name__)
-
 from app.schemas import RecipeIngredient, RecipeResponse
+
+logger = logging.getLogger(__name__)
 
 MEALDB_BASE = "https://www.themealdb.com/api/json/v1/1"
 _MEALDB_TIMEOUT = 5.0
+_DEFAULT_MODEL = "llama-3.3-70b-versatile"
+_FAST_MODEL = "llama-3.1-8b-instant"
+
+_groq_client = None
+
+
+def _recipe_model(fast: bool = False) -> str:
+    if fast:
+        return os.getenv("CHEF_RECIPE_FAST_MODEL", _FAST_MODEL).strip() or _FAST_MODEL
+    return (
+        os.getenv("CHEF_RECIPE_MODEL", "").strip()
+        or os.getenv("CHEF_AGENT_MODEL", _DEFAULT_MODEL).strip()
+        or _DEFAULT_MODEL
+    )
+
+
+def _get_groq_client():
+    global _groq_client
+    if _groq_client is None:
+        api_key = os.getenv("GROQ_API_KEY", "").strip()
+        if not api_key:
+            return None
+        try:
+            from groq import Groq
+            _groq_client = Groq(api_key=api_key)
+        except Exception:
+            return None
+    return _groq_client
 
 
 def _mealdb_meal_to_recipe(meal: dict, pantry_names: set[str]) -> RecipeResponse:
@@ -66,22 +96,6 @@ def _fetch_mealdb(query: str, pantry_names: set[str]) -> list[RecipeResponse]:
     except Exception:
         return []
 
-_client = None
-
-
-def _get_client():
-    global _client
-    if _client is None:
-        api_key = os.getenv("ANTHROPIC_API_KEY")
-        if not api_key:
-            return None
-        try:
-            import anthropic
-            _client = anthropic.Anthropic(api_key=api_key)
-        except Exception:
-            return None
-    return _client
-
 
 def _build_prompt(
     query: str | None,
@@ -131,7 +145,8 @@ def _build_prompt(
         )
 
     lines.append(
-        "\nReturn ONLY a JSON array. Each element must have exactly these keys:\n"
+        '\nReturn ONLY a JSON object with a single key "recipes" whose value is an array. '
+        "Each recipe element must have exactly these keys:\n"
         "  name, cuisine, ingredients (array of {normalized_name, quantity, unit}),\n"
         "  prep_time_minutes, cook_time_minutes, difficulty (1-5), cleanup_effort (1-5),\n"
         "  nutrition_score (1.0-10.0), comfort_score (1.0-10.0),\n"
@@ -152,8 +167,15 @@ def _parse_recipes(text: str, pantry_names: set[str]) -> list[RecipeResponse]:
         text = "\n".join(inner)
 
     try:
-        raw_list = json.loads(text)
+        parsed = json.loads(text)
     except Exception:
+        return []
+
+    if isinstance(parsed, dict):
+        raw_list = parsed.get("recipes", [])
+    elif isinstance(parsed, list):
+        raw_list = parsed
+    else:
         return []
 
     if not isinstance(raw_list, list):
@@ -175,7 +197,7 @@ def _parse_recipes(text: str, pantry_names: set[str]) -> list[RecipeResponse]:
             pct = (matched / len(ingredients) * 100) if ingredients else 0.0
 
             results.append(RecipeResponse(
-                id=f"llm-{uuid.uuid4().hex[:8]}",
+                id=f"groq-{uuid.uuid4().hex[:8]}",
                 name=str(raw.get("name", "Unknown")),
                 ingredients=ingredients,
                 prep_time_minutes=int(raw.get("prep_time_minutes", 15)),
@@ -208,17 +230,18 @@ def generate_recipes(
     count: int = 5,
     meal_type: str | None = None,
     recent_meals: list[str] | None = None,
+    fast: bool = False,
 ) -> list[RecipeResponse]:
-    """Generate personalised recipes via Claude, falling back to TheMealDB if unavailable."""
+    """Generate personalised recipes via Groq, falling back to TheMealDB if unavailable."""
     pantry_names: set[str] = set()
     for p in pantry or []:
         n = getattr(p, "normalized_name", None)
         if n:
             pantry_names.add(n)
 
-    client = _get_client()
+    client = _get_groq_client()
     if not client:
-        logger.warning("generate_recipes: no Anthropic client (ANTHROPIC_API_KEY missing or invalid)")
+        logger.warning("generate_recipes: GROQ_API_KEY missing or invalid")
     else:
         prompt = _build_prompt(
             query=query,
@@ -231,26 +254,33 @@ def generate_recipes(
             meal_type=meal_type,
             recent_meals=recent_meals,
         )
+        model = _recipe_model(fast)
         try:
-            message = client.messages.create(
-                model="claude-haiku-4-5-20251001",
+            response = client.chat.completions.create(
+                model=model,
                 max_tokens=2500,
-                system=(
-                    "You are a recipe generation assistant. "
-                    "Output valid JSON arrays only — no prose, no markdown fences, no explanation. "
-                    "All recipes must be practical, real dishes with accurate time and difficulty estimates."
-                ),
-                messages=[{"role": "user", "content": prompt}],
+                response_format={"type": "json_object"},
+                messages=[
+                    {
+                        "role": "system",
+                        "content": (
+                            "You are a recipe generation assistant. "
+                            'Output valid JSON only — a single object with a "recipes" array. '
+                            "All recipes must be practical, real dishes with accurate time and difficulty estimates."
+                        ),
+                    },
+                    {"role": "user", "content": prompt},
+                ],
             )
-            results = _parse_recipes(message.content[0].text, pantry_names)
+            text = (response.choices[0].message.content or "").strip()
+            results = _parse_recipes(text, pantry_names)
             if results:
-                return results
-            logger.warning("generate_recipes: Claude returned no parseable recipes, falling back to TheMealDB")
+                return results[:count]
+            logger.warning("generate_recipes: Groq returned no parseable recipes, falling back to TheMealDB")
         except Exception as e:
-            logger.error("generate_recipes: Claude call failed — %s: %s", type(e).__name__, e)
+            logger.error("generate_recipes: Groq call failed — %s: %s", type(e).__name__, e)
 
-    # TheMealDB fallback: search by query or first preferred cuisine
-    fallback_query = query or (cuisines[0] if cuisines else "")
+    fallback_query = query or (cuisines[0] if cuisines else meal_type or "")
     if fallback_query:
-        return _fetch_mealdb(fallback_query, pantry_names)
+        return _fetch_mealdb(fallback_query, pantry_names)[:count]
     return []

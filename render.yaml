@@ -15,8 +15,6 @@ services:
         sync: false
       - key: GROQ_API_KEY
         sync: false
-      - key: ANTHROPIC_API_KEY
-        sync: false
       - key: CORS_ORIGINS
         value: https://sameeradsv.github.io,http://localhost:3000,http://localhost:3001,http://127.0.0.1:3000,http://127.0.0.1:3001
       - key: CORTEX_AUTH_URL

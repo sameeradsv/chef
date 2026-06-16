@@ -32,17 +32,29 @@ export default function LoginPage() {
 
   useEffect(() => {
     let cancelled = false;
-    const start = Date.now();
+    const intervalMs = 3000;
+    const maxAttempts = 25;
+
     async function ping() {
-      try {
-        const res = await fetch(`${API_BASE}/health`, { method: "GET" });
-        if (!cancelled) setBackendStatus(res.ok ? "ok" : "unreachable");
-      } catch {
-        if (!cancelled) {
-          setBackendStatus(Date.now() - start > 3000 ? "waking" : "unreachable");
+      for (let attempt = 0; attempt < maxAttempts && !cancelled; attempt++) {
+        if (attempt > 0) {
+          if (!cancelled) setBackendStatus("waking");
+          await new Promise((r) => setTimeout(r, intervalMs));
+          if (cancelled) return;
+        }
+        try {
+          const res = await fetch(`${API_BASE}/health`, { method: "GET" });
+          if (!cancelled && res.ok) {
+            setBackendStatus("ok");
+            return;
+          }
+        } catch {
+          /* retry — Render free tier cold start */
         }
       }
+      if (!cancelled) setBackendStatus("unreachable");
     }
+
     ping();
     return () => { cancelled = true; };
   }, []);

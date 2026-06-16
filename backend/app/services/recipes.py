@@ -7,6 +7,7 @@ from pathlib import Path
 
 from app.schemas import RecipeIngredient, RecipeResponse, UserStatePayload
 from app.services.freshness import days_until_expiry
+from app.services.mealdb import generate_recipes
 
 DATA_PATH = Path(__file__).resolve().parent.parent.parent / "data"
 RECIPES_FILE = DATA_PATH / "seed_recipes.json"
@@ -189,7 +190,49 @@ def _recipe_to_response(raw: dict, pantry: list | None = None) -> RecipeResponse
     )
 
 
-def recommend_recipes(
+def _rank_recipe_responses(
+    responses: list[RecipeResponse],
+    state: UserStatePayload,
+    *,
+    favorite_cuisines: list[str] | None = None,
+    spice_level: int = 5,
+    meal_type: str | None = None,
+    recent_meal_names: list[str] | None = None,
+    satisfaction_by_name: dict[str, float] | None = None,
+) -> list[RecipeResponse]:
+    fav_cuisines = [fc.lower() for fc in (favorite_cuisines or []) if fc.strip()]
+    recent_lower = {n.lower() for n in (recent_meal_names or []) if n}
+    effective_meal_type = meal_type or current_meal_type()
+    scored: list[tuple[float, RecipeResponse]] = []
+
+    for resp in responses:
+        score = _recipe_score(resp, state)
+        recipe_cuisine = resp.cuisine.lower()
+        if fav_cuisines and any(fc in recipe_cuisine or recipe_cuisine in fc for fc in fav_cuisines):
+            score += 5
+        recipe_spice = _CUISINE_SPICE.get(recipe_cuisine.split("·")[0].strip(), 5)
+        score -= abs(spice_level - recipe_spice) * 0.8
+        resp_meal = getattr(resp, "meal_type", "any") or "any"
+        if resp_meal == effective_meal_type:
+            score += 20
+        elif resp_meal == "any":
+            score += 5
+        if recent_lower and resp.name.lower() in recent_lower:
+            score -= 25
+        if satisfaction_by_name:
+            past_sat = satisfaction_by_name.get(resp.name.lower())
+            if past_sat is not None:
+                if past_sat >= 4.0:
+                    score += 10
+                elif past_sat <= 2.0:
+                    score -= 15
+        scored.append((score, resp))
+
+    scored.sort(key=lambda x: x[0], reverse=True)
+    return [r for _, r in scored]
+
+
+def _recommend_from_seed(
     pantry: list,
     state: UserStatePayload | None = None,
     limit: int = 5,
@@ -201,11 +244,14 @@ def recommend_recipes(
     meal_type: str | None = None,
     recent_meal_names: list[str] | None = None,
     satisfaction_by_name: dict[str, float] | None = None,
+    exclude_names: set[str] | None = None,
 ) -> list[RecipeResponse]:
     recipes = load_recipes()
     skipped = {s.strip().lower() for s in (skipped_ingredients or []) if s.strip()}
     dr_set = {d.strip().lower() for d in (dietary_restrictions or []) if d.strip()}
     recipes = [r for r in recipes if _passes_diet(r, vegetarian, skipped, dr_set)]
+    if exclude_names:
+        recipes = [r for r in recipes if r.get("name", "").lower() not in exclude_names]
     fav_cuisines = [fc.lower() for fc in (favorite_cuisines or []) if fc.strip()]
     recent_lower = {n.lower() for n in (recent_meal_names or []) if n}
     scored: list[tuple[float, dict]] = []
@@ -261,6 +307,79 @@ def recommend_recipes(
     chosen = random.sample(pool, min(limit, len(pool)))
     chosen.sort(key=lambda x: x[0], reverse=True)
     return [_recipe_to_response(r, pantry) for _, r in chosen]
+
+
+def recommend_recipes(
+    pantry: list,
+    state: UserStatePayload | None = None,
+    limit: int = 5,
+    vegetarian: bool = True,
+    skipped_ingredients: list[str] | None = None,
+    favorite_cuisines: list[str] | None = None,
+    spice_level: int = 5,
+    dietary_restrictions: list[str] | None = None,
+    meal_type: str | None = None,
+    recent_meal_names: list[str] | None = None,
+    satisfaction_by_name: dict[str, float] | None = None,
+    prefer_groq: bool = True,
+    fast: bool = False,
+) -> list[RecipeResponse]:
+    """Recommend recipes — Groq-generated first, seed library as fallback."""
+    state = state or UserStatePayload()
+    skipped = {s.strip().lower() for s in (skipped_ingredients or []) if s.strip()}
+    dr_set = {d.strip().lower() for d in (dietary_restrictions or []) if d.strip()}
+    effective_meal_type = meal_type or current_meal_type()
+    ranked: list[RecipeResponse] = []
+
+    if prefer_groq:
+        generated = generate_recipes(
+            cuisines=favorite_cuisines[:2] if favorite_cuisines else None,
+            pantry=pantry,
+            spice_level=spice_level,
+            dietary_restrictions=list(dietary_restrictions or []) or None,
+            vegetarian=vegetarian,
+            count=max(limit * 2, limit),
+            meal_type=effective_meal_type,
+            recent_meals=recent_meal_names,
+            fast=fast,
+        )
+        filtered = [
+            r for r in generated
+            if _passes_diet_response(r, vegetarian, skipped, dr_set)
+        ]
+        ranked = _rank_recipe_responses(
+            filtered,
+            state,
+            favorite_cuisines=favorite_cuisines,
+            spice_level=spice_level,
+            meal_type=effective_meal_type,
+            recent_meal_names=recent_meal_names,
+            satisfaction_by_name=satisfaction_by_name,
+        )
+
+    if len(ranked) >= limit:
+        return ranked[:limit]
+
+    seen = {r.name.lower() for r in ranked}
+    backfill = _recommend_from_seed(
+        pantry, state, limit,
+        vegetarian=vegetarian,
+        skipped_ingredients=skipped_ingredients,
+        favorite_cuisines=favorite_cuisines,
+        spice_level=spice_level,
+        dietary_restrictions=dietary_restrictions,
+        meal_type=effective_meal_type,
+        recent_meal_names=recent_meal_names,
+        satisfaction_by_name=satisfaction_by_name,
+        exclude_names=seen,
+    )
+    for recipe in backfill:
+        if recipe.name.lower() not in seen:
+            ranked.append(recipe)
+            seen.add(recipe.name.lower())
+        if len(ranked) >= limit:
+            break
+    return ranked[:limit]
 
 
 def search_recipes(

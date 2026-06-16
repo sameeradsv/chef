@@ -11,7 +11,7 @@ from app.services.mealdb import generate_recipes
 from app.services.personalization import get_user_profile
 from app.services.recipes import (
     _passes_diet_response,
-    _recipe_score,
+    _rank_recipe_responses,
     current_meal_type,
     get_recipe_by_id,
     recommend_recipes,
@@ -54,6 +54,23 @@ def _get_prefs(db: Session, user_id: str) -> UserPreferencesResponse:
     )
 
 
+def _history_context(db: Session, user_id: str) -> tuple[list[str], dict[str, float]]:
+    history_entries = (
+        db.query(CookingHistoryModel)
+        .filter(CookingHistoryModel.user_id == user_id)
+        .order_by(CookingHistoryModel.timestamp.desc())
+        .limit(50)
+        .all()
+    )
+    recent_meal_names = [h.recipe_name for h in history_entries[:15] if h.recipe_name]
+    sat_buckets: dict[str, list[float]] = {}
+    for h in history_entries:
+        if h.recipe_name and h.satisfaction is not None:
+            sat_buckets.setdefault(h.recipe_name.lower(), []).append(float(h.satisfaction))
+    satisfaction_by_name = {name: sum(vals) / len(vals) for name, vals in sat_buckets.items()}
+    return recent_meal_names, satisfaction_by_name
+
+
 @router.get("/suggest", response_model=dict)
 def suggest(
     meal_type: str = Query("dinner"),
@@ -79,40 +96,19 @@ def suggest(
 def recommend(
     limit: int = Query(5, ge=1, le=20),
     meal_type: str | None = Query(None),
+    fast: bool = Query(False, description="Use faster Groq model (llama-3.1-8b-instant)"),
     db: Session = Depends(get_db),
     current_user: UserAccountModel = Depends(get_current_user),
 ):
     pantry = _get_pantry(db, current_user.id)
     state = _get_state(db, current_user.id)
     prefs = _get_prefs(db, current_user.id)
-    is_demo = current_user.username == "demo"
-    skipped = {s.lower() for s in prefs.skipped_ingredients}
-    dr_set = {d.lower() for d in prefs.dietary_restrictions}
     effective_meal_type = meal_type or current_meal_type()
-
-    # Pull history for variety + satisfaction-aware personalization
-    history_entries = (
-        db.query(CookingHistoryModel)
-        .filter(CookingHistoryModel.user_id == current_user.id)
-        .order_by(CookingHistoryModel.timestamp.desc())
-        .limit(50)
-        .all()
-    )
-    # Recency penalty: last 15 meal names suppress immediate repeats
-    recent_meal_names = [h.recipe_name for h in history_entries[:15] if h.recipe_name]
-
-    # Per-recipe average satisfaction from full history — boosts loved dishes, buries disliked ones
-    sat_buckets: dict[str, list[float]] = {}
-    for h in history_entries:
-        if h.recipe_name and h.satisfaction is not None:
-            sat_buckets.setdefault(h.recipe_name.lower(), []).append(float(h.satisfaction))
-    satisfaction_by_name = {name: sum(vals) / len(vals) for name, vals in sat_buckets.items()}
-
-    # Use history-derived preferred cuisines when available, fall back to stored prefs
+    recent_meal_names, satisfaction_by_name = _history_context(db, current_user.id)
     profile = get_user_profile(current_user.id, db)
     effective_cuisines = profile.preferred_cuisines or prefs.favorite_cuisines
 
-    results = recommend_recipes(
+    return recommend_recipes(
         pantry, state, limit,
         vegetarian=prefs.vegetarian,
         skipped_ingredients=prefs.skipped_ingredients,
@@ -122,28 +118,9 @@ def recommend(
         meal_type=effective_meal_type,
         recent_meal_names=recent_meal_names,
         satisfaction_by_name=satisfaction_by_name or None,
+        prefer_groq=True,
+        fast=fast,
     )
-
-    # Non-demo users: augment with Claude-generated recipes using full preference context
-    if not is_demo:
-        seen = {r.name.lower() for r in results}
-        for r in generate_recipes(
-            cuisines=effective_cuisines[:2] or None,
-            pantry=pantry,
-            spice_level=prefs.spice_level,
-            dietary_restrictions=prefs.dietary_restrictions or None,
-            vegetarian=prefs.vegetarian,
-            count=limit,
-            meal_type=effective_meal_type,
-            recent_meals=recent_meal_names,
-        ):
-            if r.name.lower() not in seen and _passes_diet_response(r, prefs.vegetarian, skipped, dr_set):
-                results.append(r)
-                seen.add(r.name.lower())
-        results.sort(key=lambda r: _recipe_score(r, state), reverse=True)
-        results = results[:limit]
-
-    return results
 
 
 @router.get("/search", response_model=list[RecipeResponse])
@@ -156,29 +133,41 @@ def search(
 ):
     pantry = _get_pantry(db, current_user.id)
     prefs = _get_prefs(db, current_user.id)
+    state = _get_state(db, current_user.id)
+    skipped = {s.lower() for s in prefs.skipped_ingredients}
+    dr_set = {d.lower() for d in prefs.dietary_restrictions}
     tokens = [t.strip() for t in q.split() if t.strip()]
-    seed_results = search_recipes(
-        tokens, cuisine, max_time, pantry,
-        vegetarian=prefs.vegetarian,
-        skipped_ingredients=prefs.skipped_ingredients,
-    )
 
-    # Claude: augment search results with generated recipes matching the query and prefs
+    results: list[RecipeResponse] = []
+    seen_names: set[str] = set()
+
     if q.strip():
-        skipped = {s.lower() for s in prefs.skipped_ingredients}
-        dr_set = {d.lower() for d in prefs.dietary_restrictions}
-        seen_names = {r.name.lower() for r in seed_results}
-        for r in generate_recipes(
+        generated = generate_recipes(
             query=q.strip(),
             pantry=pantry,
             spice_level=prefs.spice_level,
             dietary_restrictions=prefs.dietary_restrictions or None,
             vegetarian=prefs.vegetarian,
             count=6,
-        ):
+        )
+        for r in generated:
             if r.name.lower() not in seen_names and _passes_diet_response(r, prefs.vegetarian, skipped, dr_set):
-                seed_results.append(r)
+                results.append(r)
                 seen_names.add(r.name.lower())
+
+    seed_results = search_recipes(
+        tokens, cuisine, max_time, pantry,
+        vegetarian=prefs.vegetarian,
+        skipped_ingredients=prefs.skipped_ingredients,
+    )
+    for r in seed_results:
+        if r.name.lower() not in seen_names:
+            results.append(r)
+            seen_names.add(r.name.lower())
+
+    if results:
+        ranked = _rank_recipe_responses(results, state, spice_level=prefs.spice_level)
+        return ranked
 
     return seed_results
 

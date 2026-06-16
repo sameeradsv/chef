@@ -402,8 +402,10 @@ export default function DashboardPage() {
     loadRecipesForMeal(mt);
   }
 
+  const [recLoading, setRecLoading] = useState(true);
+
   async function loadRecommendations(mood?: typeof MOODS[number] | null) {
-    setStatus("loading");
+    setRecLoading(true);
     try {
       if (mood) {
         const current = await api.getUserState().catch(() => null);
@@ -412,16 +414,22 @@ export default function DashboardPage() {
       }
       const detected = detectMealType();
       setMealType(detected);
-      const [exp, rec, recMeal] = await Promise.all([
-        api.getIngredients({ expiring_soon: true }),
-        api.recommendRecipes(5, detected),
-        api.recommendMeal(),
-      ]);
+
+      const exp = await api.getIngredients({ expiring_soon: true });
       setExpiring(exp);
-      setRecipes(rec);
-      setMeal(recMeal);
       setStatus("ok");
-      loadSuggestion(detected);
+
+      try {
+        const [rec, recMeal] = await Promise.all([
+          api.recommendRecipes(5, detected, true),
+          api.recommendMeal(true),
+        ]);
+        setRecipes(rec);
+        setMeal(recMeal);
+        loadSuggestion(detected);
+      } catch {
+        /* pantry visible; picks can retry via mood or refresh */
+      }
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Failed to load";
       if (msg.toLowerCase().includes("fetch") || msg.toLowerCase().includes("load")) {
@@ -430,11 +438,14 @@ export default function DashboardPage() {
         setStatus("error");
         setErrorMsg(msg);
       }
+    } finally {
+      setRecLoading(false);
     }
   }
 
   // Load immediately on mount
   useEffect(() => {
+    setStatus("loading");
     loadRecommendations(null);
     const today = currentMealDayKey();
     api.getHistoryPage({ from: startOfISTWeek(today), to: today, limit: 50 })
@@ -552,7 +563,11 @@ export default function DashboardPage() {
         </div>
       ) : (
         <>
-          {meal && <TonightCard meal={meal} pickLabel={mealPickLabel(mealType)} />}
+          {recLoading && !meal ? (
+            <LoadingShimmer className="h-56" />
+          ) : meal ? (
+            <TonightCard meal={meal} pickLabel={mealPickLabel(mealType)} />
+          ) : null}
 
 
           {expiring.length > 0 && <ExpiringCard items={expiring} />}
@@ -590,7 +605,7 @@ export default function DashboardPage() {
             )}
 
             {/* Recipe cards */}
-            {recipeTabLoading ? (
+            {recipeTabLoading || (recLoading && recipes.length === 0) ? (
               <div className="flex gap-3 overflow-hidden">
                 {[1, 2, 3].map((i) => <div key={i} className="loading-shimmer h-36 w-36 flex-shrink-0 rounded-card" />)}
               </div>
