@@ -78,10 +78,9 @@ DB file: `backend/data/chef.db` (SQLite, auto-created with seed data on first ru
 Optional env vars:
 
 ```bash
-GROQ_API_KEY=...                      # enables LLM narratives and vision parsing
+GROQ_API_KEY=...                      # enables LLM narratives, vision parsing, and /chat agent
 DATABASE_URL=postgres://              # switches from SQLite to PostgreSQL
 NEXT_PUBLIC_CORTEX_URL=http://...     # Cortex backend URL for cross-app auth (optional)
-NEXT_PUBLIC_CONDUIT_API_URL=http://...  # Conduit backend URL for /chat terminal (optional)
 
 # WebAuthn (passkey login) — set these in production
 WEBAUTHN_RP_ID=your-domain.com
@@ -295,7 +294,7 @@ Chef's backend is consumed by **Conduit** — the hub app that provides cross-ap
 - **Agent reads:** `GET /recipes/recommend`, `POST /decision/cook-vs-order`, `GET /history` — Conduit answers "What should I cook?" and "Should I order tonight?"
 - **Diary writes:** `POST /history` — Conduit's diary mode logs meals from freeform entries
 
-Chef also has an embedded terminal chat at `/chat` (in the sidebar and mobile bottom tab), powered by Conduit's backend with the `scope=chef` tool set. Set `NEXT_PUBLIC_CONDUIT_API_URL` in `frontend/.env.local` to point to the Conduit backend. If the variable is unset, the chat page shows a "not configured" message instead of a raw network error.
+Chef also has an embedded terminal chat at `/chat` (in the sidebar and mobile bottom tab), powered by Chef's native Groq agent at `POST /agent/chat`. Requires `GROQ_API_KEY` on the Chef backend and `NEXT_PUBLIC_API_URL` on the frontend. No Conduit dependency for in-app chat.
 
 Chef login also supports **Cortex** single sign-on (shared account across Chef, Canopy, Circuit). Set `NEXT_PUBLIC_CORTEX_URL` for cross-app auth and energy sync.
 

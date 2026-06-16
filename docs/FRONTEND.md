@@ -112,9 +112,10 @@ Substitutions: [AI.md](./AI.md). Recipe model: [DATA_MODELS.md](./DATA_MODELS.md
 
 ## Chat screen
 
-- terminal-style text interface powered by Conduit backend (`scope=chef` tool set)
+- terminal-style text interface powered by Chef's native Groq agent (`POST /agent/chat`)
 - queries like "What should I cook?", "Should I order tonight?", "Log that I ate sushi"
-- requires `NEXT_PUBLIC_CONDUIT_API_URL` in `.env.local`; shows "not configured" message if unset
+- tools: meal recommendations, cook-vs-order comparison, food log lookup, meal logging
+- requires `GROQ_API_KEY` on the backend and `NEXT_PUBLIC_API_URL` in `.env.local`
 
 ---
 

@@ -61,6 +61,7 @@ docker compose up -d postgres
 - `/sync/energy` — today's cumulative drain: logged-meal drain (cook 0.12, eat_out 0.07, order 0.03) + biological skip drain for closed windows with no entry (breakfast 0.20, lunch 0.25, dinner 0.15). Having any meal always drains less than skipping it. Consumed by the decision page for all accounts (not just Cortex) to pre-fill `energy_level`.
 - `/nutrition/summary` — keyword-based macro/micronutrient averages + RDA gap analysis + food suggestions
 - `/vision/parse` — image-to-meal/ingredient parsing via Groq Llama 4 Scout
+- `/agent/chat` — native Groq chat agent (SSE); tools: meal recommendations, cook-vs-order, food log, log meal. Requires `GROQ_API_KEY`; model override via `CHEF_AGENT_MODEL`
 - `/auth/webauthn/register/begin|complete` (Bearer), `/auth/webauthn/login/begin|complete` (public, returns JWT)
 
 **Services** (the core logic):
@@ -74,6 +75,7 @@ docker compose up -d postgres
 - `restaurants.py` — Seed-data restaurant scoring + filtering; energy-aware fast-food option injection
 - `grocery.py` — Grocery suggestion logic
 - `llm.py` — Groq Llama 3.1 8B narrative explanations (requires `GROQ_API_KEY`)
+- `chef_agent.py` — Groq tool-calling stream for `/agent/chat` (requires `GROQ_API_KEY`)
 - `mealdb.py` — TheMealDB live recipe search; wired into `/recipes/search` alongside seed data
 
 **`CookingHistoryModel` field semantics**: `timestamp` = the meal's actual date/time (user-specified, defaults to insert time if omitted); `created_at` = DB insert time (always entry time). Both are stored as naive UTC in the DB; API responses serialize them as **naive IST strings** (`YYYY-MM-DDTHH:MM:SS`). Energy and nutrition endpoints filter by `timestamp` so backdated entries land on their original date, not today.
@@ -95,7 +97,7 @@ Data is multi-user — all tables keyed by `user_id`. JWT auth (30-day tokens, b
 | `app/grocery/page.tsx` | Grocery list — add/buy/delete items + AI suggestions |
 | `app/history/page.tsx` | Decision history — IST datetime picker, Week/Month/Year/All filters (server-side by meal `timestamp`), pagination (20/page), edit/delete, satisfaction ratings; screenshot-to-log via vision API |
 | `app/health/page.tsx` | Nutrition health — macro rings (SVG), per-nutrient RDA bars, meal-type-keyed food suggestions |
-| `app/chat/page.tsx` | Terminal-style chat UI (`<TerminalChat>` component) |
+| `app/chat/page.tsx` | Terminal-style chat UI — native Groq agent via `POST /agent/chat` (`<TerminalChat>`) |
 | `app/settings/page.tsx` | User preferences — cuisines, spice level, dietary |
 | `app/login/page.tsx` | Login / register; pings `/health` to check backend reachability |
 | `lib/api.ts` | Typed fetch wrapper; all API types live here; reads `NEXT_PUBLIC_API_URL` |
@@ -109,7 +111,7 @@ Custom Tailwind color tokens are defined as CSS variables (`--kitchen-bg`, `--ki
 ### Deployment
 
 - **Frontend**: GitHub Actions builds `next export` (static) with `basePath: "/chef"`, deploys to GitHub Pages. PWA is disabled in dev and on GitHub Pages build.
-- **Backend**: Render Blueprint (`render.yaml`) — Python 3.12, `uvicorn app.main:app --host 0.0.0.0 --port $PORT`; health check path `/health`. Database is **Neon PostgreSQL** (free tier, external) — set `DATABASE_URL` manually in Render dashboard after deploy. Set `GROQ_API_KEY` manually in Render dashboard to enable LLM narratives and vision parsing. Set `ANTHROPIC_API_KEY` to enable recipe generation.
+- **Backend**: Render Blueprint (`render.yaml`) — Python 3.12, `uvicorn app.main:app --host 0.0.0.0 --port $PORT`; health check path `/health`. Database is **Neon PostgreSQL** (free tier, external) — set `DATABASE_URL` manually in Render dashboard after deploy. Set `GROQ_API_KEY` manually in Render dashboard to enable LLM narratives, vision parsing, and chat agent. Set `ANTHROPIC_API_KEY` to enable recipe generation.
 - **CI/CD** (`.github/workflows/deploy.yml`): `CHEF_API_URL` repo Actions variable sets the backend URL baked into the frontend build. `RENDER_DEPLOY_HOOK` secret triggers backend redeploy.
 
 ### Stubbed / Not Yet Implemented
@@ -120,6 +122,7 @@ These are in-scope future features still using placeholder/seed data:
 
 ### Implemented but needs configuration
 - **LLM narrative explanations** — `services/llm.py` calls Groq Llama 3.1 8B; requires `GROQ_API_KEY` set in Render dashboard
+- **Chat agent** — `routers/agent.py` + `services/chef_agent.py`; Groq Llama 3.3 70B with tool calling; requires same `GROQ_API_KEY`
 - **Vision / screenshot parsing** — `routers/vision.py` calls Groq Llama 4 Scout (`meta-llama/llama-4-scout-17b-16e-instruct`); requires same `GROQ_API_KEY`. Used by history page screenshot-to-log feature.
 - **Recipe generation** — `services/mealdb.py:generate_recipes()` calls Anthropic Claude; requires `ANTHROPIC_API_KEY`. Without it, recipe suggestions silently return MealDB results only.
 - **TheMealDB live search** — `services/mealdb.py` fetches live results; wired into `/recipes/search` alongside seed data
@@ -153,7 +156,7 @@ The design handoff (`Claude Design/chef-designs/design_handoff_kitchen_intellige
 | Recipe Method — interactive cooking steps | `app/recipe/[id]/RecipeClient.tsx` — "Begin cooking" CTA, active-step highlight, "Step done →" advance |
 | Barcode Scanner — detected-product overlay | `components/BarcodeScanner.tsx` — full-screen camera, amber reticle, bottom confirm sheet with qty + storage |
 | Nutrition / Health page | `app/health/page.tsx` — macro rings, per-nutrient RDA status, meal-type-keyed food suggestions; backed by `/nutrition/summary` |
-| Chat page | `app/chat/page.tsx` + `components/TerminalChat.tsx` — terminal-style LLM chat |
+| Chat page | `app/chat/page.tsx` + `components/TerminalChat.tsx` — native Groq agent (`POST /agent/chat`) |
 | Recipe browse page | `app/recipe/page.tsx` — recipe list with pantry coverage scatter chart |
 
 ### Additions Beyond Design Spec
