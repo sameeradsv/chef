@@ -411,7 +411,7 @@ export default function HistoryPage() {
       )}
 
       {/* Time filter chips */}
-      <div className="flex gap-2">
+      <div className="flex gap-2 overflow-x-auto pb-0.5 -mx-[22px] px-[22px] sm:mx-0 sm:px-0 sm:flex-wrap sm:overflow-visible">
         {TIME_FILTERS.map((f) => (
           <button
             key={f}
