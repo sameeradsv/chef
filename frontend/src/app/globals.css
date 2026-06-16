@@ -28,6 +28,11 @@
 
   --radius-card: 14px;
   --radius-btn:  12px;
+
+  /* Mobile layout — tab bar in Layout.tsx */
+  --mobile-tab-bar-height: 57px;
+  --content-bottom-inset: calc(var(--mobile-tab-bar-height) + env(safe-area-inset-bottom, 0px));
+  --sheet-footer-padding: max(16px, env(safe-area-inset-bottom, 0px));
 }
 
 [data-theme="mise"] {

@@ -151,10 +151,7 @@ export function TerminalChat() {
   }, [value, handleSend]);
 
   return (
-    <div
-      className="flex flex-col bg-kitchen-bg overflow-hidden"
-      style={{ height: "calc(100dvh - 4rem)" }}
-    >
+    <div className="flex flex-col flex-1 min-h-0 bg-kitchen-bg overflow-hidden -mx-[22px] -my-6 md:mx-0 md:my-0">
       {/* Header */}
       <div className="flex items-center gap-2 px-4 py-3.5 bg-kitchen-surface border-b border-kitchen-border flex-shrink-0">
         <span className="font-display text-base text-kitchen-accent">Chef Chat</span>
@@ -203,7 +200,9 @@ export function TerminalChat() {
       </div>
 
       {/* Input */}
-      <div className="flex items-end gap-2 px-4 py-3 bg-kitchen-surface border-t border-kitchen-border flex-shrink-0">
+      <div className="flex items-end gap-2 px-4 py-3 bg-kitchen-surface border-t border-kitchen-border flex-shrink-0"
+        style={{ paddingBottom: "max(12px, env(safe-area-inset-bottom, 0px))" }}
+      >
         <textarea
           ref={inputRef}
           className="flex-1 bg-kitchen-bg border border-kitchen-border rounded-card px-3 py-2 text-sm text-kitchen-text placeholder:text-kitchen-muted resize-none outline-none focus:border-kitchen-accent transition-colors"

@@ -6,6 +6,13 @@ import { useSearchParams } from "next/navigation";
 import { api, type CookVsOrderResult, type DecisionOption, type UserState, getToken } from "@/lib/api";
 import { TZ, istHour } from "@/lib/tz";
 import { formatCurrency } from "@/lib/utils";
+import {
+  sheetFooterPadding,
+  sheetOverlayStyle,
+  sheetOverlayTallClass,
+  sheetPanelStyle,
+  sheetPanelTallClass,
+} from "@/lib/mobile-layout";
 import dynamic from "next/dynamic";
 
 const DecisionScoreWaterfall = dynamic(
@@ -307,25 +314,21 @@ function ContextSheet({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center"
-      style={{ background: "rgba(0,0,0,0.45)", backdropFilter: "blur(3px)" }}
+      className={sheetOverlayTallClass}
+      style={sheetOverlayStyle}
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
       <div
-        className="w-full max-w-md max-h-[80dvh] overflow-y-auto animate-fade-in"
-        style={{
-          background: "rgb(var(--kitchen-bg))",
-          borderRadius: "var(--radius-card) var(--radius-card) 0 0",
-          borderTop: "1px solid var(--kitchen-line2)",
-          padding: "20px 22px calc(20px + env(safe-area-inset-bottom, 0px))",
-        }}
+        className={`${sheetPanelTallClass} md:max-h-[80dvh]`}
+        style={sheetPanelStyle}
+        onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between mb-5">
+        <div className="shrink-0 flex items-center justify-between px-5 pt-5 pb-3">
           <MonoLabel className="text-kitchen-muted">ADJUST CONTEXT</MonoLabel>
           <button type="button" onClick={onClose} className="text-kitchen-muted hover:text-kitchen-text w-8 h-8 flex items-center justify-center text-lg">×</button>
         </div>
 
-        <div className="space-y-5">
+        <div className="flex-1 min-h-0 overflow-y-auto px-5 pb-3 space-y-5">
           {sliders.map(({ key, label, min, max, step = 1, suffix }) => (
             <div key={key}>
               <div className="flex justify-between mb-1.5">
@@ -373,7 +376,12 @@ function ContextSheet({
               className="w-full accent-kitchen-accent" style={{ height: 2 }}
             />
           </div>
+        </div>
 
+        <div
+          className="shrink-0 px-5 pt-3"
+          style={{ borderTop: "1px solid var(--kitchen-line)", paddingBottom: sheetFooterPadding, background: "rgb(var(--kitchen-bg))" }}
+        >
           <button
             type="button"
             onClick={() => { onApply(people); onClose(); }}

@@ -118,7 +118,7 @@ export function BarcodeScanner({ onDetected, onClose }: Props) {
   const isConfirm = status === "confirm" || status === "looking-up";
 
   return (
-    <div className="fixed inset-0 z-50" style={{ background: "#0a0a0a" }}>
+    <div className="fixed inset-0 z-[100]" style={{ background: "#0a0a0a" }}>
       {/* Full-bleed camera feed */}
       <video
         ref={videoRef}

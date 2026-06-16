@@ -149,10 +149,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
         className="md:ml-56 min-h-dvh flex flex-col"
         style={{
           paddingTop: "env(safe-area-inset-top, 0px)",
-          paddingBottom: "calc(64px + env(safe-area-inset-bottom, 0px))",
+          paddingBottom: "var(--content-bottom-inset)",
         }}
       >
-        <div className="max-w-2xl mx-auto px-[22px] py-6 animate-fade-in w-full">
+        <div className="max-w-2xl mx-auto px-[22px] py-6 animate-fade-in w-full flex-1 flex flex-col min-h-0">
           {children}
         </div>
       </main>

@@ -24,6 +24,16 @@ async function fileToBase64(file: File, maxDim = 1024): Promise<{ base64: string
 }
 import { BarcodeScanner } from "@/components/BarcodeScanner";
 import { formatCurrency } from "@/lib/utils";
+import {
+  sheetFooterPadding,
+  sheetFooterStyle,
+  sheetOverlayCompactClass,
+  sheetOverlayStyle,
+  sheetOverlayTallClass,
+  sheetPanelCompactClass,
+  sheetPanelStyle,
+  sheetPanelTallClass,
+} from "@/lib/mobile-layout";
 
 const CATEGORIES = ["All", "Fridge", "Pantry", "Freezer"];
 const STORAGE_LABEL: Record<string, string> = {
@@ -85,18 +95,17 @@ function ConsumeSheet({
 
   return (
     <div
-      className="fixed inset-0 z-60 flex items-end md:items-center justify-center"
-      style={{ background: "rgba(0,0,0,0.5)", backdropFilter: "blur(4px)" }}
+      className={sheetOverlayCompactClass}
+      style={sheetOverlayStyle}
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
       <div
-        className="w-full max-w-md animate-fade-in"
+        className={sheetPanelCompactClass}
         style={{
-          background: "rgb(var(--kitchen-bg))",
-          borderRadius: "var(--radius-card) var(--radius-card) 0 0",
-          padding: "20px 22px calc(24px + env(safe-area-inset-bottom, 0px))",
-          borderTop: "1px solid var(--kitchen-line2)",
+          ...sheetPanelStyle,
+          padding: `20px 22px ${sheetFooterPadding}`,
         }}
+        onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-4">
           <div>
@@ -174,18 +183,17 @@ function DiscardSheet({
 
   return (
     <div
-      className="fixed inset-0 z-60 flex items-end md:items-center justify-center"
-      style={{ background: "rgba(0,0,0,0.5)", backdropFilter: "blur(4px)" }}
+      className={sheetOverlayCompactClass}
+      style={sheetOverlayStyle}
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
       <div
-        className="w-full max-w-md animate-fade-in"
+        className={sheetPanelCompactClass}
         style={{
-          background: "rgb(var(--kitchen-bg))",
-          borderRadius: "var(--radius-card) var(--radius-card) 0 0",
-          padding: "20px 22px calc(24px + env(safe-area-inset-bottom, 0px))",
-          borderTop: "1px solid var(--kitchen-line2)",
+          ...sheetPanelStyle,
+          padding: `20px 22px ${sheetFooterPadding}`,
         }}
+        onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-4">
           <div>
@@ -327,121 +335,122 @@ function IngredientSheet({
 
   return (
     <div
-      className="fixed inset-0 z-60 flex items-end md:items-center justify-center"
-      style={{ background: "rgba(0,0,0,0.5)", backdropFilter: "blur(4px)" }}
+      className={sheetOverlayTallClass}
+      style={sheetOverlayStyle}
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
       <div
-        className="w-full max-w-md max-h-[90dvh] overflow-auto animate-fade-in"
-        style={{
-          background: "rgb(var(--kitchen-bg))",
-          borderRadius: "var(--radius-card) var(--radius-card) 0 0",
-          padding: "20px 22px calc(20px + env(safe-area-inset-bottom, 0px))",
-          borderTop: "1px solid var(--kitchen-line2)",
-        }}
+        className={sheetPanelTallClass}
+        style={sheetPanelStyle}
+        onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between mb-4">
+        <div className="shrink-0 flex items-center justify-between px-5 pt-5 pb-3">
           <h2 className="font-display text-lg">{editing ? "Edit ingredient" : "Add ingredient"}</h2>
           <button type="button" onClick={onClose} className="text-kitchen-muted hover:text-kitchen-text w-8 h-8 flex items-center justify-center text-lg">×</button>
         </div>
 
-        {/* Mode switcher — only on add (not edit) */}
-        {!editing && (
-          <div
-            className="flex mb-4 overflow-hidden"
-            style={{ border: "1px solid var(--kitchen-line2)", borderRadius: "var(--radius-btn)" }}
-          >
-            {(["manual", "voice"] as const).map((m) => (
+        <div className="flex-1 min-h-0 overflow-y-auto px-5 pb-3">
+          {/* Mode switcher — only on add (not edit) */}
+          {!editing && (
+            <div
+              className="flex mb-4 overflow-hidden"
+              style={{ border: "1px solid var(--kitchen-line2)", borderRadius: "var(--radius-btn)" }}
+            >
+              {(["manual", "voice"] as const).map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => setInputMode(m)}
+                  className="flex-1 py-2 text-[10px] font-mono transition-colors uppercase tracking-[0.1em]"
+                  style={{
+                    background: inputMode === m ? "rgb(var(--kitchen-accent))" : "transparent",
+                    color: inputMode === m ? "rgb(26 18 10)" : "rgb(var(--kitchen-ink3))",
+                    border: "none",
+                  }}
+                >
+                  {m === "voice" ? "🎤 Voice" : "Manual"}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Voice mode panel */}
+          {inputMode === "voice" && !editing && (
+            <div className="flex flex-col items-center justify-center py-6 gap-4">
               <button
-                key={m}
                 type="button"
-                onClick={() => setInputMode(m)}
-                className="flex-1 py-2 text-[10px] font-mono transition-colors uppercase tracking-[0.1em]"
+                onClick={listening ? stopListening : startListening}
+                className="w-24 h-24 rounded-full flex items-center justify-center transition-all"
                 style={{
-                  background: inputMode === m ? "rgb(var(--kitchen-accent))" : "transparent",
-                  color: inputMode === m ? "rgb(26 18 10)" : "rgb(var(--kitchen-ink3))",
-                  border: "none",
+                  background: listening ? "rgb(var(--kitchen-accent) / 0.12)" : "rgb(var(--kitchen-surface))",
+                  border: listening ? "2px solid rgb(var(--kitchen-accent))" : "2px solid var(--kitchen-line2)",
+                  boxShadow: listening ? "0 0 32px rgb(var(--kitchen-accent) / 0.2)" : "none",
                 }}
               >
-                {m === "voice" ? "🎤 Voice" : "Manual"}
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke={listening ? "rgb(var(--kitchen-accent))" : "rgb(var(--kitchen-ink2))"} strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="9" y="3" width="6" height="11" rx="3" />
+                  <path d="M5 11a7 7 0 0 0 14 0M12 18v3M9 21h6" />
+                </svg>
               </button>
-            ))}
-          </div>
-        )}
+              <div className="text-center space-y-1">
+                {listening ? (
+                  <p className="font-display text-base text-kitchen-text">Listening…</p>
+                ) : transcript ? (
+                  <p className="text-sm text-kitchen-muted">&ldquo;{transcript}&rdquo;</p>
+                ) : null}
+                <p className="text-[11px] text-kitchen-muted">
+                  {listening ? "Tap to stop" : "Say: \"Add 300 grams of chicken\""}
+                </p>
+              </div>
+              {voiceError && (
+                <p className="text-xs text-center px-4" style={{ color: "rgb(var(--kitchen-warn))" }}>{voiceError}</p>
+              )}
+            </div>
+          )}
 
-        {/* Voice mode panel */}
-        {inputMode === "voice" && !editing && (
-          <div className="flex flex-col items-center justify-center py-6 gap-4">
-            <button
-              type="button"
-              onClick={listening ? stopListening : startListening}
-              className="w-24 h-24 rounded-full flex items-center justify-center transition-all"
-              style={{
-                background: listening ? "rgb(var(--kitchen-accent) / 0.12)" : "rgb(var(--kitchen-surface))",
-                border: listening ? "2px solid rgb(var(--kitchen-accent))" : "2px solid var(--kitchen-line2)",
-                boxShadow: listening ? "0 0 32px rgb(var(--kitchen-accent) / 0.2)" : "none",
-              }}
-            >
-              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke={listening ? "rgb(var(--kitchen-accent))" : "rgb(var(--kitchen-ink2))"} strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
-                <rect x="9" y="3" width="6" height="11" rx="3" />
-                <path d="M5 11a7 7 0 0 0 14 0M12 18v3M9 21h6" />
-              </svg>
-            </button>
-            <div className="text-center space-y-1">
-              {listening ? (
-                <p className="font-display text-base text-kitchen-text">Listening…</p>
-              ) : transcript ? (
-                <p className="text-sm text-kitchen-muted">&ldquo;{transcript}&rdquo;</p>
-              ) : null}
-              <p className="text-[11px] text-kitchen-muted">
-                {listening ? "Tap to stop" : "Say: \"Add 300 grams of chicken\""}
-              </p>
+          <form id="ingredient-sheet-form" onSubmit={onSubmit} className="space-y-4" style={{ display: inputMode === "voice" && !editing ? "none" : undefined }}>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="col-span-2">
+                <MonoLabel className="text-kitchen-muted block mb-1.5">NAME</MonoLabel>
+                <input required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="e.g. Cremini mushrooms" className={inputCls} style={inputStyle} />
+              </div>
+              <div>
+                <MonoLabel className="text-kitchen-muted block mb-1.5">QUANTITY</MonoLabel>
+                <input type="number" required value={form.quantity || ""} onChange={(e) => setForm({ ...form, quantity: Number(e.target.value) })} className={inputCls} style={inputStyle} />
+              </div>
+              <div>
+                <MonoLabel className="text-kitchen-muted block mb-1.5">UNIT</MonoLabel>
+                <input value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })} placeholder="grams" className={inputCls} style={inputStyle} />
+              </div>
+              <div>
+                <MonoLabel className="text-kitchen-muted block mb-1.5">EXPIRY DATE</MonoLabel>
+                <input type="date" value={form.expiry_date} onChange={(e) => setForm({ ...form, expiry_date: e.target.value })} className={inputCls} style={inputStyle} />
+              </div>
+              <div>
+                <MonoLabel className="text-kitchen-muted block mb-1.5">STORAGE</MonoLabel>
+                <select value={form.storage_type} onChange={(e) => setForm({ ...form, storage_type: e.target.value })} className={inputCls} style={inputStyle}>
+                  <option value="fridge">Fridge</option>
+                  <option value="pantry">Pantry</option>
+                  <option value="freezer">Freezer</option>
+                </select>
+              </div>
+              <div>
+                <MonoLabel className="text-kitchen-muted block mb-1.5">COST (₹)</MonoLabel>
+                <input type="number" value={form.cost || ""} onChange={(e) => setForm({ ...form, cost: Number(e.target.value) })} className={inputCls} style={inputStyle} />
+              </div>
+              <div className="flex items-center gap-2.5 col-span-2">
+                <input type="checkbox" id="opened" checked={form.opened} onChange={(e) => setForm({ ...form, opened: e.target.checked })} className="accent-kitchen-accent w-4 h-4" />
+                <label htmlFor="opened" className="text-sm text-kitchen-muted">Opened / in use</label>
+              </div>
             </div>
-            {voiceError && (
-              <p className="text-xs text-center px-4" style={{ color: "rgb(var(--kitchen-warn))" }}>{voiceError}</p>
-            )}
-          </div>
-        )}
+          </form>
+        </div>
 
-        <form onSubmit={onSubmit} className="space-y-4" style={{ display: inputMode === "voice" && !editing ? "none" : undefined }}>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="col-span-2">
-              <MonoLabel className="text-kitchen-muted block mb-1.5">NAME</MonoLabel>
-              <input required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="e.g. Cremini mushrooms" className={inputCls} style={inputStyle} />
-            </div>
-            <div>
-              <MonoLabel className="text-kitchen-muted block mb-1.5">QUANTITY</MonoLabel>
-              <input type="number" required value={form.quantity || ""} onChange={(e) => setForm({ ...form, quantity: Number(e.target.value) })} className={inputCls} style={inputStyle} />
-            </div>
-            <div>
-              <MonoLabel className="text-kitchen-muted block mb-1.5">UNIT</MonoLabel>
-              <input value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })} placeholder="grams" className={inputCls} style={inputStyle} />
-            </div>
-            <div>
-              <MonoLabel className="text-kitchen-muted block mb-1.5">EXPIRY DATE</MonoLabel>
-              <input type="date" value={form.expiry_date} onChange={(e) => setForm({ ...form, expiry_date: e.target.value })} className={inputCls} style={inputStyle} />
-            </div>
-            <div>
-              <MonoLabel className="text-kitchen-muted block mb-1.5">STORAGE</MonoLabel>
-              <select value={form.storage_type} onChange={(e) => setForm({ ...form, storage_type: e.target.value })} className={inputCls} style={inputStyle}>
-                <option value="fridge">Fridge</option>
-                <option value="pantry">Pantry</option>
-                <option value="freezer">Freezer</option>
-              </select>
-            </div>
-            <div>
-              <MonoLabel className="text-kitchen-muted block mb-1.5">COST (₹)</MonoLabel>
-              <input type="number" value={form.cost || ""} onChange={(e) => setForm({ ...form, cost: Number(e.target.value) })} className={inputCls} style={inputStyle} />
-            </div>
-            <div className="flex items-center gap-2.5 col-span-2">
-              <input type="checkbox" id="opened" checked={form.opened} onChange={(e) => setForm({ ...form, opened: e.target.checked })} className="accent-kitchen-accent w-4 h-4" />
-              <label htmlFor="opened" className="text-sm text-kitchen-muted">Opened / in use</label>
-            </div>
-          </div>
-
-          <div className="flex gap-2.5 pt-1">
+        {(inputMode === "manual" || editing) && (
+          <div className="shrink-0 px-5 pt-3 flex gap-2.5" style={sheetFooterStyle}>
             <button
               type="submit"
+              form="ingredient-sheet-form"
               className="flex-1 py-3 text-sm font-medium transition-opacity hover:opacity-90"
               style={{ background: "rgb(var(--kitchen-accent))", color: "rgb(26 18 10)", borderRadius: "var(--radius-btn)" }}
             >
@@ -456,7 +465,7 @@ function IngredientSheet({
               Cancel
             </button>
           </div>
-        </form>
+        )}
       </div>
     </div>
   );
@@ -488,19 +497,16 @@ function ParsedIngredientsSheet({
 
   return (
     <div
-      className="fixed inset-0 z-60 flex items-end md:items-center justify-center"
-      style={{ background: "rgba(0,0,0,0.5)", backdropFilter: "blur(4px)" }}
+      className={sheetOverlayTallClass}
+      style={sheetOverlayStyle}
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
       <div
-        className="w-full max-w-md max-h-[80dvh] flex flex-col animate-fade-in"
-        style={{
-          background: "rgb(var(--kitchen-bg))",
-          borderRadius: "var(--radius-card) var(--radius-card) 0 0",
-          borderTop: "1px solid var(--kitchen-line2)",
-        }}
+        className={`${sheetPanelTallClass} md:max-h-[80dvh]`}
+        style={sheetPanelStyle}
+        onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between px-5 pt-5 pb-3">
+        <div className="shrink-0 flex items-center justify-between px-5 pt-5 pb-3">
           <div>
             <h2 className="font-display text-lg">Add from image</h2>
             <p className="text-xs text-kitchen-muted mt-0.5">{items.length} ingredient{items.length !== 1 ? "s" : ""} detected — select to add</p>
@@ -508,7 +514,7 @@ function ParsedIngredientsSheet({
           <button type="button" onClick={onClose} className="text-kitchen-muted hover:text-kitchen-text w-8 h-8 flex items-center justify-center text-lg">×</button>
         </div>
 
-        <ul className="overflow-y-auto flex-1 px-5 pb-2 space-y-2">
+        <ul className="overflow-y-auto flex-1 min-h-0 px-5 pb-2 space-y-2">
           {items.map((item, i) => (
             <li key={i}>
               <button
@@ -544,7 +550,7 @@ function ParsedIngredientsSheet({
           ))}
         </ul>
 
-        <div className="px-5 py-4 flex gap-2" style={{ borderTop: "1px solid var(--kitchen-line)" }}>
+        <div className="shrink-0 px-5 pt-3 flex gap-2" style={sheetFooterStyle}>
           <button
             type="button"
             onClick={handleAdd}
@@ -774,17 +780,13 @@ function ProductQueueSheet({
 
   return (
     <div
-      className="fixed inset-0 z-[100] flex flex-col md:items-center md:justify-center md:p-4"
-      style={{ background: "rgba(0,0,0,0.55)", backdropFilter: "blur(4px)" }}
+      className={sheetOverlayTallClass}
+      style={sheetOverlayStyle}
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
       <div
-        className="flex flex-col w-full h-full min-h-0 md:h-auto md:max-h-[90dvh] md:max-w-md animate-fade-in"
-        style={{
-          background: "rgb(var(--kitchen-bg))",
-          borderRadius: "var(--radius-card) var(--radius-card) 0 0",
-          borderTop: "1px solid var(--kitchen-line2)",
-        }}
+        className={sheetPanelTallClass}
+        style={sheetPanelStyle}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="shrink-0 flex items-center justify-between px-5 pt-5 pb-3">
@@ -854,11 +856,7 @@ function ProductQueueSheet({
 
         <div
           className="shrink-0 px-5 pt-3 space-y-2"
-          style={{
-            borderTop: "1px solid var(--kitchen-line)",
-            paddingBottom: "max(16px, env(safe-area-inset-bottom, 0px))",
-            background: "rgb(var(--kitchen-bg))",
-          }}
+          style={sheetFooterStyle}
         >
           <input ref={fileRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handleFile} />
           <button
@@ -1421,8 +1419,8 @@ export default function InventoryPage() {
       {/* FABs — only in pantry view */}
       {view === "pantry" && (
         <div
-          className="fixed right-5 flex flex-col items-center gap-3 z-40"
-          style={{ bottom: "calc(72px + env(safe-area-inset-bottom, 0px))" }}
+          className="fixed right-5 flex flex-col items-center gap-3 z-40 md:hidden"
+          style={{ bottom: "calc(var(--content-bottom-inset) + 12px)" }}
         >
           {imageError && (
             <div
