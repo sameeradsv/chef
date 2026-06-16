@@ -16,7 +16,7 @@ const newsreader = Newsreader({
   weight: ["400"],
   style: ["normal", "italic"],
   variable: "--font-newsreader",
-  display: "swap",
+  display: "optional",
 });
 
 const spaceGrotesk = Space_Grotesk({
@@ -31,7 +31,7 @@ const instrumentSerif = Instrument_Serif({
   weight: ["400"],
   style: ["normal", "italic"],
   variable: "--font-instrument-serif",
-  display: "swap",
+  display: "optional",
 });
 
 const dmSans = DM_Sans({

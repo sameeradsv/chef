@@ -164,6 +164,35 @@ def _migrate_postgres() -> None:
             conn.commit()
 
 
+def _ensure_migrations_table() -> None:
+    from sqlalchemy import text
+    with engine.connect() as conn:
+        conn.execute(text(
+            "CREATE TABLE IF NOT EXISTS schema_migrations "
+            "(name VARCHAR(100) PRIMARY KEY, "
+            "applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)"
+        ))
+        conn.commit()
+
+
+def _migration_done(name: str) -> bool:
+    from sqlalchemy import text
+    with engine.connect() as conn:
+        return conn.execute(
+            text("SELECT 1 FROM schema_migrations WHERE name = :n"), {"n": name}
+        ).fetchone() is not None
+
+
+def _mark_done(name: str) -> None:
+    from sqlalchemy import text
+    with engine.connect() as conn:
+        if DATABASE_URL.startswith("sqlite"):
+            conn.execute(text("INSERT OR IGNORE INTO schema_migrations (name) VALUES (:n)"), {"n": name})
+        else:
+            conn.execute(text("INSERT INTO schema_migrations (name) VALUES (:n) ON CONFLICT DO NOTHING"), {"n": name})
+        conn.commit()
+
+
 def get_db():
     db = SessionLocal()
     try:

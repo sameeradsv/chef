@@ -1,9 +1,14 @@
+import asyncio
 import os
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.database import Base, SessionLocal, _migrate_postgres, _migrate_sqlite, engine
+from app.database import (
+    Base, SessionLocal, engine,
+    _migrate_postgres, _migrate_sqlite,
+    _ensure_migrations_table, _migration_done, _mark_done,
+)
 from app.routers import decisions, ingredients, recipes, user
 from app.routers.auth import router as auth_router
 from app.routers.grocery import router as grocery_router
@@ -48,16 +53,26 @@ app.include_router(energy_router)
 app.include_router(nutrition_router)
 
 
-@app.on_event("startup")
-def on_startup():
-    Base.metadata.create_all(bind=engine)
-    _migrate_sqlite()
-    _migrate_postgres()
+def _seed_in_thread() -> None:
     db = SessionLocal()
     try:
         seed_database(db)
     finally:
         db.close()
+
+
+@app.on_event("startup")
+async def on_startup():
+    Base.metadata.create_all(bind=engine)
+    _ensure_migrations_table()
+    for name, fn in [
+        ("sqlite_schema", _migrate_sqlite),
+        ("postgres_schema", _migrate_postgres),
+    ]:
+        if not _migration_done(name):
+            fn()
+            _mark_done(name)
+    asyncio.get_event_loop().run_in_executor(None, _seed_in_thread)
 
 
 @app.get("/health")
