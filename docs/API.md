@@ -105,10 +105,30 @@ GET /sync/energy
 
 | Method | Purpose |
 |--------|---------|
-| `GET /energy/timeline` | Per-meal energy events for a calendar day (default: today in IST). Returns `events[]` with `occurred_at`, `time`, `energy` (0–1), `label` (draining/neutral/energising), `note`, `source`. Energy = `decision_base × 0.3 + (satisfaction/5) × 0.7`; bases: cook 0.55, order 0.70, eat_out 0.75. |
-| `GET /sync/energy` | Today's cumulative decision drain (cook 0.25, eat_out 0.12, order 0.04). Returns `drain_so_far`, `drain_ahead`, `meals_today[]`. |
+| `GET /energy/timeline` | Per-meal energy events for a calendar day (default: today in IST). Returns `events[]` with `occurred_at` (naive IST), `time` (`HH:MM` IST), `delta`, `running_energy`, `energy` (0–1 compat), `label`, `note`, `source`. Satisfaction-weighted signed deltas; skipped meal windows synthesised when a window closes with no logged entry. |
+| `GET /sync/energy` | Today's cumulative decision drain (logged-meal drain + biological skip drain for closed windows). Returns `drain_so_far`, `drain_ahead`, `meals_today[]` (`at` is naive IST), `as_of` (naive IST). |
 
 Both filter by `CookingHistoryModel.timestamp` (meal time), so backdated entries land on their original date.
+
+---
+
+## History
+
+```text
+GET    /history
+POST   /history
+PATCH  /history/{id}
+DELETE /history/{id}
+```
+
+| Method | Purpose |
+|--------|---------|
+| `GET /history` | List decision log. Query params: `limit` (1–100, default 20), `offset` (default 0), `from_date` / `to_date` (inclusive IST `YYYY-MM-DD`, filters by meal `timestamp`), `date` (`today` or `YYYY-MM-DD`). With `include_summary=true`, returns `{ items, total, offset, limit, summary }` where `summary` has `{ total, total_spent, cook, order, eat_out }`. Without it, returns a plain `HistoryEntry[]` (backward-compatible with Conduit). |
+| `POST /history` | Log a decision. Body includes optional `timestamp` (naive IST meal time). |
+| `PATCH /history/{id}` | Edit entry fields including `timestamp`. |
+| `DELETE /history/{id}` | Delete entry. |
+
+Response entries use naive IST for `timestamp` and `created_at` — see [Timezones](./DATA_MODELS.md#timezones).
 
 ---
 
@@ -134,7 +154,7 @@ POST /vision/parse
 
 | Method | Purpose |
 |--------|---------|
-| `POST /vision/parse` | Parse a base64 image (`image_base64`, `image_type`, `parse_type`). `parse_type="order"` → `{decision, meal_name, cuisine, timestamp}`; `parse_type="ingredients"` → `{ingredients[]}`. Requires `GROQ_API_KEY`. |
+| `POST /vision/parse` | Parse a base64 image (`image_base64`, `image_type`, `parse_type`). `parse_type="order"` → `{decision, meal_name, cuisine, restaurant_name, timestamp}` (`timestamp` naive IST if visible); `parse_type="ingredients"` → `{ingredients[]}`. Requires `GROQ_API_KEY`. |
 
 ---
 
@@ -145,3 +165,4 @@ POST /vision/parse
 - Do not expose LLM-only endpoints for expiry or quantity updates.
 - Use `:id` as UUID consistent with [DATA_MODELS.md](./DATA_MODELS.md).
 - Energy and nutrition endpoints filter by `timestamp` (meal time), not `created_at` (entry time).
+- All API datetimes are naive IST on the wire; backend converts at the boundary (`app/tz_utils.py`). See [DATA_MODELS.md — Timezones](./DATA_MODELS.md#timezones).

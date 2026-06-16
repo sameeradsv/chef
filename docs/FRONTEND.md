@@ -86,11 +86,16 @@ Substitutions: [AI.md](./AI.md). Recipe model: [DATA_MODELS.md](./DATA_MODELS.md
 
 - chronological decision log with food swatches and mode icons
 - satisfaction star ratings (1–5 stars per entry)
-- datetime picker on the log form — `timestamp` sent to backend is the meal's actual time, not the entry time; energy and nutrition endpoints filter by this field
+- **time filters** — Week (default) / Month / Year / All; server-side by meal `timestamp` in IST calendar boundaries
+- **pagination** — 20 entries per page with prev/next; stats (`cook`/`order`/`eat_out`/spend) cover the full filtered period via `include_summary`
+- **week grouping** — Month/Year/All views group by IST calendar week (This week / Last week / Earlier)
+- datetime picker labelled **DATE & TIME (IST)** — value sent as naive IST; backend converts to UTC
 - log from order screenshot (vision AI → `POST /vision/parse` pre-fills form)
 - edit and delete entries
 
-**Data sources:** `GET /history`, `POST /history`, `PATCH /history/{id}`, `DELETE /history/{id}`, `POST /vision/parse`.
+**Data sources:** `GET /history?include_summary=true&from_date&to_date&limit&offset`, `POST /history`, `PATCH /history/{id}`, `DELETE /history/{id}`, `POST /vision/parse`.
+
+**Timezone helpers:** `frontend/src/lib/tz.ts` — all display/input is IST; never send UTC to the API.
 
 ---
 
@@ -140,5 +145,6 @@ Substitutions: [AI.md](./AI.md). Recipe model: [DATA_MODELS.md](./DATA_MODELS.md
 - Expiry alerts on dashboard must match backend expiry logic ([AI.md](./AI.md) prohibitions).
 - The frontend is a Next.js static export (PWA) deployed to GitHub Pages — no React Native.
 - Nav has 8 tabs: Home / Pantry / Decide / Grocery / History / Health / Chat / You (Settings).
-- Timestamp semantics: always send `timestamp` as IST naive string; backend converts to UTC. Energy/nutrition filters use `timestamp` (meal time), so a backdated entry lands on the correct date.
+- Timestamp semantics: API datetimes are naive IST strings; frontend displays/edits IST only (`lib/tz.ts`); backend converts to UTC. History filters and energy/nutrition use meal `timestamp`, so backdated entries land on the correct date.
+- Dashboard **Week glance** shows Mon–today (IST) only, fetched with `from_date`/`to_date` on `GET /history`.
 - Pantry theme (third colour scheme) and density control were deliberately dropped — do not re-add without approval.

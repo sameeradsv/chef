@@ -6,6 +6,21 @@ Schemas below are canonical. Other docs link here instead of duplicating full JS
 
 ---
 
+## Timezones
+
+All user-facing API datetimes use **naive IST wall-clock strings**: `YYYY-MM-DDTHH:MM:SS` (no `Z`, no offset).
+
+| Layer | Rule |
+|-------|------|
+| **Database** | Naive UTC (`DateTime` columns) |
+| **API responses** | Naive IST strings via `tz_utils.utc_naive_to_ist_str` + Pydantic `ISTDateTime` serializers in `schemas.py` |
+| **API inputs** | Naive IST strings (or naive datetimes) via `ISTDateTimeInput` validators → converted to naive UTC before storage |
+| **Frontend** | Display and `<input type="datetime-local">` values are IST only; see `frontend/src/lib/tz.ts` — no `toISOString()` or UTC sent to the API |
+
+Calendar-day filters (`from_date`, `to_date`, `date`, energy timeline `?date=`) use **IST midnight boundaries**.
+
+---
+
 ## Ingredient
 
 ```json
@@ -22,7 +37,7 @@ Schemas below are canonical. Other docs link here instead of duplicating full JS
   "cost": 120,
   "brand": "Amul",
   "freshness_score": 7,
-  "created_at": "timestamp"
+  "created_at": "2026-05-17T14:30:00"
 }
 ```
 
@@ -40,7 +55,7 @@ Schemas below are canonical. Other docs link here instead of duplicating full JS
 | `cost` | Approximate purchase or replacement cost (currency units) |
 | `brand` | Optional brand label |
 | `freshness_score` | Derived 0–10 style signal; **deterministic** from dates/state, not LLM |
-| `created_at` | Record creation timestamp |
+| `created_at` | Record creation time (naive IST in API responses) |
 
 ---
 
@@ -146,18 +161,18 @@ MVP sourcing: [INTEGRATIONS.md](./INTEGRATIONS.md)—not full platform API integ
   "decision": "cook",
   "recipe_name": "Dal Tadka",
   "cuisine": "Indian",
-  "timestamp": "2026-06-13T19:30:00+05:30",
+  "timestamp": "2026-06-13T19:30:00",
   "satisfaction": 4,
   "cost": 80.0,
-  "created_at": "2026-06-15T10:00:00+05:30"
+  "created_at": "2026-06-15T10:00:00"
 }
 ```
 
 | Field | Semantics |
 |-------|-----------|
 | `decision` | `cook` \| `order` \| `eat_out` |
-| `timestamp` | **Meal time** — user-specified via datetime picker; defaults to entry time if omitted. This is the anchor for energy and nutrition date filtering. Always sent as IST naive, stored as UTC. |
-| `created_at` | **Entry time** — when the DB record was created; always entry time. Used for sorting the history feed (most recently logged first). |
+| `timestamp` | **Meal time** — user-specified via datetime picker (labelled IST); defaults to entry time if omitted. Anchor for energy/nutrition date filtering and history time-range filters. |
+| `created_at` | **Entry time** — when the DB record was created. Used for feed sort order (most recently logged first). |
 | `satisfaction` | Optional 1–5 star rating; drives energy score (70% weight). |
 
 **Key invariant:** `timestamp` ≠ `created_at` when the user backdates an entry. Energy (`/energy/timeline`) and nutrition (`/nutrition/summary`) filter by `timestamp`, so backdated entries land on their original date.
@@ -173,7 +188,7 @@ MVP sourcing: [INTEGRATIONS.md](./INTEGRATIONS.md)—not full platform API integ
   "quantity": 200.0,
   "unit": "grams",
   "bought": false,
-  "added_at": "2026-06-15T10:00:00Z"
+  "added_at": "2026-06-15T10:00:00"
 }
 ```
 
@@ -196,7 +211,7 @@ MVP sourcing: [INTEGRATIONS.md](./INTEGRATIONS.md)—not full platform API integ
   "buy_date": "2026-06-01",
   "expiry_date": "2026-06-10",
   "discard_reason": "expired",
-  "discarded_at": "2026-06-11T08:00:00Z"
+  "discarded_at": "2026-06-11T08:00:00"
 }
 ```
 
@@ -210,4 +225,4 @@ MVP sourcing: [INTEGRATIONS.md](./INTEGRATIONS.md)—not full platform API integ
 - Normalize ingredient names on write or ingest; store both `name` and `normalized_name`.
 - Keep `ingredients` on Recipe resolvable to pantry `normalized_name` for availability and substitution flows.
 - Restaurant options are comparison inputs to the decision engine, not the source of truth for user inventory.
-- When logging history, always pass `timestamp` as the meal's actual date/time (IST naive); the backend converts to UTC and uses it for all time-based filtering.
+- When logging history, pass `timestamp` as the meal's actual date/time as a naive IST string (`YYYY-MM-DDTHH:MM:SS`); the backend converts to UTC for storage.

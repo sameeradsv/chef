@@ -121,13 +121,13 @@ export DATABASE_URL=postgresql://chef:chef@localhost:5432/chef
 
 | Route | Purpose |
 |-------|---------|
-| `/` | Dashboard — expiring items, mood-aware recommendation, quick recipes, week glance strip |
+| `/` | Dashboard — expiring items, mood-aware recommendation, quick recipes, week glance strip (IST calendar week) |
 | `/inventory` | Pantry CRUD, barcode/photo add, expiry badges, discard + waste log |
 | `/decision` | Cook vs order vs eat out — factor breakdown, context sliders, score waterfall |
 | `/recipe` | Recipe browse — list + pantry coverage scatter chart |
 | `/recipe/[id]` | Recipe detail, pantry match, substitutions, interactive cooking steps |
 | `/grocery` | Grocery list — add/buy/delete, AI suggestions |
-| `/history` | Decision log, satisfaction ratings, datetime picker for backdating, auto-fill from screenshot |
+| `/history` | Decision log — Week/Month/Year/All filters, pagination, IST datetime picker, auto-fill from screenshot |
 | `/health` | Nutrition health — macro rings, per-nutrient RDA status, meal-type food suggestions |
 | `/chat` | Terminal chat — ask "What should I cook?", "Should I order tonight?", "Log that I ate sushi" |
 | `/settings` | Cuisines, spice level, dietary restrictions, cooking skill, biometric sign-in (Security section) |
@@ -192,10 +192,12 @@ export DATABASE_URL=postgresql://chef:chef@localhost:5432/chef
 ### History
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/history` | Decision log |
-| POST | `/history` | Log a decision |
+| GET | `/history` | Decision log — `limit`, `offset`, `from_date`/`to_date` (IST), `date`; `include_summary=true` for paginated response with stats |
+| POST | `/history` | Log a decision (`timestamp` = naive IST meal time) |
 | PATCH | `/history/{id}` | Edit entry |
 | DELETE | `/history/{id}` | Delete entry |
+
+All datetime fields in API responses are **naive IST** (`YYYY-MM-DDTHH:MM:SS`); the backend stores UTC internally.
 
 ### Vision
 | Method | Path | Description |
@@ -268,6 +270,7 @@ chef/
       models.py     # SQLAlchemy ORM (Ingredient, UserState, UserPrefs, CookingHistory,
                     # GroceryItem, DiscardedIngredient, AuthSession, WebAuthnCredential/Challenge)
       schemas.py    # Pydantic request/response types
+      tz_utils.py   # IST ↔ UTC conversion for all API datetimes
       database.py   # session factory + migration helpers
     data/           # seed_recipes.json, seed_restaurants.json
   frontend/
@@ -276,7 +279,7 @@ chef/
                     # /grocery, /history, /health, /chat, /settings, /login)
       components/   # Layout (8-tab nav), AuthWrapper, BarcodeScanner, Card,
                     # DecisionScoreWaterfall, RecipeCoverageScatter, TerminalChat
-      lib/          # api.ts (typed fetch), utils.ts
+      lib/          # api.ts (typed fetch), tz.ts (IST display/input), utils.ts
       contexts/     # AuthContext
   docs/             # Architecture, decision engine, API, data models, roadmap docs
   render.yaml       # Render deploy blueprint

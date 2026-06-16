@@ -116,7 +116,7 @@ Prefer reducing food waste.
 
 ## Vision parsing
 
-`POST /vision/parse` accepts a base64-encoded image and a `parse_type` ("order" or "ingredients"). Returns structured fields (decision, meal_name, cuisine, timestamp for orders; ingredient list for pantry photos). Used by:
+`POST /vision/parse` accepts a base64-encoded image and a `parse_type` ("order" or "ingredients"). Returns structured fields (decision, meal_name, cuisine, restaurant_name, timestamp for orders — **timestamp as naive IST** if visible; ingredient list for pantry photos). Used by:
 - History page screenshot-to-log feature
 - Inventory page photo-add flow
 

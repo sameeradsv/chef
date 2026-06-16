@@ -13,7 +13,7 @@ Chef is an AI-powered kitchen decision intelligence system. These docs split pro
 | [AGENTS.md](./AGENTS.md) | Agent entry point: product identity, priorities, dev principles, AI boundaries, UX |
 | [FOUNDING_PRINCIPLES.md](./FOUNDING_PRINCIPLES.md) | Moat, anti-goals, product advice |
 | [ROADMAP.md](./ROADMAP.md) | Phase 1–3 features and current completion status |
-| [DATA_MODELS.md](./DATA_MODELS.md) | Ingredient, Recipe, CookingHistory, GroceryItem, DiscardedIngredient schemas |
+| [DATA_MODELS.md](./DATA_MODELS.md) | Ingredient, Recipe, CookingHistory, GroceryItem, DiscardedIngredient schemas; **timezone contract** (naive IST on API, UTC in DB) |
 | [DECISION_ENGINE.md](./DECISION_ENGINE.md) | Cook vs order vs eat-out; deterministic scoring formulas |
 | [AI.md](./AI.md) | Provider (Groq), NL queries, normalization, vision parsing, AI limits |
 | [API.md](./API.md) | REST endpoints |
@@ -60,4 +60,4 @@ Chef is not just a recipe app or pantry tracker. It is a **kitchen decision inte
 - Read `AGENTS.md` and `FOUNDING_PRINCIPLES.md` before proposing features; respect anti-goals and the decision-engine moat.
 - Implement deterministic logic per `DECISION_ENGINE.md` and `AI.md`; do not expand scope into full Swiggy/Zomato integrations.
 - Follow `ROADMAP.md` phase boundaries unless the user explicitly reprioritizes.
-- CLAUDE.md at the repo root is the primary reference for implementation details; these docs carry design intent and constraints.
+- All API datetimes are naive IST on the wire; see [DATA_MODELS.md — Timezones](./DATA_MODELS.md#timezones) before touching history, energy, or datetime inputs.

@@ -50,11 +50,13 @@ docker compose up -d postgres
 | `main.py` | FastAPI app init, router registration, CORS, DB seed on startup |
 | `models.py` | SQLAlchemy ORM: `Ingredient`, `UserState`, `UserPreferences`, `CookingHistory`, `GroceryItem`, `DiscardedIngredient`, `AuthSession`, `WebAuthnCredential`, `WebAuthnChallenge` |
 | `schemas.py` | Pydantic request/response types |
+| `tz_utils.py` | IST wall-clock ↔ naive UTC conversion for all API datetimes |
 | `database.py` | DB session factory; SQLite default, PostgreSQL via `DATABASE_URL` env var |
 | `seed.py` | Populates `data/seed_recipes.json` + `data/seed_restaurants.json` on first run |
 
 **Routers**:
 - `/ingredients` (CRUD), `/recipes/recommend|search/{id}`, `/decision/cook-vs-order|recommend-meal`, `/user/state|preferences (GET+PUT)`, `/grocery` (CRUD + suggestions), `/history` (log+list+patch+delete), `/auth/register|login|me`, `/health`
+- `/history` list — `limit`, `offset`, `from_date`/`to_date` (IST meal-time range), `date` (`today` or `YYYY-MM-DD`); `include_summary=true` → `{ items, total, offset, limit, summary }`; omit for plain array (Conduit-compatible)
 - `/energy/timeline` — cumulative meal-energy timeline per day. Each event has `delta` (signed: good meals restore, skipped/bad drain), `running_energy`, `start_energy` (0.70), `end_energy`. Satisfaction-weighted delta: 4–5/5 → +0.08 to +0.10 (genuine restore); 3/5 → +0.02; 1–2/5 → negative; skipped window → breakfast −0.15, lunch −0.20, dinner −0.12. Decision-type fallback (no satisfaction): eat_out +0.03, order 0.0, cook −0.04. `energy` compat field (0–1) preserved for chart dot colour.
 - `/sync/energy` — today's cumulative drain: logged-meal drain (cook 0.12, eat_out 0.07, order 0.03) + biological skip drain for closed windows with no entry (breakfast 0.20, lunch 0.25, dinner 0.15). Having any meal always drains less than skipping it. Consumed by the decision page for all accounts (not just Cortex) to pre-fill `energy_level`.
 - `/nutrition/summary` — keyword-based macro/micronutrient averages + RDA gap analysis + food suggestions
@@ -74,7 +76,9 @@ docker compose up -d postgres
 - `llm.py` — Groq Llama 3.1 8B narrative explanations (requires `GROQ_API_KEY`)
 - `mealdb.py` — TheMealDB live recipe search; wired into `/recipes/search` alongside seed data
 
-**`CookingHistoryModel` field semantics**: `timestamp` = the meal's actual date/time (user-specified, defaults to insert time if omitted); `created_at` = DB insert time (always entry time). Energy and nutrition endpoints filter by `timestamp` so backdated entries land on their original date, not today.
+**`CookingHistoryModel` field semantics**: `timestamp` = the meal's actual date/time (user-specified, defaults to insert time if omitted); `created_at` = DB insert time (always entry time). Both are stored as naive UTC in the DB; API responses serialize them as **naive IST strings** (`YYYY-MM-DDTHH:MM:SS`). Energy and nutrition endpoints filter by `timestamp` so backdated entries land on their original date, not today.
+
+**Timezone contract**: All user-facing API datetimes are naive IST on the wire. The frontend displays and collects IST only (`frontend/src/lib/tz.ts`); `tz_utils.py` converts to/from naive UTC at the backend boundary.
 
 Data is multi-user — all tables keyed by `user_id`. JWT auth (30-day tokens, bcrypt passcodes). Demo account: `demo` / `demo1234`.
 
@@ -89,12 +93,13 @@ Data is multi-user — all tables keyed by `user_id`. JWT auth (30-day tokens, b
 | `app/recipe/page.tsx` | Recipe browse + `RecipeCoverageScatter` pantry coverage chart |
 | `app/recipe/[id]/page.tsx` | Recipe detail with pantry ingredient usage and interactive cooking steps |
 | `app/grocery/page.tsx` | Grocery list — add/buy/delete items + AI suggestions |
-| `app/history/page.tsx` | Decision history — log (with datetime picker), edit, delete, satisfaction ratings; screenshot-to-log via vision API |
+| `app/history/page.tsx` | Decision history — IST datetime picker, Week/Month/Year/All filters (server-side by meal `timestamp`), pagination (20/page), edit/delete, satisfaction ratings; screenshot-to-log via vision API |
 | `app/health/page.tsx` | Nutrition health — macro rings (SVG), per-nutrient RDA bars, meal-type-keyed food suggestions |
 | `app/chat/page.tsx` | Terminal-style chat UI (`<TerminalChat>` component) |
 | `app/settings/page.tsx` | User preferences — cuisines, spice level, dietary |
 | `app/login/page.tsx` | Login / register; pings `/health` to check backend reachability |
 | `lib/api.ts` | Typed fetch wrapper; all API types live here; reads `NEXT_PUBLIC_API_URL` |
+| `lib/tz.ts` | IST-only display/input helpers — naive IST strings from API; no client-side UTC conversion |
 | `lib/utils.ts` | `expiryBadge`, `formatCurrency` helpers |
 | `contexts/AuthContext.tsx` | JWT token state, login/register/logout, localStorage persistence |
 | `components/` | `Layout.tsx` (nav — 8 tabs: Home/Pantry/Decide/Grocery/History/Health/Chat/You), `AuthWrapper.tsx`, `Card.tsx`, `DecisionCard.tsx`, `TerminalChat.tsx`, `BarcodeScanner.tsx` |
@@ -141,7 +146,7 @@ The design handoff (`Claude Design/chef-designs/design_handoff_kitchen_intellige
 | Feature | Where |
 |---|---|
 | Bottom tab bar navigation | `components/Layout.tsx` — mobile bottom tabs + desktop sidebar |
-| Week glance strip on Dashboard | `app/page.tsx` — `WeekGlance` component, pulls last 50 history entries |
+| Week glance strip on Dashboard | `app/page.tsx` — `WeekGlance` component; fetches current IST calendar week (Mon–today) via `GET /history?from_date&to_date` |
 | ThemePicker in Dashboard header | `app/page.tsx` — `ThemeToggle` compact swatch pills (top-right of greeting) |
 | Tonight's Pick score badge | `app/page.tsx` — backdrop-blur amber pill showing mode + pantry match % |
 | Add Ingredient — Voice mode | `app/inventory/page.tsx` — Manual / Voice switcher in `IngredientSheet`; Web Speech API |
