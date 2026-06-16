@@ -27,6 +27,7 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   if (res.status === 401) {
     clearToken();
     window.dispatchEvent(new Event("chef:unauthorized"));
+    if (typeof window !== "undefined") window.location.replace("/login");
   }
   if (!res.ok) {
     const err = await res.text();

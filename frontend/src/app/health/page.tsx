@@ -3,6 +3,10 @@
 import { useEffect, useState } from "react";
 import { api, FoodSuggestion, NutrientStat, NutritionSummary } from "@/lib/api";
 
+// Module-level TTL cache keyed by `days` — avoids re-fetching on navigation back.
+const _nutritionCache = new Map<number, { data: NutritionSummary; ts: number }>();
+const NUTRITION_CACHE_MS = 5 * 60_000; // 5 minutes
+
 // ── Sub-components ──────────────────────────────────────────────────────────
 
 function Ring({
@@ -159,11 +163,17 @@ export default function HealthPage() {
   const [mealTab, setMealTab] = useState("breakfast");
 
   useEffect(() => {
+    const cached = _nutritionCache.get(days);
+    if (cached && Date.now() - cached.ts < NUTRITION_CACHE_MS) {
+      setData(cached.data);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     setError(null);
     api
       .getNutritionSummary(days)
-      .then(setData)
+      .then((d) => { _nutritionCache.set(days, { data: d, ts: Date.now() }); setData(d); })
       .catch((e: Error) => setError(e.message))
       .finally(() => setLoading(false));
   }, [days]);

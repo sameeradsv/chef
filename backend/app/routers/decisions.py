@@ -1,7 +1,32 @@
 from __future__ import annotations
 
+import hashlib
+import json
+import time
+from typing import Any
+
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
+
+# Simple in-process TTL cache for decision scoring (deterministic given same inputs).
+_DCACHE: dict[str, tuple[float, Any]] = {}
+_DCACHE_TTL = 120  # seconds
+
+def _dcache_key(*parts: object) -> str:
+    return hashlib.md5(json.dumps(parts, sort_keys=True, default=str).encode()).hexdigest()
+
+def _dcache_get(key: str) -> Any | None:
+    entry = _DCACHE.get(key)
+    if entry and time.time() - entry[0] < _DCACHE_TTL:
+        return entry[1]
+    _DCACHE.pop(key, None)
+    return None
+
+def _dcache_set(key: str, value: Any) -> None:
+    if len(_DCACHE) > 500:
+        oldest = min(_DCACHE, key=lambda k: _DCACHE[k][0])
+        _DCACHE.pop(oldest, None)
+    _DCACHE[key] = (time.time(), value)
 
 from app.database import get_db
 from app.dependencies import get_current_user
@@ -85,6 +110,14 @@ def cook_vs_order(
     body = body or CookVsOrderRequest()
     pantry = db.query(IngredientModel).filter(IngredientModel.user_id == current_user.id).all()
     state = _state(db, current_user.id)
+
+    ckey = _dcache_key(
+        current_user.id, body.recipe_id, body.restaurant_id, body.people_count,
+        sorted(p.id for p in pantry), state.energy_level, state.craving,
+        state.budget_today, state.time_available_minutes,
+    )
+    if cached := _dcache_get(ckey):
+        return cached
     profile = get_user_profile(current_user.id, db)
     vegetarian, skipped, fav_cuisines, spice_level, diet_restrictions, pref_people, city, cooking_skill = _diet(db, current_user.id)
     people_count = body.people_count if body.people_count is not None else pref_people
@@ -135,6 +168,7 @@ def cook_vs_order(
         cooking_skill,
     )
     result.narrative = generate_decision_narrative(result)
+    _dcache_set(ckey, result)
     return result
 
 
@@ -145,6 +179,14 @@ def recommend_meal_endpoint(
 ):
     pantry = db.query(IngredientModel).filter(IngredientModel.user_id == current_user.id).all()
     state = _state(db, current_user.id)
+
+    rkey = _dcache_key(
+        current_user.id, "recommend", sorted(p.id for p in pantry),
+        state.energy_level, state.craving, state.budget_today, state.time_available_minutes,
+    )
+    if cached := _dcache_get(rkey):
+        return cached
+
     profile = get_user_profile(current_user.id, db)
     vegetarian, skipped, fav_cuisines, spice_level, diet_restrictions, pref_people, city, cooking_skill = _diet(db, current_user.id)
     meal_type = current_meal_type()
@@ -182,4 +224,5 @@ def recommend_meal_endpoint(
         cooking_skill,
     )
     result.narrative = generate_decision_narrative(result)
+    _dcache_set(rkey, result)
     return result
