@@ -1,8 +1,19 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { api, type HistoryEntry } from "@/lib/api";
-import { TZ, toISTDatetimeLocal, fromISTDatetimeLocal } from "@/lib/tz";
+import { api, type HistoryEntry, type HistorySummary } from "@/lib/api";
+import {
+  historyDateRange,
+  startOfISTWeek,
+  istDateKey,
+  todayIST,
+  addDaysIST,
+  toDatetimeLocalInput,
+  datetimeLocalToIST,
+  formatRelativeIST,
+  istMinutesApart,
+  type HistoryTimeFilter,
+} from "@/lib/tz";
 
 async function fileToBase64(file: File, maxDim = 1024): Promise<{ base64: string; type: string }> {
   return new Promise((resolve, reject) => {
@@ -35,22 +46,7 @@ const MODE_META: Record<string, { label: string; color: string }> = {
 };
 
 
-function formatDate(iso: string) {
-  const d = new Date(iso);
-  const time = d.toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit", hour12: true, timeZone: TZ });
-  // Compare calendar dates in IST so Today/Yesterday labels are correct
-  const nowIST  = new Date(new Date().toLocaleString("en-US", { timeZone: TZ }));
-  const dIST    = new Date(d.toLocaleString("en-US", { timeZone: TZ }));
-  const todayDay = new Date(nowIST.getFullYear(), nowIST.getMonth(), nowIST.getDate());
-  const entryDay = new Date(dIST.getFullYear(),   dIST.getMonth(),   dIST.getDate());
-  const diff = Math.round((todayDay.getTime() - entryDay.getTime()) / 86400000);
-  let label: string;
-  if (diff === 0)      label = "Today";
-  else if (diff === 1) label = "Yesterday";
-  else if (diff < 7)  label = `${diff}d ago`;
-  else                 label = d.toLocaleDateString("en-IN", { day: "numeric", month: "short", timeZone: TZ });
-  return `${label}, ${time}`;
-}
+
 
 function StarRating({ value, onChange }: { value?: number; onChange?: (n: number) => void }) {
   return (
@@ -76,27 +72,36 @@ function StarRating({ value, onChange }: { value?: number; onChange?: (n: number
 }
 
 function localDatetimeValue(iso?: string) {
-  return toISTDatetimeLocal((iso ? new Date(iso) : new Date()).toISOString());
+  return toDatetimeLocalInput(iso);
 }
 
 const TIME_FILTERS = ["Week", "Month", "Year", "All"] as const;
-type TimeFilter = typeof TIME_FILTERS[number];
+const PAGE_SIZE = 20;
 
-function filterEntries(entries: HistoryEntry[], filter: TimeFilter) {
-  const now = Date.now();
-  const ms: Record<TimeFilter, number> = {
-    Week: 7 * 86400000, Month: 30 * 86400000, Year: 365 * 86400000, All: Infinity,
-  };
-  const cutoff = ms[filter];
-  // Filter by log time (created_at) so recently-added backdated entries stay visible
-  return entries.filter((e) => now - new Date(e.created_at ?? e.timestamp).getTime() <= cutoff);
+function groupFeed(items: HistoryEntry[]) {
+  const thisWeekStart = startOfISTWeek(todayIST());
+  const lastWeekStart = addDaysIST(thisWeekStart, -7);
+
+  function weekStartFor(entry: HistoryEntry): string {
+    return startOfISTWeek(istDateKey(entry.timestamp));
+  }
+
+  const groups: { label: string; entries: HistoryEntry[] }[] = [
+    { label: "THIS WEEK", entries: items.filter((e) => weekStartFor(e) === thisWeekStart) },
+    { label: "LAST WEEK", entries: items.filter((e) => weekStartFor(e) === lastWeekStart) },
+    { label: "EARLIER", entries: items.filter((e) => weekStartFor(e) < lastWeekStart) },
+  ];
+  return groups.filter((g) => g.entries.length > 0);
 }
 
 export default function HistoryPage() {
   const [entries, setEntries]   = useState<HistoryEntry[]>([]);
+  const [summary, setSummary]   = useState<HistorySummary | null>(null);
+  const [total, setTotal]       = useState(0);
+  const [page, setPage]         = useState(0);
   const [loading, setLoading]   = useState(true);
   const [error, setError]       = useState<string | null>(null);
-  const [timeFilter, setTimeFilter] = useState<TimeFilter>("Month");
+  const [timeFilter, setTimeFilter] = useState<HistoryTimeFilter>("Week");
   const [showLog, setShowLog]   = useState(false);
 
   // Log form state
@@ -106,7 +111,7 @@ export default function HistoryPage() {
   const [logCuisine, setLogCuisine]   = useState("");
   const [logCost, setLogCost]         = useState<string>("");
   const [logSatisfaction, setLogSatisfaction] = useState<number | undefined>();
-  const [logTimestamp, setLogTimestamp] = useState(() => localDatetimeValue());
+  const [logTimestamp, setLogTimestamp] = useState(() => toDatetimeLocalInput());
   const [submitting, setSubmitting]   = useState(false);
   const [parsing, setParsing]         = useState(false);
   const [parseError, setParseError]   = useState<string | null>(null);
@@ -123,12 +128,31 @@ export default function HistoryPage() {
   const [editTimestamp, setEditTimestamp] = useState("");
   const [editSaving, setEditSaving]       = useState(false);
 
+  async function loadPage(nextPage = page, filter = timeFilter) {
+    setLoading(true);
+    setError(null);
+    try {
+      const range = historyDateRange(filter);
+      const result = await api.getHistoryPage({
+        limit: PAGE_SIZE,
+        offset: nextPage * PAGE_SIZE,
+        from: range.from,
+        to: range.to,
+      });
+      setEntries(result.items);
+      setSummary(result.summary);
+      setTotal(result.total);
+      setPage(nextPage);
+    } catch {
+      setError("Could not load history.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
   useEffect(() => {
-    api.getHistory(100)
-      .then(setEntries)
-      .catch(() => setError("Could not load history."))
-      .finally(() => setLoading(false));
-  }, []);
+    loadPage(0, timeFilter);
+  }, [timeFilter]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function handleScreenshot(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -164,12 +188,13 @@ export default function HistoryPage() {
         restaurant_name: logRestaurant.trim() || undefined,
         cuisine: logCuisine.trim() || undefined,
         satisfaction: logSatisfaction,
-        timestamp: logTimestamp + ":00",   // IST naive — backend converts to UTC
+        timestamp: datetimeLocalToIST(logTimestamp),
         cost: logCost ? parseFloat(logCost) : undefined,
       });
       setEntries((prev) => [entry, ...prev]);
       setShowLog(false);
       setLogRecipe(""); setLogRestaurant(""); setLogCuisine(""); setLogCost(""); setLogSatisfaction(undefined); setLogTimestamp(localDatetimeValue());
+      loadPage(0, timeFilter);
     } catch {
       setError("Failed to save. Please try again.");
     } finally {
@@ -197,11 +222,12 @@ export default function HistoryPage() {
         restaurant_name: editRestaurant.trim() || undefined,
         cuisine: editCuisine.trim() || undefined,
         satisfaction: editSatisfaction,
-        timestamp: editTimestamp ? editTimestamp + ":00" : undefined,  // IST naive
+        timestamp: editTimestamp ? datetimeLocalToIST(editTimestamp) : undefined,
         cost: editCost ? parseFloat(editCost) : undefined,
       });
       setEntries((prev) => prev.map((e) => (e.id === id ? updated : e)));
       setEditingId(null);
+      loadPage(page, timeFilter);
     } catch {
       setError("Failed to update. Please try again.");
     } finally {
@@ -213,9 +239,10 @@ export default function HistoryPage() {
     setEntries((prev) => prev.filter((e) => e.id !== id));
     try {
       await api.deleteHistory(id);
+      await loadPage(page, timeFilter);
     } catch {
       setError("Failed to delete. Please try again.");
-      api.getHistory(100).then(setEntries).catch(() => null);
+      loadPage(page, timeFilter);
     }
   }
 
@@ -228,31 +255,16 @@ export default function HistoryPage() {
     }
   }
 
-  const visible = filterEntries(entries, timeFilter).sort((a, b) => {
-    const aLog = new Date(a.created_at ?? a.timestamp).getTime();
-    const bLog = new Date(b.created_at ?? b.timestamp).getTime();
-    if (bLog !== aLog) return bLog - aLog;
-    return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
-  });
-  const cookCount  = visible.filter((e) => e.decision === "cook").length;
-  const orderCount = visible.filter((e) => e.decision === "order").length;
-  const outCount   = visible.filter((e) => e.decision === "eat_out").length;
-  const total      = visible.length;
-  const totalSpent = visible.reduce((s, e) => s + (e.cost ?? 0), 0);
-
-  function loggedAt(entry: HistoryEntry): number {
-    return new Date(entry.created_at ?? entry.timestamp).getTime();
-  }
-
-  function groupFeed(items: typeof visible) {
-    const now = Date.now();
-    const groups: { label: string; entries: typeof items }[] = [
-      { label: "THIS WEEK",  entries: items.filter(e => now - loggedAt(e) <= 7 * 86400000) },
-      { label: "LAST WEEK",  entries: items.filter(e => { const d = now - loggedAt(e); return d > 7 * 86400000 && d <= 14 * 86400000; }) },
-      { label: "EARLIER",    entries: items.filter(e => now - loggedAt(e) > 14 * 86400000) },
-    ];
-    return groups.filter(g => g.entries.length > 0);
-  }
+  const visible = entries;
+  const cookCount  = summary?.cook ?? 0;
+  const orderCount = summary?.order ?? 0;
+  const outCount   = summary?.eat_out ?? 0;
+  const totalMeals = summary?.total ?? 0;
+  const totalSpent = summary?.total_spent ?? 0;
+  const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const rangeStart = total === 0 ? 0 : page * PAGE_SIZE + 1;
+  const rangeEnd = Math.min(total, (page + 1) * PAGE_SIZE);
+  const feedGroups = timeFilter === "Week" ? [{ label: "", entries: visible }] : groupFeed(visible);
 
   const inputCls = "w-full bg-kitchen-surface text-kitchen-text text-sm px-3 py-2.5 outline-none focus:ring-1 ring-kitchen-accent/50 placeholder:text-kitchen-muted";
   const inputStyle: React.CSSProperties = { border: "1px solid var(--kitchen-line2)", borderRadius: "var(--radius-btn)" };
@@ -368,7 +380,7 @@ export default function HistoryPage() {
             <StarRating value={logSatisfaction} onChange={setLogSatisfaction} />
           </div>
           <div>
-            <MonoLabel className="text-kitchen-muted block mb-1.5">DATE &amp; TIME</MonoLabel>
+            <MonoLabel className="text-kitchen-muted block mb-1.5">DATE &amp; TIME (IST)</MonoLabel>
             <input
               type="datetime-local"
               value={logTimestamp}
@@ -404,7 +416,7 @@ export default function HistoryPage() {
           <button
             key={f}
             type="button"
-            onClick={() => setTimeFilter(f)}
+            onClick={() => { setTimeFilter(f); setPage(0); }}
             className="px-3 py-1.5 text-xs font-mono transition-colors"
             style={{
               borderRadius: 999,
@@ -420,14 +432,14 @@ export default function HistoryPage() {
       </div>
 
       {/* Stats row */}
-      {total > 0 && (
+      {totalMeals > 0 && (
         <div className="grid grid-cols-4 gap-2">
           <div
             className="p-3 text-center col-span-1"
             style={{ border: "1px solid var(--kitchen-line)", borderRadius: "var(--radius-card)", background: "rgb(var(--kitchen-card))" }}
           >
             <p className="text-lg font-display font-normal text-kitchen-accent">
-              {totalSpent > 0 ? `₹${Math.round(totalSpent)}` : total}
+              {totalSpent > 0 ? `₹${Math.round(totalSpent)}` : totalMeals}
             </p>
             <MonoLabel className="text-kitchen-muted mt-0.5 block">{totalSpent > 0 ? "SPENT" : "MEALS"}</MonoLabel>
           </div>
@@ -449,7 +461,7 @@ export default function HistoryPage() {
       )}
 
       {/* Distribution bar */}
-      {total > 0 && (
+      {totalMeals > 0 && (
         <div>
           <div className="flex h-1 rounded-full overflow-hidden gap-0.5">
             {cookCount  > 0 && <div style={{ flex: cookCount,  background: "rgb(var(--kitchen-success))", borderRadius: 999 }} />}
@@ -457,8 +469,8 @@ export default function HistoryPage() {
             {outCount   > 0 && <div style={{ flex: outCount,   background: "rgb(var(--kitchen-warn))",    borderRadius: 999 }} />}
           </div>
           <div className="flex gap-4 mt-1.5">
-            <MonoLabel className="text-kitchen-muted">{Math.round(cookCount / total * 100)}% COOKED</MonoLabel>
-            <MonoLabel className="text-kitchen-muted">{total} MEALS</MonoLabel>
+            <MonoLabel className="text-kitchen-muted">{Math.round(cookCount / totalMeals * 100)}% COOKED</MonoLabel>
+            <MonoLabel className="text-kitchen-muted">{totalMeals} MEALS</MonoLabel>
           </div>
         </div>
       )}
@@ -479,14 +491,14 @@ export default function HistoryPage() {
           className="py-12 text-center"
           style={{ border: "1px dashed var(--kitchen-line2)", borderRadius: "var(--radius-card)" }}
         >
-          <p className="text-kitchen-muted text-sm">No decisions logged yet.</p>
-          <p className="text-kitchen-muted text-xs mt-1">Use the Decide page and your history will appear here.</p>
+          <p className="text-kitchen-muted text-sm">No meals in this period.</p>
+          <p className="text-kitchen-muted text-xs mt-1">Try a wider time range or log a meal with + Log.</p>
         </div>
       ) : (
         <div className="space-y-5">
-          {groupFeed(visible).map(({ label: groupLabel, entries: groupEntries }) => (
-            <div key={groupLabel}>
-              <MonoLabel className="text-kitchen-muted block mb-2">{groupLabel}</MonoLabel>
+          {feedGroups.map(({ label: groupLabel, entries: groupEntries }) => (
+            <div key={groupLabel || "week"}>
+              {groupLabel && <MonoLabel className="text-kitchen-muted block mb-2">{groupLabel}</MonoLabel>}
               <ul className="space-y-2">
           {groupEntries.map((entry) => {
             const meta = MODE_META[entry.decision] ?? { label: entry.decision.toUpperCase(), color: "rgb(var(--kitchen-ink3))" };
@@ -556,7 +568,7 @@ export default function HistoryPage() {
                     </div>
                     <StarRating value={editSatisfaction} onChange={setEditSatisfaction} />
                     <div>
-                      <MonoLabel className="text-kitchen-muted block mb-1.5">DATE &amp; TIME</MonoLabel>
+                      <MonoLabel className="text-kitchen-muted block mb-1.5">DATE &amp; TIME (IST)</MonoLabel>
                       <input
                         type="datetime-local"
                         value={editTimestamp}
@@ -619,9 +631,9 @@ export default function HistoryPage() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="text-[10px] font-mono tracking-[0.12em] uppercase" style={{ color: meta.color }}>{meta.label}</span>
-                        <MonoLabel className="text-kitchen-muted">· {formatDate(entry.timestamp)}</MonoLabel>
-                        {entry.created_at && Math.abs(new Date(entry.created_at).getTime() - new Date(entry.timestamp).getTime()) > 3600000 && (
-                          <MonoLabel className="text-kitchen-muted opacity-60">(logged {formatDate(entry.created_at)})</MonoLabel>
+                        <MonoLabel className="text-kitchen-muted">· {formatRelativeIST(entry.timestamp)}</MonoLabel>
+                        {entry.created_at && istMinutesApart(entry.created_at, entry.timestamp) > 60 && (
+                          <MonoLabel className="text-kitchen-muted opacity-60">(logged {formatRelativeIST(entry.created_at)})</MonoLabel>
                         )}
                       </div>
                       {entry.recipe_name && (
@@ -676,6 +688,38 @@ export default function HistoryPage() {
               </ul>
             </div>
           ))}
+
+          {total > PAGE_SIZE && (
+            <div
+              className="flex items-center justify-between gap-3 pt-1"
+              style={{ borderTop: "1px solid var(--kitchen-line)", paddingTop: 16 }}
+            >
+              <MonoLabel className="text-kitchen-muted">
+                {rangeStart}–{rangeEnd} of {total}
+              </MonoLabel>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  disabled={page === 0 || loading}
+                  onClick={() => loadPage(page - 1, timeFilter)}
+                  className="px-3 py-1.5 text-xs font-mono disabled:opacity-40 transition-opacity hover:opacity-80"
+                  style={{ border: "1px solid var(--kitchen-line2)", borderRadius: "var(--radius-btn)", color: "rgb(var(--kitchen-ink3))" }}
+                >
+                  ← PREV
+                </button>
+                <MonoLabel className="text-kitchen-muted">{page + 1} / {pageCount}</MonoLabel>
+                <button
+                  type="button"
+                  disabled={page >= pageCount - 1 || loading}
+                  onClick={() => loadPage(page + 1, timeFilter)}
+                  className="px-3 py-1.5 text-xs font-mono disabled:opacity-40 transition-opacity hover:opacity-80"
+                  style={{ border: "1px solid var(--kitchen-line2)", borderRadius: "var(--radius-btn)", color: "rgb(var(--kitchen-ink3))" }}
+                >
+                  NEXT →
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

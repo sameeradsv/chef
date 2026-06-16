@@ -1,49 +1,68 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone, timedelta, timezone
+from datetime import datetime, timedelta
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import case, func
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.dependencies import get_current_user
 from app.models import CookingHistoryModel, UserAccountModel
-from app.schemas import CookingHistoryCreate, CookingHistoryResponse, CookingHistoryUpdate
+from app.schemas import (
+    CookingHistoryCreate,
+    CookingHistoryResponse,
+    CookingHistoryUpdate,
+    HistoryPageResponse,
+    HistorySummary,
+)
+from app.tz_utils import ist_day_bounds, ist_today
 
 router = APIRouter(prefix="/history", tags=["history"])
 
-_IST = timezone(timedelta(hours=5, minutes=30))
-_UTC = timezone.utc
-
-
-def _as_utc(dt: Optional[datetime]) -> Optional[datetime]:
-    """Treat a naive datetime as IST and return naive UTC for DB storage."""
-    if dt is None:
-        return None
-    if dt.tzinfo is None:
-        dt = dt.replace(tzinfo=_IST)
-    return dt.astimezone(_UTC).replace(tzinfo=None)
-
-
-def _to_ist(dt: Optional[datetime]) -> Optional[datetime]:
-    """Convert a naive UTC datetime from DB to an IST-aware datetime for the response."""
-    if dt is None:
-        return None
-    return dt.replace(tzinfo=_UTC).astimezone(_IST)
+_IST_TD = timedelta(hours=5, minutes=30)
 
 
 def _to_response(entry: CookingHistoryModel) -> CookingHistoryResponse:
-    return CookingHistoryResponse(
-        id=entry.id,
-        decision=entry.decision,
-        recipe_name=entry.recipe_name,
-        restaurant_name=entry.restaurant_name,
-        cuisine=entry.cuisine,
-        timestamp=_to_ist(entry.timestamp),
-        satisfaction=entry.satisfaction,
-        cost=entry.cost,
-        created_at=_to_ist(entry.created_at),
+    return CookingHistoryResponse.model_validate(entry)
+
+
+def _apply_date_filters(q, date: Optional[str], from_date: Optional[str], to_date: Optional[str]):
+    if date:
+        if date == "today":
+            filter_date = ist_today()
+            day_start_utc = datetime(filter_date.year, filter_date.month, filter_date.day) - _IST_TD
+            day_end_utc = day_start_utc + timedelta(days=1)
+        else:
+            day_start_utc, day_end_utc = ist_day_bounds(date)
+        q = q.filter(
+            CookingHistoryModel.timestamp >= day_start_utc,
+            CookingHistoryModel.timestamp < day_end_utc,
+        )
+    if from_date:
+        day_start_utc, _ = ist_day_bounds(from_date)
+        q = q.filter(CookingHistoryModel.timestamp >= day_start_utc)
+    if to_date:
+        _, day_end_utc = ist_day_bounds(to_date)
+        q = q.filter(CookingHistoryModel.timestamp < day_end_utc)
+    return q
+
+
+def _compute_summary(q) -> HistorySummary:
+    total, total_spent, cook, order, eat_out = q.with_entities(
+        func.count(CookingHistoryModel.id),
+        func.coalesce(func.sum(CookingHistoryModel.cost), 0.0),
+        func.sum(case((CookingHistoryModel.decision == "cook", 1), else_=0)),
+        func.sum(case((CookingHistoryModel.decision == "order", 1), else_=0)),
+        func.sum(case((CookingHistoryModel.decision == "eat_out", 1), else_=0)),
+    ).one()
+    return HistorySummary(
+        total=int(total or 0),
+        total_spent=float(total_spent or 0),
+        cook=int(cook or 0),
+        order=int(order or 0),
+        eat_out=int(eat_out or 0),
     )
 
 
@@ -61,7 +80,7 @@ def log_decision(
         cuisine=payload.cuisine,
         satisfaction=payload.satisfaction,
         cost=payload.cost,
-        **({"timestamp": _as_utc(payload.timestamp)} if payload.timestamp else {}),
+        **({"timestamp": payload.timestamp} if payload.timestamp else {}),
     )
     db.add(entry)
     db.commit()
@@ -84,7 +103,7 @@ def update_entry(
     if not entry:
         raise HTTPException(status_code=404, detail="Entry not found")
     for k, v in payload.model_dump(exclude_unset=True).items():
-        setattr(entry, k, _as_utc(v) if k == "timestamp" else v)
+        setattr(entry, k, v)
     db.commit()
     db.refresh(entry)
     return _to_response(entry)
@@ -107,34 +126,38 @@ def delete_entry(
     db.commit()
 
 
-@router.get("", response_model=List[CookingHistoryResponse])
+@router.get("")
 def get_history(
     limit: int = Query(20, ge=1, le=100),
+    offset: int = Query(0, ge=0),
     date: Optional[str] = Query(None, description="Filter by date: 'today' or 'YYYY-MM-DD'"),
+    from_date: Optional[str] = Query(None, description="Inclusive IST start date YYYY-MM-DD"),
+    to_date: Optional[str] = Query(None, description="Inclusive IST end date YYYY-MM-DD"),
+    include_summary: bool = Query(False, description="Return paginated payload with summary stats"),
     db: Session = Depends(get_db),
     current_user: UserAccountModel = Depends(get_current_user),
 ):
-    _IST_TD = timedelta(hours=5, minutes=30)
     q = db.query(CookingHistoryModel).filter(CookingHistoryModel.user_id == current_user.id)
+    q = _apply_date_filters(q, date, from_date, to_date)
 
-    if date:
-        if date == "today":
-            filter_date = (datetime.now(timezone.utc).replace(tzinfo=None) + _IST_TD).date()
-        else:
-            try:
-                filter_date = datetime.strptime(date, "%Y-%m-%d").date()
-            except ValueError:
-                raise HTTPException(status_code=400, detail="date must be 'today' or 'YYYY-MM-DD'")
-        # Convert IST day boundary back to UTC for DB query
-        day_start_ist = datetime(filter_date.year, filter_date.month, filter_date.day)
-        day_start_utc = day_start_ist - _IST_TD
-        day_end_utc   = day_start_utc + timedelta(days=1)
-        q = q.filter(
-            CookingHistoryModel.timestamp >= day_start_utc,
-            CookingHistoryModel.timestamp < day_end_utc,
-        )
+    total = q.count()
+    summary = _compute_summary(q) if include_summary else None
 
-    from sqlalchemy import func
     sort_col = func.coalesce(CookingHistoryModel.created_at, CookingHistoryModel.timestamp)
-    entries = q.order_by(sort_col.desc(), CookingHistoryModel.timestamp.desc()).limit(limit).all()
-    return [_to_response(e) for e in entries]
+    entries = (
+        q.order_by(sort_col.desc(), CookingHistoryModel.timestamp.desc())
+        .offset(offset)
+        .limit(limit)
+        .all()
+    )
+    items = [_to_response(e) for e in entries]
+
+    if include_summary:
+        return HistoryPageResponse(
+            items=items,
+            total=total,
+            offset=offset,
+            limit=limit,
+            summary=summary,
+        )
+    return items

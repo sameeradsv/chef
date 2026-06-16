@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTheme, type Theme } from "@/contexts/ThemeContext";
 import { api, type HistoryEntry, type Ingredient, type Recipe, type RecommendMealResult } from "@/lib/api";
-import { TZ, istHour } from "@/lib/tz";
+import { TZ, istHour, startOfISTWeek, todayIST, addDaysIST, istDateKey, istWeekdayShort } from "@/lib/tz";
 import { expiryBadge } from "@/lib/utils";
 
 /* ─── Helpers ──────────────────────────────────────────────────────────── */
@@ -35,7 +35,7 @@ const MEAL_TYPES = ["breakfast", "lunch", "snacks", "dinner"] as const;
 type MealType = typeof MEAL_TYPES[number];
 
 function detectMealType(): MealType {
-  const h = new Date().getHours();
+  const h = istHour();
   if (h >= 6 && h < 11) return "breakfast";
   if (h >= 11 && h < 16) return "lunch";
   if (h >= 16 && h < 19) return "snacks";
@@ -104,31 +104,25 @@ const DOT_COLOR: Record<string, string> = {
   order:   "rgb(var(--kitchen-success))",
   eat_out: "rgb(var(--kitchen-warn))",
 };
-const DAY_ABBR = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
-
 function WeekGlance({ entries }: { entries: HistoryEntry[] }) {
-  const days = Array.from({ length: 7 }, (_, i) => {
-    const d = new Date();
-    d.setDate(d.getDate() - 6 + i);
-    return d;
-  });
-  const todayStr = new Date().toISOString().slice(0, 10);
+  const today = todayIST();
+  const weekStart = startOfISTWeek(today);
+  const days = Array.from({ length: 7 }, (_, i) => addDaysIST(weekStart, i));
 
-  function kindForDay(d: Date) {
-    const s = d.toISOString().slice(0, 10);
-    return entries.find((e) => e.timestamp.slice(0, 10) === s)?.decision ?? null;
+  function kindForDay(dateKey: string) {
+    return entries.find((e) => istDateKey(e.timestamp) === dateKey)?.decision ?? null;
   }
 
   return (
     <div>
       <MonoLabel className="block mb-2">This week</MonoLabel>
       <div className="grid grid-cols-7 gap-1.5">
-        {days.map((d) => {
-          const isToday = d.toISOString().slice(0, 10) === todayStr;
-          const kind = kindForDay(d);
+        {days.map((dateKey) => {
+          const isToday = dateKey === today;
+          const kind = kindForDay(dateKey);
           return (
             <div
-              key={d.toISOString()}
+              key={dateKey}
               className="aspect-square flex flex-col items-center justify-center gap-1"
               style={{
                 borderRadius: "var(--radius-btn)",
@@ -145,7 +139,7 @@ function WeekGlance({ entries }: { entries: HistoryEntry[] }) {
                   letterSpacing: "0.04em",
                 }}
               >
-                {DAY_ABBR[d.getDay()]}
+                {istWeekdayShort(dateKey)}
               </span>
               <div
                 className="w-1.5 h-1.5 rounded-full"
@@ -441,7 +435,10 @@ export default function DashboardPage() {
   // Load immediately on mount
   useEffect(() => {
     loadRecommendations(null);
-    api.getHistory(50).then(setWeekHistory).catch(() => {});
+    const today = todayIST();
+    api.getHistoryPage({ from: startOfISTWeek(today), to: today, limit: 50 })
+      .then((page) => setWeekHistory(page.items))
+      .catch(() => {});
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Auto-retry every 12s while waking

@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.dependencies import get_current_user
 from app.models import CookingHistoryModel, UserAccountModel
+from app.tz_utils import utc_naive_to_ist_str
 
 router = APIRouter(prefix="/energy", tags=["energy"])
 
@@ -64,7 +65,7 @@ def _skipped_events(entries: list, target, now_utc_naive: datetime) -> list:
             continue
         delta = _SKIP_DELTA[name]
         result.append({
-            "occurred_at":    win_end_utc.isoformat() + "Z",
+            "occurred_at":    utc_naive_to_ist_str(win_end_utc),
             "time":           win_end_ist.strftime("%H:%M"),
             "energy":         0.10,       # compat: shows as draining dot
             "delta":          delta,
@@ -125,7 +126,7 @@ def energy_timeline(
         local_time = entry.timestamp.replace(tzinfo=timezone.utc).astimezone(_IST)
         energy_compat = round(min(1.0, max(0.0, (delta + 0.20) / 0.30)), 3)
         events.append({
-            "occurred_at":    entry.timestamp.isoformat() + "Z",
+            "occurred_at":    utc_naive_to_ist_str(entry.timestamp),
             "time":           local_time.strftime("%H:%M"),
             "energy":         energy_compat,
             "delta":          delta,

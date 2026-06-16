@@ -73,7 +73,7 @@ def _parse_order(client: Any, data_uri: str) -> Dict[str, Any]:
         "- meal_name: primary dish name (null if unclear)\n"
         "- cuisine: e.g. Indian, Chinese, Italian (null if unclear)\n"
         "- restaurant_name: restaurant or platform name (null if unclear)\n"
-        "- timestamp: ISO datetime if visible, e.g. 2024-05-24T18:30:00 (null if not visible)\n"
+        "- timestamp: IST datetime if visible, e.g. 2024-05-24T18:30:00 (no timezone suffix; null if not visible)\n"
         "Return only the JSON object."
     )
 

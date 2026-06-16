@@ -210,10 +210,34 @@ export interface HistoryEntry {
   recipe_name?: string;
   restaurant_name?: string;
   cuisine?: string;
-  timestamp: string;    // the meal's date/time (user-set, can be backdated)
-  created_at?: string;  // when the entry was added to the app
+  timestamp: string;    // naive IST — meal date/time
+  created_at?: string;  // naive IST — when the entry was logged
   satisfaction?: number;
   cost?: number;
+}
+
+export interface HistorySummary {
+  total: number;
+  total_spent: number;
+  cook: number;
+  order: number;
+  eat_out: number;
+}
+
+export interface HistoryPage {
+  items: HistoryEntry[];
+  total: number;
+  offset: number;
+  limit: number;
+  summary: HistorySummary;
+}
+
+export interface HistoryQuery {
+  limit?: number;
+  offset?: number;
+  from?: string;
+  to?: string;
+  date?: string;
 }
 
 export interface ParsedOrder {
@@ -370,6 +394,15 @@ export const api = {
 
   // History
   getHistory: (limit = 20) => request<HistoryEntry[]>(`/history?limit=${limit}`),
+  getHistoryPage: (query: HistoryQuery = {}) => {
+    const params = new URLSearchParams({ include_summary: "true" });
+    if (query.limit != null) params.set("limit", String(query.limit));
+    if (query.offset != null) params.set("offset", String(query.offset));
+    if (query.from) params.set("from_date", query.from);
+    if (query.to) params.set("to_date", query.to);
+    if (query.date) params.set("date", query.date);
+    return request<HistoryPage>(`/history?${params.toString()}`);
+  },
   logHistory: (data: { decision: string; recipe_name?: string; restaurant_name?: string; cuisine?: string; satisfaction?: number; timestamp?: string; cost?: number }) =>
     request<HistoryEntry>("/history", { method: "POST", body: JSON.stringify(data) }),
   updateHistory: (id: string, data: { decision?: string; recipe_name?: string; restaurant_name?: string; cuisine?: string; satisfaction?: number; timestamp?: string; cost?: number }) =>

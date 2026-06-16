@@ -1,7 +1,24 @@
 from datetime import date, datetime
-from typing import Any, Dict, List, Literal, Optional, Tuple
+from typing import Annotated, Any, Dict, List, Literal, Optional, Tuple
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, BeforeValidator, Field, PlainSerializer, field_validator
+
+from app.tz_utils import ist_to_utc_naive_optional, utc_naive_to_ist_str
+
+
+def _serialize_ist(dt: datetime | None) -> str | None:
+    return utc_naive_to_ist_str(dt)
+
+
+ISTDateTime = Annotated[
+    datetime,
+    PlainSerializer(_serialize_ist, return_type=str, when_used="always"),
+]
+OptionalISTDateTime = Annotated[
+    Optional[datetime],
+    PlainSerializer(_serialize_ist, return_type=str, when_used="always"),
+]
+ISTDateTimeInput = Annotated[Optional[datetime], BeforeValidator(ist_to_utc_naive_optional)]
 
 
 class IngredientBase(BaseModel):
@@ -38,7 +55,7 @@ class IngredientResponse(IngredientBase):
     freshness_score: float
     days_until_expiry: Optional[int] = None
     expiry_urgency: float = 0
-    created_at: datetime
+    created_at: ISTDateTime
 
     model_config = {"from_attributes": True}
 
@@ -82,7 +99,7 @@ class DiscardedIngredientResponse(BaseModel):
     buy_date: Optional[date]
     expiry_date: Optional[date]
     discard_reason: str
-    discarded_at: datetime
+    discarded_at: ISTDateTime
 
     model_config = {"from_attributes": True}
 
@@ -133,7 +150,7 @@ class UserStatePayload(BaseModel):
 
 
 class UserStateResponse(UserStatePayload):
-    updated_at: Optional[datetime] = None
+    updated_at: OptionalISTDateTime = None
 
 
 class UserPreferencesResponse(BaseModel):
@@ -234,7 +251,7 @@ class TokenResponse(BaseModel):
 class UserAccountResponse(BaseModel):
     id: str
     username: str
-    created_at: datetime
+    created_at: ISTDateTime
 
     model_config = {"from_attributes": True}
 
@@ -247,7 +264,7 @@ class CookingHistoryCreate(BaseModel):
     restaurant_name: Optional[str] = None
     cuisine: Optional[str] = None
     satisfaction: Optional[int] = Field(None, ge=1, le=5)
-    timestamp: Optional[datetime] = None
+    timestamp: ISTDateTimeInput = None
     cost: Optional[float] = None
 
 
@@ -257,7 +274,7 @@ class CookingHistoryUpdate(BaseModel):
     restaurant_name: Optional[str] = None
     cuisine: Optional[str] = None
     satisfaction: Optional[int] = Field(None, ge=1, le=5)
-    timestamp: Optional[datetime] = None
+    timestamp: ISTDateTimeInput = None
     cost: Optional[float] = None
 
 
@@ -267,12 +284,28 @@ class CookingHistoryResponse(BaseModel):
     recipe_name: Optional[str]
     restaurant_name: Optional[str] = None
     cuisine: Optional[str]
-    timestamp: datetime
+    timestamp: ISTDateTime
     satisfaction: Optional[int]
     cost: Optional[float] = None
-    created_at: Optional[datetime] = None
+    created_at: OptionalISTDateTime = None
 
     model_config = {"from_attributes": True}
+
+
+class HistorySummary(BaseModel):
+    total: int
+    total_spent: float
+    cook: int
+    order: int
+    eat_out: int
+
+
+class HistoryPageResponse(BaseModel):
+    items: List[CookingHistoryResponse]
+    total: int
+    offset: int
+    limit: int
+    summary: HistorySummary
 
 
 # ── Grocery ───────────────────────────────────────────────────────────────────
@@ -295,7 +328,7 @@ class GroceryItemResponse(BaseModel):
     quantity: Optional[float]
     unit: Optional[str]
     bought: bool
-    added_at: datetime
+    added_at: ISTDateTime
 
     model_config = {"from_attributes": True}
 
