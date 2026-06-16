@@ -56,7 +56,7 @@ docker compose up -d postgres
 **Routers**:
 - `/ingredients` (CRUD), `/recipes/recommend|search/{id}`, `/decision/cook-vs-order|recommend-meal`, `/user/state|preferences (GET+PUT)`, `/grocery` (CRUD + suggestions), `/history` (log+list+patch+delete), `/auth/register|login|me`, `/health`
 - `/energy/timeline` — per-meal energy score (satisfaction-weighted; cook 0.55, order 0.70, eat_out 0.75 base)
-- `/sync/energy` — today's cumulative decision drain (cook 0.25, eat_out 0.12, order 0.04)
+- `/sync/energy` — today's cumulative drain: logged-meal drain (cook 0.12, eat_out 0.07, order 0.03) + biological skip drain for closed windows with no entry (breakfast 0.20, lunch 0.25, dinner 0.15). Having any meal always drains less than skipping it. Consumed by the decision page for all accounts (not just Cortex) to pre-fill `energy_level`.
 - `/nutrition/summary` — keyword-based macro/micronutrient averages + RDA gap analysis + food suggestions
 - `/vision/parse` — image-to-meal/ingredient parsing via Groq Llama 4 Scout
 - `/auth/webauthn/register/begin|complete` (Bearer), `/auth/webauthn/login/begin|complete` (public, returns JWT)

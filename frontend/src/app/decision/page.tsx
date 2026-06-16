@@ -64,11 +64,11 @@ async function gatherEnergyState(): Promise<{ state: Partial<UserState>; sources
   // Only pre-fill when the user has a Cortex account.
   // Local Chef accounts skip this entirely — decision page works as before.
   const cortex = await isCortexAccount(token);
-  if (!cortex) return { state: {}, sources: [] };
-
+  // Always fetch Chef's own drain so skipped-meal penalties reach local accounts.
+  // Circuit/Canopy are only added for Cortex cross-app users.
   const [circuit, canopy, chef] = await Promise.all([
-    CIRCUIT_URL ? fetchEnergy(CIRCUIT_URL, "/api/sync/energy", token) : null,
-    CANOPY_URL  ? fetchEnergy(CANOPY_URL,  "/api/sync/energy", token) : null,
+    cortex && CIRCUIT_URL ? fetchEnergy(CIRCUIT_URL, "/api/sync/energy", token) : null,
+    cortex && CANOPY_URL  ? fetchEnergy(CANOPY_URL,  "/api/sync/energy", token) : null,
     fetchEnergy(CHEF_URL, "/sync/energy", token),
   ]);
 

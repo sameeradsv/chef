@@ -11,8 +11,11 @@ from app.models import CookingHistoryModel, UserAccountModel
 
 router = APIRouter(prefix="/sync", tags=["sync"])
 
-# Drain cost per meal decision type (0–1 scale, effort-based)
-_MEAL_DRAIN = {"cook": 0.25, "eat_out": 0.12, "order": 0.04}
+# Net drain per logged meal decision (0–1 scale).
+# Eating provides biological energy that offsets the effort cost, so all values
+# are kept below the minimum skip drain (0.15) — having any meal always leaves
+# you better off than skipping it.  cook=0.12, eat_out=0.07, order=0.03.
+_MEAL_DRAIN = {"cook": 0.12, "eat_out": 0.07, "order": 0.03}
 
 _IST = timedelta(hours=5, minutes=30)
 
@@ -31,9 +34,12 @@ def energy_summary(
 ):
     """
     Returns the user's cooking-based energy drain split at the current moment.
-    - drain_so_far: meals already prepared/decided today
+    - drain_so_far: accumulated drain from logged meals + skipped meal windows
     - drain_ahead:  0 (cooking decisions are reactive, not pre-scheduled)
-    Cook = 0.25 drain, eat_out = 0.12, order = 0.04.
+
+    Logged meal drain: cook=0.12, eat_out=0.07, order=0.03
+    Skipped window drain: breakfast=0.20, lunch=0.25, dinner=0.15
+    Having any meal always drains less than skipping it.
     Day boundary is IST midnight, consistent with energy.py.
     """
     now = datetime.now(timezone.utc).replace(tzinfo=None)
