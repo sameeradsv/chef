@@ -15,13 +15,6 @@ router = APIRouter(prefix="/energy", tags=["energy"])
 
 _IST = ZoneInfo("Asia/Kolkata")
 
-# Cooking decision base energy before satisfaction adjustment
-_DECISION_BASE: dict[str, float] = {
-    "cook":     0.55,  # effort involved, but productive
-    "order":    0.70,  # low effort
-    "eat_out":  0.75,  # social, usually enjoyable
-}
-
 # Expected meal windows in IST — (name, window_open, window_close)
 _MEAL_WINDOWS: list[tuple[str, _time, _time]] = [
     ("breakfast", _time(7, 0),  _time(10, 30)),
@@ -29,17 +22,30 @@ _MEAL_WINDOWS: list[tuple[str, _time, _time]] = [
     ("dinner",    _time(19, 0), _time(22, 0)),
 ]
 
-# Energy value assigned to a skipped meal event (clearly below the 0.35 "draining" threshold)
-_SKIP_ENERGY = 0.10
+# Signed energy delta for skipped meal windows (clearly draining)
+_SKIP_DELTA: dict[str, float] = {
+    "breakfast": -0.15,
+    "lunch":     -0.20,
+    "dinner":    -0.12,
+}
 
 
-def _meal_energy(entry: CookingHistoryModel) -> float:
-    base = _DECISION_BASE.get(entry.decision, 0.60)
+def _meal_delta(entry: CookingHistoryModel) -> float:
+    """
+    Signed energy delta for a logged meal.
+    High-satisfaction meals restore energy; low-satisfaction or skipped meals drain.
+    If satisfaction is not logged, decision type provides a baseline.
+    """
     if entry.satisfaction is not None:
         sat = entry.satisfaction / 5.0
-        # satisfaction dominates (70%), decision type is context (30%)
-        return round(base * 0.3 + sat * 0.7, 3)
-    return round(base, 3)
+        if sat >= 0.80:     # 4–5 / 5: genuinely restoring
+            return round(sat * 0.10, 3)      # +0.08 to +0.10
+        elif sat >= 0.60:   # 3 / 5: neutral — eating beats skipping
+            return 0.02
+        else:               # 1–2 / 5: bad experience costs energy
+            return round((sat - 0.80) * 0.15, 3)   # −0.03 to −0.12
+    # No satisfaction logged: decision type default
+    return {"cook": -0.04, "order": 0.0, "eat_out": 0.03}.get(entry.decision, -0.02)
 
 
 def _skipped_events(entries: list, target, now_utc_naive: datetime) -> list:
@@ -51,21 +57,22 @@ def _skipped_events(entries: list, target, now_utc_naive: datetime) -> list:
         win_end_ist   = datetime(target.year, target.month, target.day,
                                  w_end.hour, w_end.minute, tzinfo=_IST)
         win_end_utc   = win_end_ist.astimezone(timezone.utc).replace(tzinfo=None)
-        # Only flag windows that have fully closed
         if now_utc_naive < win_end_utc:
             continue
         win_start_utc = win_start_ist.astimezone(timezone.utc).replace(tzinfo=None)
-        # If any entry's meal timestamp falls inside this window, it's not skipped
         if any(win_start_utc <= e.timestamp < win_end_utc for e in entries):
             continue
+        delta = _SKIP_DELTA[name]
         result.append({
-            "occurred_at": win_end_utc.isoformat() + "Z",
-            "time":        win_end_ist.strftime("%H:%M"),
-            "energy":      _SKIP_ENERGY,
-            "label":       "draining",
-            "note":        f"no {name}",
-            "source":      "chef",
-            "skipped":     True,
+            "occurred_at":    win_end_utc.isoformat() + "Z",
+            "time":           win_end_ist.strftime("%H:%M"),
+            "energy":         0.10,       # compat: shows as draining dot
+            "delta":          delta,
+            "running_energy": None,       # filled in by timeline after sorting
+            "label":          "draining",
+            "note":           f"no {name}",
+            "source":         "chef",
+            "skipped":        True,
         })
     return result
 
@@ -77,9 +84,11 @@ def energy_timeline(
     current_user: UserAccountModel = Depends(get_current_user),
 ):
     """
-    Per-meal energy for a given calendar day (default: today in IST).
-    Returns a common shape shared by all personal apps:
-      { date, source, events: [{occurred_at, time, energy, label, note, source}], avg_energy }
+    Cumulative meal-energy timeline for a calendar day (default: today IST).
+
+    Each event carries `delta` (signed energy change) and `running_energy`
+    (balance after that event). Good meals (satisfaction 4–5/5) restore
+    energy; skipped meals and low-satisfaction meals drain it.
     """
     if date:
         try:
@@ -108,29 +117,42 @@ def energy_timeline(
 
     events = []
     for entry in entries:
-        energy = _meal_energy(entry)
-        label = "draining" if energy < 0.35 else "energising" if energy > 0.65 else "neutral"
+        delta = _meal_delta(entry)
+        label = "draining" if delta < -0.05 else "energising" if delta > 0.03 else "neutral"
         note = entry.recipe_name or entry.decision
         if entry.satisfaction is not None:
             note += f" · {entry.satisfaction}/5"
         local_time = entry.timestamp.replace(tzinfo=timezone.utc).astimezone(_IST)
+        energy_compat = round(min(1.0, max(0.0, (delta + 0.20) / 0.30)), 3)
         events.append({
-            "occurred_at": entry.timestamp.isoformat() + "Z",
-            "time": local_time.strftime("%H:%M"),
-            "energy": energy,
-            "label": label,
-            "note": note[:80],
-            "source": "chef",
-            "skipped": False,
+            "occurred_at":    entry.timestamp.isoformat() + "Z",
+            "time":           local_time.strftime("%H:%M"),
+            "energy":         energy_compat,
+            "delta":          delta,
+            "running_energy": None,   # filled in below after sorting
+            "label":          label,
+            "note":           note[:80],
+            "source":         "chef",
+            "skipped":        False,
         })
 
     events += _skipped_events(entries, target, now_utc)
     events.sort(key=lambda e: e["occurred_at"])
 
+    # Compute running energy in chronological order
+    START = 0.70
+    running = START
+    for e in events:
+        running = round(min(1.0, max(0.0, running + e["delta"])), 3)
+        e["running_energy"] = running
+
+    end_energy = running
     avg = round(sum(e["energy"] for e in events) / len(events), 3) if events else None
     return {
-        "date": target.isoformat(),
-        "source": "chef",
-        "events": events,
-        "avg_energy": avg,
+        "date":         target.isoformat(),
+        "source":       "chef",
+        "start_energy": START,
+        "end_energy":   end_energy,
+        "events":       events,
+        "avg_energy":   avg,
     }

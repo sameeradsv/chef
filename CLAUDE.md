@@ -55,7 +55,7 @@ docker compose up -d postgres
 
 **Routers**:
 - `/ingredients` (CRUD), `/recipes/recommend|search/{id}`, `/decision/cook-vs-order|recommend-meal`, `/user/state|preferences (GET+PUT)`, `/grocery` (CRUD + suggestions), `/history` (log+list+patch+delete), `/auth/register|login|me`, `/health`
-- `/energy/timeline` — per-meal energy score (satisfaction-weighted; cook 0.55, order 0.70, eat_out 0.75 base)
+- `/energy/timeline` — cumulative meal-energy timeline per day. Each event has `delta` (signed: good meals restore, skipped/bad drain), `running_energy`, `start_energy` (0.70), `end_energy`. Satisfaction-weighted delta: 4–5/5 → +0.08 to +0.10 (genuine restore); 3/5 → +0.02; 1–2/5 → negative; skipped window → breakfast −0.15, lunch −0.20, dinner −0.12. Decision-type fallback (no satisfaction): eat_out +0.03, order 0.0, cook −0.04. `energy` compat field (0–1) preserved for chart dot colour.
 - `/sync/energy` — today's cumulative drain: logged-meal drain (cook 0.12, eat_out 0.07, order 0.03) + biological skip drain for closed windows with no entry (breakfast 0.20, lunch 0.25, dinner 0.15). Having any meal always drains less than skipping it. Consumed by the decision page for all accounts (not just Cortex) to pre-fill `energy_level`.
 - `/nutrition/summary` — keyword-based macro/micronutrient averages + RDA gap analysis + food suggestions
 - `/vision/parse` — image-to-meal/ingredient parsing via Groq Llama 4 Scout
@@ -157,7 +157,7 @@ These components were built during implementation and are intentional additions 
 
 - `components/DecisionScoreWaterfall.tsx` — horizontal bar chart breaking down score factors per decision mode; shown as collapsible section on the Decision page
 - `components/RecipeCoverageScatter.tsx` — scatter/coverage visualisation for recipe pantry match; used on `app/recipe/page.tsx`
-- `routers/energy.py` + `routers/sync.py` — per-meal energy scoring and today's cumulative drain; consumed by cross-app energy integrations
+- `routers/energy.py` + `routers/sync.py` — cumulative meal-energy timeline (signed deltas, running balance, restorative good meals) and today's drain; consumed by cross-app energy integrations
 - `routers/nutrition.py` + `services/health.py` — keyword-based macro/micronutrient analysis with RDA gap detection and Indian-diet-aware food suggestions
 - `routers/vision.py` — Groq Llama 4 Scout image parser; powers screenshot-to-log on the history page
 - `services/personalization.py` — user profile derived from cooking history; feeds history-aware meal recommendations
