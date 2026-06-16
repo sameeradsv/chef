@@ -1,7 +1,7 @@
 import asyncio
 import os
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 
@@ -53,6 +53,19 @@ app.include_router(sync_router)
 app.include_router(vision_router)
 app.include_router(energy_router)
 app.include_router(nutrition_router)
+
+
+@app.middleware("http")
+async def add_cache_control(request: Request, call_next):
+    response = await call_next(request)
+    if (
+        request.method == "GET"
+        and response.status_code == 200
+        and not request.url.path.startswith("/api/auth")
+        and not request.url.path.startswith("/auth")
+    ):
+        response.headers["Cache-Control"] = "private, max-age=30"
+    return response
 
 
 def _seed_in_thread() -> None:
