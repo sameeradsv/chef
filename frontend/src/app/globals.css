@@ -31,8 +31,16 @@
 
   /* Mobile layout — tab bar in Layout.tsx */
   --mobile-tab-bar-height: 57px;
-  --content-bottom-inset: calc(var(--mobile-tab-bar-height) + env(safe-area-inset-bottom, 0px));
+  --content-bottom-inset: 0px;
   --sheet-footer-padding: max(16px, env(safe-area-inset-bottom, 0px));
+}
+
+@media (max-width: 767px) {
+  :root,
+  [data-theme="hearth"],
+  [data-theme="mise"] {
+    --content-bottom-inset: calc(var(--mobile-tab-bar-height) + env(safe-area-inset-bottom, 0px));
+  }
 }
 
 [data-theme="mise"] {

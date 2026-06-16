@@ -1,4 +1,4 @@
-/** Mobile tab bar + safe area — keep in sync with Layout.tsx */
+/** Mobile tab bar + safe area — keep in sync with Layout.tsx and globals.css `--content-bottom-inset` */
 import type { CSSProperties } from "react";
 
 export const MOBILE_TAB_BAR_HEIGHT_PX = 57;

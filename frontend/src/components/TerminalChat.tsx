@@ -200,8 +200,9 @@ export function TerminalChat() {
       </div>
 
       {/* Input */}
-      <div className="flex items-end gap-2 px-4 py-3 bg-kitchen-surface border-t border-kitchen-border flex-shrink-0"
-        style={{ paddingBottom: "max(12px, env(safe-area-inset-bottom, 0px))" }}
+      <div
+        className="flex items-end gap-2 px-4 py-3 bg-kitchen-surface border-t border-kitchen-border flex-shrink-0"
+        style={{ paddingBottom: "max(12px, calc(env(safe-area-inset-bottom, 0px) + var(--content-bottom-inset)))" }}
       >
         <textarea
           ref={inputRef}
