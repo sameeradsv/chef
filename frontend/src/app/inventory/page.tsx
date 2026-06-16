@@ -579,6 +579,114 @@ type ProductQueueRow = {
   storage_type: string;
 };
 
+type ProductDraft = Omit<ProductQueueRow, "id">;
+
+function normalizeProductName(name: string): string {
+  return name.toLowerCase().replace(/[^a-z0-9\s]/gi, " ").replace(/\s+/g, " ").trim();
+}
+
+function namesLikelySame(a: string, b: string): boolean {
+  const na = normalizeProductName(a);
+  const nb = normalizeProductName(b);
+  if (!na || !nb) return true;
+  if (na === nb || na.includes(nb) || nb.includes(na)) return true;
+  const wa = na.split(" ").filter((w) => w.length > 2);
+  const wb = nb.split(" ").filter((w) => w.length > 2);
+  const overlap = wa.filter((w) => wb.includes(w)).length;
+  return overlap >= 1;
+}
+
+function pickProductName(a: string, b: string): string {
+  if (!a.trim()) return b;
+  if (!b.trim()) return a;
+  return a.length >= b.length ? a : b;
+}
+
+function mergeProductDraft(base: ProductDraft, incoming: ProductDraft): ProductDraft {
+  return {
+    name: pickProductName(base.name, incoming.name),
+    quantity:
+      incoming.quantity > 0 && incoming.quantity !== 1
+        ? incoming.quantity
+        : base.quantity || incoming.quantity,
+    unit: base.unit && base.unit !== "grams" ? base.unit : incoming.unit || base.unit,
+    expiry_date: base.expiry_date || incoming.expiry_date,
+    cost: base.cost || incoming.cost,
+    storage_type:
+      incoming.storage_type !== "pantry" ? incoming.storage_type : base.storage_type,
+  };
+}
+
+function parseResultToDraft(result: ParsedProduct): ProductDraft {
+  const name = result.name ?? "";
+  const fullName =
+    result.brand && name && !name.toLowerCase().includes(result.brand.toLowerCase())
+      ? `${result.brand} ${name}`
+      : name;
+  return {
+    name: fullName,
+    quantity: result.quantity ?? 1,
+    unit: result.unit ?? "grams",
+    expiry_date: result.expiry_date ?? "",
+    cost: result.price ?? 0,
+    storage_type: result.storage_type ?? "pantry",
+  };
+}
+
+function draftHasSignal(draft: ProductDraft): boolean {
+  return Boolean(draft.name.trim() || draft.expiry_date || draft.cost > 0);
+}
+
+function ProductFields({
+  row,
+  onChange,
+  inputCls,
+}: {
+  row: ProductDraft;
+  onChange: (field: keyof ProductDraft, value: string | number) => void;
+  inputCls: string;
+}) {
+  return (
+    <div className="flex-1 min-w-0 space-y-2">
+      <input
+        value={row.name}
+        onChange={(e) => onChange("name", e.target.value)}
+        placeholder="Product name"
+        className="w-full bg-transparent text-sm font-display text-kitchen-text outline-none border-b pb-0.5"
+        style={{ borderColor: "var(--kitchen-line2)" }}
+      />
+      <div className="grid grid-cols-3 gap-3">
+        <div>
+          <MonoLabel className="text-kitchen-muted block mb-0.5">QTY</MonoLabel>
+          <input type="number" min="0" value={row.quantity || ""} onChange={(e) => onChange("quantity", parseFloat(e.target.value) || 0)} className={inputCls} placeholder="—" />
+        </div>
+        <div>
+          <MonoLabel className="text-kitchen-muted block mb-0.5">UNIT</MonoLabel>
+          <input value={row.unit} onChange={(e) => onChange("unit", e.target.value)} className={inputCls} placeholder="grams" />
+        </div>
+        <div>
+          <MonoLabel className="text-kitchen-muted block mb-0.5">STORE</MonoLabel>
+          <select value={row.storage_type} onChange={(e) => onChange("storage_type", e.target.value)} className={`${inputCls} cursor-pointer`}>
+            <option value="pantry" style={{ background: "rgb(var(--kitchen-bg))" }}>Pantry</option>
+            <option value="fridge" style={{ background: "rgb(var(--kitchen-bg))" }}>Fridge</option>
+            <option value="freezer" style={{ background: "rgb(var(--kitchen-bg))" }}>Freezer</option>
+          </select>
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <MonoLabel className="text-kitchen-muted block mb-0.5">EXPIRY</MonoLabel>
+          <input type="date" value={row.expiry_date} onChange={(e) => onChange("expiry_date", e.target.value)} className={inputCls} />
+        </div>
+        <div>
+          <MonoLabel className="text-kitchen-muted block mb-0.5">₹ COST</MonoLabel>
+          <input type="number" min="0" value={row.cost || ""} onChange={(e) => onChange("cost", parseFloat(e.target.value) || 0)} className={inputCls} placeholder="—" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function ProductQueueSheet({
   onAdd,
   onClose,
@@ -587,10 +695,20 @@ function ProductQueueSheet({
   onClose: () => void;
 }) {
   const [queue, setQueue] = useState<ProductQueueRow[]>([]);
+  const [draft, setDraft] = useState<ProductDraft | null>(null);
+  const [draftPhotoCount, setDraftPhotoCount] = useState(0);
   const [scanning, setScanning] = useState(false);
   const [scanError, setScanError] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+
+  function commitDraftToQueue(): boolean {
+    if (!draft || !draft.name.trim()) return false;
+    setQueue((prev) => [...prev, { id: Math.random().toString(36).slice(2), ...draft }]);
+    setDraft(null);
+    setDraftPhotoCount(0);
+    return true;
+  }
 
   async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -600,20 +718,31 @@ function ProductQueueSheet({
     setScanError(null);
     try {
       const { base64, type } = await fileToBase64(file, 1500);
-      const result = await api.parseImage(base64, type, "product") as ParsedProduct;
-      if (result.type === "product" && result.name) {
-        setQueue(prev => [...prev, {
-          id: Math.random().toString(36).slice(2),
-          name: result.name ?? "",
-          quantity: result.quantity ?? 1,
-          unit: result.unit ?? "grams",
-          expiry_date: result.expiry_date ?? "",
-          cost: result.price ?? 0,
-          storage_type: result.storage_type ?? "pantry",
-        }]);
-      } else {
+      const result = (await api.parseImage(base64, type, "product")) as ParsedProduct;
+      if (result.type !== "product") {
         setScanError("Couldn't read product — try a clearer photo of the label");
+        return;
       }
+      const incoming = parseResultToDraft(result);
+      if (!draftHasSignal(incoming)) {
+        setScanError("Couldn't read product — try a clearer photo of the label");
+        return;
+      }
+
+      if (
+        draft &&
+        draft.name.trim() &&
+        incoming.name.trim() &&
+        !namesLikelySame(draft.name, incoming.name)
+      ) {
+        setQueue((q) => [...q, { id: Math.random().toString(36).slice(2), ...draft }]);
+        setDraft(incoming);
+      } else if (draft) {
+        setDraft(mergeProductDraft(draft, incoming));
+      } else {
+        setDraft(incoming);
+      }
+      setDraftPhotoCount((c) => c + 1);
     } catch {
       setScanError("Photo scan failed — check your connection");
     } finally {
@@ -621,47 +750,116 @@ function ProductQueueSheet({
     }
   }
 
-  function update(id: string, field: keyof Omit<ProductQueueRow, "id">, value: string | number) {
-    setQueue(prev => prev.map(r => r.id === id ? { ...r, [field]: value } : r));
+  function updateQueue(id: string, field: keyof ProductDraft, value: string | number) {
+    setQueue((prev) => prev.map((r) => (r.id === id ? { ...r, [field]: value } : r)));
+  }
+
+  function updateDraft(field: keyof ProductDraft, value: string | number) {
+    setDraft((prev) => (prev ? { ...prev, [field]: value } : prev));
   }
 
   async function handleAddAll() {
-    if (!queue.length) return;
+    const toAdd: ProductDraft[] = queue.map(({ id: _id, ...rest }) => rest);
+    if (draft?.name.trim()) {
+      toAdd.push(draft);
+    }
+    if (!toAdd.length) return;
     setAdding(true);
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    await onAdd(queue.map(({ id: _id, ...rest }) => rest));
+    await onAdd(toAdd);
     setAdding(false);
   }
 
+  const readyCount = queue.length + (draft?.name.trim() ? 1 : 0);
   const inputCls = "w-full bg-transparent text-xs text-kitchen-text outline-none";
 
   return (
     <div
-      className="fixed inset-0 z-60 flex items-end md:items-center justify-center"
-      style={{ background: "rgba(0,0,0,0.5)", backdropFilter: "blur(4px)" }}
+      className="fixed inset-0 z-[100] flex flex-col md:items-center md:justify-center md:p-4"
+      style={{ background: "rgba(0,0,0,0.55)", backdropFilter: "blur(4px)" }}
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
       <div
-        className="w-full max-w-md max-h-[88dvh] flex flex-col animate-fade-in"
+        className="flex flex-col w-full h-full min-h-0 md:h-auto md:max-h-[90dvh] md:max-w-md animate-fade-in"
         style={{
           background: "rgb(var(--kitchen-bg))",
           borderRadius: "var(--radius-card) var(--radius-card) 0 0",
           borderTop: "1px solid var(--kitchen-line2)",
         }}
+        onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between px-5 pt-5 pb-3">
+        <div className="shrink-0 flex items-center justify-between px-5 pt-5 pb-3">
           <div>
             <h2 className="font-display text-lg">Scan products</h2>
             <p className="text-xs text-kitchen-muted mt-0.5">
-              {queue.length === 0
-                ? "Photo each product label to add to pantry"
-                : `${queue.length} product${queue.length !== 1 ? "s" : ""} queued`}
+              {readyCount === 0
+                ? "Front + back photos combine into one product"
+                : `${readyCount} product${readyCount !== 1 ? "s" : ""} ready to add`}
             </p>
           </div>
           <button type="button" onClick={onClose} className="text-kitchen-muted hover:text-kitchen-text w-8 h-8 flex items-center justify-center text-lg">×</button>
         </div>
 
-        <div className="px-5 pb-3">
+        <div className="flex-1 min-h-0 overflow-y-auto px-5 pb-3 space-y-3">
+          {draft && (
+            <div
+              className="p-3"
+              style={{
+                border: "1px solid rgb(var(--kitchen-accent) / 0.35)",
+                borderRadius: "var(--radius-card)",
+                background: "rgb(var(--kitchen-accent) / 0.06)",
+              }}
+            >
+              <div className="flex items-center justify-between gap-2 mb-2">
+                <MonoLabel className="text-kitchen-accent">
+                  CURRENT PRODUCT{draftPhotoCount > 1 ? ` · ${draftPhotoCount} PHOTOS MERGED` : ""}
+                </MonoLabel>
+                <button
+                  type="button"
+                  onClick={() => { setDraft(null); setDraftPhotoCount(0); }}
+                  className="text-[10px] font-mono text-kitchen-muted hover:text-kitchen-danger"
+                >
+                  CLEAR
+                </button>
+              </div>
+              <ProductFields row={draft} onChange={updateDraft} inputCls={inputCls} />
+              <p className="text-[10px] font-mono text-kitchen-muted mt-2">
+                Scan the other side for expiry or qty, then tap &ldquo;Done with product&rdquo;.
+              </p>
+            </div>
+          )}
+
+          {queue.length > 0 && (
+            <div className="space-y-2">
+              <MonoLabel className="text-kitchen-muted">READY TO ADD</MonoLabel>
+              {queue.map((row) => (
+                <div key={row.id} className="p-3 flex items-start gap-2" style={{ border: "1px solid var(--kitchen-line2)", borderRadius: "var(--radius-card)", background: "rgb(var(--kitchen-card))" }}>
+                  <ProductFields row={row} onChange={(field, value) => updateQueue(row.id, field, value)} inputCls={inputCls} />
+                  <button type="button" onClick={() => setQueue((prev) => prev.filter((r) => r.id !== row.id))} className="flex-shrink-0 text-kitchen-muted hover:text-kitchen-danger transition-colors mt-0.5" aria-label="Remove">
+                    <svg width="14" height="14" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+                      <path d="M2 3h8M5 3V2h2v1M4 3v6.5a.5.5 0 00.5.5h3a.5.5 0 00.5-.5V3"/>
+                    </svg>
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {!draft && queue.length === 0 && (
+            <div className="py-8 text-center" style={{ border: "1px dashed var(--kitchen-line2)", borderRadius: "var(--radius-card)" }}>
+              <p className="text-sm text-kitchen-muted">Photo the front for name &amp; size</p>
+              <p className="text-xs text-kitchen-muted mt-1">Then the back or flap for expiry date</p>
+            </div>
+          )}
+        </div>
+
+        <div
+          className="shrink-0 px-5 pt-3 space-y-2"
+          style={{
+            borderTop: "1px solid var(--kitchen-line)",
+            paddingBottom: "max(16px, env(safe-area-inset-bottom, 0px))",
+            background: "rgb(var(--kitchen-bg))",
+          }}
+        >
           <input ref={fileRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handleFile} />
           <button
             type="button"
@@ -689,84 +887,35 @@ function ProductQueueSheet({
                   <circle cx="8" cy="9" r="2.5"/>
                   <path d="M5.5 4l.8-1.5h3.4L10.5 4"/>
                 </svg>
-                {queue.length === 0 ? "TAKE FIRST PHOTO" : "SCAN ANOTHER PRODUCT"}
+                {draft ? "TAKE ANOTHER PHOTO (OTHER SIDE)" : "TAKE PHOTO"}
               </>
             )}
           </button>
           {scanError && (
-            <p className="text-[10px] font-mono text-center mt-1.5" style={{ color: "rgb(var(--kitchen-warn))" }}>{scanError}</p>
+            <p className="text-[10px] font-mono text-center" style={{ color: "rgb(var(--kitchen-warn))" }}>{scanError}</p>
           )}
-          {!scanError && (
-            <p className="text-[10px] font-mono text-kitchen-muted text-center mt-1.5">
-              EXPIRY DATE IS USUALLY ON THE BOTTOM OR TOP FLAP
-            </p>
-          )}
-        </div>
 
-        {queue.length > 0 && (
-          <ul className="overflow-y-auto flex-1 px-5 pb-2 space-y-2">
-            {queue.map((row) => (
-              <li key={row.id} className="p-3" style={{ border: "1px solid var(--kitchen-line2)", borderRadius: "var(--radius-card)", background: "rgb(var(--kitchen-card))" }}>
-                <div className="flex items-start gap-2">
-                  <div className="flex-1 min-w-0 space-y-2">
-                    <input
-                      value={row.name}
-                      onChange={(e) => update(row.id, "name", e.target.value)}
-                      placeholder="Product name"
-                      className="w-full bg-transparent text-sm font-display text-kitchen-text outline-none border-b pb-0.5"
-                      style={{ borderColor: "var(--kitchen-line2)" }}
-                    />
-                    <div className="grid grid-cols-3 gap-3">
-                      <div>
-                        <MonoLabel className="text-kitchen-muted block mb-0.5">QTY</MonoLabel>
-                        <input type="number" min="0" value={row.quantity || ""} onChange={(e) => update(row.id, "quantity", parseFloat(e.target.value) || 0)} className={inputCls} placeholder="—" />
-                      </div>
-                      <div>
-                        <MonoLabel className="text-kitchen-muted block mb-0.5">UNIT</MonoLabel>
-                        <input value={row.unit} onChange={(e) => update(row.id, "unit", e.target.value)} className={inputCls} placeholder="grams" />
-                      </div>
-                      <div>
-                        <MonoLabel className="text-kitchen-muted block mb-0.5">STORE</MonoLabel>
-                        <select value={row.storage_type} onChange={(e) => update(row.id, "storage_type", e.target.value)} className={`${inputCls} cursor-pointer`}>
-                          <option value="pantry" style={{ background: "rgb(var(--kitchen-bg))" }}>Pantry</option>
-                          <option value="fridge" style={{ background: "rgb(var(--kitchen-bg))" }}>Fridge</option>
-                          <option value="freezer" style={{ background: "rgb(var(--kitchen-bg))" }}>Freezer</option>
-                        </select>
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <MonoLabel className="text-kitchen-muted block mb-0.5">EXPIRY</MonoLabel>
-                        <input type="date" value={row.expiry_date} onChange={(e) => update(row.id, "expiry_date", e.target.value)} className={inputCls} />
-                      </div>
-                      <div>
-                        <MonoLabel className="text-kitchen-muted block mb-0.5">₹ COST</MonoLabel>
-                        <input type="number" min="0" value={row.cost || ""} onChange={(e) => update(row.id, "cost", parseFloat(e.target.value) || 0)} className={inputCls} placeholder="—" />
-                      </div>
-                    </div>
-                  </div>
-                  <button type="button" onClick={() => setQueue(prev => prev.filter(r => r.id !== row.id))} className="flex-shrink-0 text-kitchen-muted hover:text-kitchen-danger transition-colors mt-0.5" aria-label="Remove">
-                    <svg width="14" height="14" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-                      <path d="M2 3h8M5 3V2h2v1M4 3v6.5a.5.5 0 00.5.5h3a.5.5 0 00.5-.5V3"/>
-                    </svg>
-                  </button>
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
-
-        <div className="px-5 py-4 flex gap-2" style={{ borderTop: "1px solid var(--kitchen-line)" }}>
-          <button
-            type="button"
-            onClick={handleAddAll}
-            disabled={adding || queue.length === 0}
-            className="flex-1 py-3 text-sm font-medium disabled:opacity-50 transition-opacity hover:opacity-90"
-            style={{ background: "rgb(var(--kitchen-accent))", color: "rgb(26 18 10)", borderRadius: "var(--radius-btn)" }}
-          >
-            {adding ? "Adding…" : queue.length === 0 ? "Scan a product first" : `Add ${queue.length} item${queue.length !== 1 ? "s" : ""}`}
-          </button>
-          <button type="button" onClick={onClose} className="px-4 py-3 text-sm text-kitchen-muted transition-colors hover:text-kitchen-text" style={{ border: "1px solid var(--kitchen-line2)", borderRadius: "var(--radius-btn)" }}>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => { if (!commitDraftToQueue()) setScanError("Add a product name before continuing"); else setScanError(null); }}
+              disabled={!draft}
+              className="flex-1 py-3 text-sm font-mono disabled:opacity-40 transition-opacity hover:opacity-90"
+              style={{ border: "1px solid var(--kitchen-line2)", borderRadius: "var(--radius-btn)", color: "rgb(var(--kitchen-text))" }}
+            >
+              Done with product
+            </button>
+            <button
+              type="button"
+              onClick={handleAddAll}
+              disabled={adding || readyCount === 0}
+              className="flex-[1.4] py-3 text-sm font-medium disabled:opacity-50 transition-opacity hover:opacity-90"
+              style={{ background: "rgb(var(--kitchen-accent))", color: "rgb(26 18 10)", borderRadius: "var(--radius-btn)" }}
+            >
+              {adding ? "Adding…" : readyCount === 0 ? "Add to pantry" : `Add ${readyCount} to pantry`}
+            </button>
+          </div>
+          <button type="button" onClick={onClose} className="w-full py-2.5 text-sm text-kitchen-muted transition-colors hover:text-kitchen-text">
             Cancel
           </button>
         </div>
