@@ -43,13 +43,11 @@ from app.services.freshness import days_until_expiry
 from app.services.llm import generate_decision_narrative
 from app.services.personalization import get_user_profile
 from app.services.recipes import (
-    best_restaurant_for_state,
     current_meal_type,
     get_recipe_by_id,
-    get_restaurant_by_id,
     recommend_recipes,
 )
-from app.services.restaurants import best_ai_restaurant, generate_restaurant_suggestions
+from app.services.restaurants import pick_restaurant_for_user
 
 router = APIRouter(prefix="/decision", tags=["decisions"])
 
@@ -142,19 +140,24 @@ def cook_vs_order(
         recipe = get_recipe_by_id(raw["id"], pantry)
 
     if body.restaurant_id:
-        rest_raw = get_restaurant_by_id(body.restaurant_id)
-    elif city:
-        suggestions = generate_restaurant_suggestions(
+        rest_raw = pick_restaurant_for_user(
+            db,
+            current_user.id,
+            state=state,
+            vegetarian=vegetarian,
             city=city,
             cuisines=fav_cuisines,
-            budget=state.budget_today,
-            vegetarian=vegetarian,
-            craving=state.craving,
-            energy_level=state.energy_level,
+            restaurant_id=body.restaurant_id,
         )
-        rest_raw = best_ai_restaurant(suggestions, state.craving, state.budget_today, energy_level=state.energy_level) or best_restaurant_for_state(state, vegetarian=vegetarian)
     else:
-        rest_raw = best_restaurant_for_state(state, vegetarian=vegetarian)
+        rest_raw = pick_restaurant_for_user(
+            db,
+            current_user.id,
+            state=state,
+            vegetarian=vegetarian,
+            city=city,
+            cuisines=fav_cuisines,
+        )
     restaurant = _restaurant_dto(rest_raw)
 
     result = compare_options(
@@ -200,18 +203,14 @@ def recommend_meal_endpoint(
         meal_type=meal_type,
     )
     recipe = recs[0] if recs else get_recipe_by_id("r-dal-tadka", pantry)
-    if city:
-        suggestions = generate_restaurant_suggestions(
-            city=city,
-            cuisines=fav_cuisines,
-            budget=state.budget_today,
-            vegetarian=vegetarian,
-            craving=state.craving,
-            energy_level=state.energy_level,
-        )
-        rest_raw = best_ai_restaurant(suggestions, state.craving, state.budget_today, energy_level=state.energy_level) or best_restaurant_for_state(state, vegetarian=vegetarian)
-    else:
-        rest_raw = best_restaurant_for_state(state, vegetarian=vegetarian)
+    rest_raw = pick_restaurant_for_user(
+        db,
+        current_user.id,
+        state=state,
+        vegetarian=vegetarian,
+        city=city,
+        cuisines=fav_cuisines,
+    )
     restaurant = _restaurant_dto(rest_raw)
     result = recommend_meal(
         recipe,

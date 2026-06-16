@@ -4,6 +4,13 @@ import json
 import os
 import time
 import uuid
+from collections import Counter
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from sqlalchemy.orm import Session
+
+    from app.schemas import UserStatePayload
 
 _cache: dict[str, tuple[float, list[dict]]] = {}
 _CACHE_TTL = 1800  # 30 minutes
@@ -20,6 +27,137 @@ def _get_client():
         return None
 
 
+def _load_seed_restaurants() -> list[dict]:
+    from app.services.recipes import load_restaurants
+
+    return load_restaurants()
+
+
+def _satisfaction_by_restaurant(db: Session, user_id: str) -> dict[str, float]:
+    from app.models import CookingHistoryModel
+
+    buckets: dict[str, list[float]] = {}
+    rows = (
+        db.query(CookingHistoryModel)
+        .filter(
+            CookingHistoryModel.user_id == user_id,
+            CookingHistoryModel.decision.in_(("order", "eat_out")),
+            CookingHistoryModel.restaurant_name.isnot(None),
+            CookingHistoryModel.satisfaction.isnot(None),
+        )
+        .all()
+    )
+    for row in rows:
+        name = (row.restaurant_name or "").strip().lower()
+        if name:
+            buckets.setdefault(name, []).append(float(row.satisfaction))
+    return {name: sum(vals) / len(vals) for name, vals in buckets.items()}
+
+
+def generate_history_restaurant_suggestions(
+    db: Session,
+    user_id: str,
+    *,
+    vegetarian: bool = False,
+    limit: int = 5,
+) -> list[dict]:
+    """Build restaurant options from logged order/eat-out history."""
+    from app.models import CookingHistoryModel
+
+    entries = (
+        db.query(CookingHistoryModel)
+        .filter(
+            CookingHistoryModel.user_id == user_id,
+            CookingHistoryModel.decision.in_(("order", "eat_out")),
+            CookingHistoryModel.restaurant_name.isnot(None),
+            CookingHistoryModel.restaurant_name != "",
+        )
+        .order_by(CookingHistoryModel.timestamp.desc())
+        .limit(100)
+        .all()
+    )
+    if not entries:
+        return []
+
+    buckets: dict[str, dict] = {}
+    for entry in entries:
+        name = entry.restaurant_name.strip()
+        key = name.lower()
+        bucket = buckets.setdefault(
+            key,
+            {"name": name, "sats": [], "costs": [], "cuisines": [], "count": 0},
+        )
+        bucket["count"] += 1
+        if entry.satisfaction is not None:
+            bucket["sats"].append(entry.satisfaction)
+        if entry.cost is not None:
+            bucket["costs"].append(entry.cost)
+        if entry.cuisine:
+            bucket["cuisines"].append(entry.cuisine)
+
+    seed_by_name = {r["restaurant_name"].lower(): r for r in _load_seed_restaurants()}
+    ranked: list[tuple[float, str]] = []
+    for key, bucket in buckets.items():
+        score = min(bucket["count"], 5) * 2.0
+        if bucket["sats"]:
+            avg_sat = sum(bucket["sats"]) / len(bucket["sats"])
+            if avg_sat >= 4.0:
+                score += 12.0
+            elif avg_sat >= 3.0:
+                score += 4.0
+            elif avg_sat <= 2.0:
+                score -= 20.0
+        ranked.append((score, key))
+    ranked.sort(key=lambda item: item[0], reverse=True)
+
+    results: list[dict] = []
+    for _, key in ranked:
+        if len(results) >= limit:
+            break
+        bucket = buckets[key]
+        if bucket["sats"] and len(bucket["sats"]) >= 2:
+            if sum(bucket["sats"]) / len(bucket["sats"]) <= 2.0:
+                continue
+
+        seed = seed_by_name.get(key)
+        if seed:
+            if vegetarian and not seed.get("vegetarian_friendly", True):
+                continue
+            row = dict(seed)
+        else:
+            cuisine = Counter(bucket["cuisines"]).most_common(1)[0][0] if bucket["cuisines"] else "Indian"
+            total_cost = float(bucket["costs"][-1]) if bucket["costs"] else 300.0
+            row = {
+                "id": f"hist-{uuid.uuid4().hex[:8]}",
+                "platform": "Swiggy",
+                "restaurant_name": bucket["name"],
+                "estimated_delivery_minutes": 35,
+                "total_cost": total_cost,
+                "delivery_fee": 40.0,
+                "rating": 4.2,
+                "cuisine": cuisine,
+                "discount_available": False,
+                "vegetarian_friendly": vegetarian,
+            }
+        row["from_history"] = True
+        results.append(row)
+    return results
+
+
+def merge_restaurant_suggestions(*pools: list[dict]) -> list[dict]:
+    """Merge suggestion pools; first pool wins on duplicate restaurant names."""
+    seen: set[str] = set()
+    merged: list[dict] = []
+    for pool in pools:
+        for row in pool:
+            key = row.get("restaurant_name", "").lower().strip()
+            if not key or key in seen:
+                continue
+            seen.add(key)
+            merged.append(row)
+    return merged
+
+
 def generate_restaurant_suggestions(
     city: str,
     cuisines: list[str],
@@ -28,6 +166,7 @@ def generate_restaurant_suggestions(
     craving: str = "",
     energy_level: int = 5,
     count: int = 3,
+    known_restaurants: list[str] | None = None,
 ) -> list[dict]:
     """
     Generate restaurant suggestions via Groq for a given city and preferences.
@@ -38,8 +177,10 @@ def generate_restaurant_suggestions(
         return []
 
     cache_key = f"{city.lower()}|{','.join(sorted(cuisines))}|{vegetarian}|{craving.lower()[:30]}|{energy_level}"
+    known = [n.strip() for n in (known_restaurants or []) if n and n.strip()]
+    use_cache = not known
     now = time.time()
-    if cache_key in _cache:
+    if use_cache and cache_key in _cache:
         ts, cached = _cache[cache_key]
         if now - ts < _CACHE_TTL:
             return cached
@@ -62,10 +203,19 @@ def generate_restaurant_suggestions(
     else:
         energy_note = f"User energy is good ({energy_level}/10). Prioritise cuisine match and quality."
 
+    known_note = ""
+    if known:
+        names = ", ".join(known[:8])
+        known_note = (
+            f"The user has previously ordered from: {names}. "
+            f"Prefer reusing these exact restaurant names when they fit the preferences."
+        )
+
     prompt = f"""Generate {count} realistic food delivery restaurant options in {city}, India.
 
 Preferences: {cuisine_hint} cuisine. {veg_note} {craving_note} {budget_note}
 {energy_note}
+{known_note}
 
 Return ONLY a JSON array. No markdown, no explanation. Each object must have exactly these keys:
 - "restaurant_name": string (realistic local name or known chain)
@@ -111,7 +261,8 @@ Vary the platforms and cuisines. Make names sound like real local restaurants in
                 "vegetarian_friendly": vegetarian,
             })
 
-        _cache[cache_key] = (now, results)
+        if use_cache:
+            _cache[cache_key] = (now, results)
         return results
     except Exception:
         return []
@@ -125,22 +276,32 @@ def best_ai_restaurant(
     craving: str,
     budget: float,
     energy_level: int = 5,
+    satisfaction_by_name: dict[str, float] | None = None,
 ) -> dict | None:
-    """Pick the best restaurant from AI suggestions based on craving, budget, and energy."""
+    """Pick the best restaurant from suggestions based on craving, budget, energy, and history."""
     if not suggestions:
         return None
     low_energy = energy_level < 5
     best = suggestions[0]
-    best_score = -1
+    best_score = -1.0
     for r in suggestions:
         score = 0.0
         cuisine = r.get("cuisine", "").lower()
+        name_lower = r.get("restaurant_name", "").lower()
         if craving and craving.lower() in cuisine:
             score += 10
         if budget > 0 and r.get("total_cost", 999) <= budget:
             score += 5
         if r.get("discount_available"):
             score += 1
+        if r.get("from_history"):
+            score += 4
+        if satisfaction_by_name and name_lower in satisfaction_by_name:
+            past_sat = satisfaction_by_name[name_lower]
+            if past_sat >= 4.0:
+                score += 10
+            elif past_sat <= 2.0:
+                score -= 15
         delivery_mins = r.get("estimated_delivery_minutes", 40)
         score -= delivery_mins / 20
         if low_energy:
@@ -154,3 +315,58 @@ def best_ai_restaurant(
             best_score = score
             best = r
     return best
+
+
+def pick_restaurant_for_user(
+    db: Session,
+    user_id: str,
+    *,
+    state: UserStatePayload,
+    vegetarian: bool,
+    city: str = "",
+    cuisines: list[str] | None = None,
+    restaurant_id: str | None = None,
+) -> dict:
+    """Resolve a restaurant: explicit id → history → AI (city) → seed fallback."""
+    from app.services.recipes import best_restaurant_for_state, get_restaurant_by_id
+
+    if restaurant_id:
+        found = get_restaurant_by_id(restaurant_id)
+        if found:
+            return found
+
+    fav_cuisines = cuisines or []
+    history = generate_history_restaurant_suggestions(db, user_id, vegetarian=vegetarian)
+    known_names = [r["restaurant_name"] for r in history]
+
+    ai: list[dict] = []
+    if city.strip():
+        ai = generate_restaurant_suggestions(
+            city=city,
+            cuisines=fav_cuisines,
+            budget=state.budget_today,
+            vegetarian=vegetarian,
+            craving=state.craving,
+            energy_level=state.energy_level,
+            known_restaurants=known_names,
+        )
+
+    seed = _load_seed_restaurants()
+    if vegetarian:
+        veg_seed = [r for r in seed if r.get("vegetarian_friendly", True)]
+        if veg_seed:
+            seed = veg_seed
+
+    merged = merge_restaurant_suggestions(history, ai, seed)
+    if not merged:
+        return best_restaurant_for_state(state, vegetarian=vegetarian)
+
+    sat_map = _satisfaction_by_restaurant(db, user_id)
+    picked = best_ai_restaurant(
+        merged,
+        state.craving,
+        state.budget_today,
+        energy_level=state.energy_level,
+        satisfaction_by_name=sat_map or None,
+    )
+    return picked or best_restaurant_for_state(state, vegetarian=vegetarian)
