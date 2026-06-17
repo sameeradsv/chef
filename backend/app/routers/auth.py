@@ -2,7 +2,8 @@ from __future__ import annotations
 
 from typing import Optional
 
-from fastapi import APIRouter, Body, Depends, Header, HTTPException, Request, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
+from pydantic import ValidationError
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
@@ -16,9 +17,19 @@ from app.schemas import LoginRequest, RegisterRequest, TokenResponse, UserAccoun
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
+async def _parse_body(request: Request, model: type):
+    try:
+        return model.model_validate(await request.json())
+    except ValidationError as exc:
+        raise HTTPException(422, detail=exc.errors())
+    except Exception:
+        raise HTTPException(400, "Invalid JSON body")
+
+
 @router.post("/register", response_model=TokenResponse, status_code=201)
 @limiter.limit("3/minute")
-def register(request: Request, payload: RegisterRequest = Body(), db: Session = Depends(get_db)):
+async def register(request: Request, db: Session = Depends(get_db)):
+    payload: RegisterRequest = await _parse_body(request, RegisterRequest)
     username = payload.username.lower()
     if db.scalar(select(UserAccountModel.id).where(UserAccountModel.username == username)):
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Username already taken")
@@ -35,7 +46,8 @@ def register(request: Request, payload: RegisterRequest = Body(), db: Session = 
 
 @router.post("/login", response_model=TokenResponse)
 @limiter.limit("5/minute")
-def login(request: Request, payload: LoginRequest = Body(), db: Session = Depends(get_db)):
+async def login(request: Request, db: Session = Depends(get_db)):
+    payload: LoginRequest = await _parse_body(request, LoginRequest)
     user = db.scalar(select(UserAccountModel).where(UserAccountModel.username == payload.username.lower()))
     if not user or not verify_password(payload.passcode, user.hashed_passcode):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid username or passcode")
