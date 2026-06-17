@@ -38,9 +38,13 @@ Full list: **[DEFERRED.md](./DEFERRED.md)**.
 | Native pgvector recipe search | Groq rerank substitute shipped |
 | Phase 3 (remainder) | `predict` partial; meal planning + dynamic pricing open |
 
-## Terminal UI: Conduit only (2026-06-17)
+## Terminal UX: Conduit only (2026-06-17)
 
 **Decision:** Chef `/chat` is app-native Groq agent (personal kitchen Q&A). Terminal hub + diary routing → **Conduit only**. Do not add Conduit-style terminal shell to Chef.
+
+## Decide predict UI (2026-06-17)
+
+**Decision:** `/decision` shows a **history card** from `GET /decision/predict` (mode badge, confidence %, message, optional `savings_hint`). Predict loads in parallel with decide init; failures are silent so Decide never blocks.
 
 ## Groq-only AI (2026-06-17)
 

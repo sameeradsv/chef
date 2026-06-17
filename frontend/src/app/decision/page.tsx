@@ -370,7 +370,12 @@ function DecisionPageInner() {
   const [logging, setLogging] = useState(false);
   const [logMessage, setLogMessage] = useState<string | null>(null);
   const [consumeResult, setConsumeResult] = useState<{ consumed: string[]; depleted: string[]; not_found: string[] } | null>(null);
-  const [predictHint, setPredictHint] = useState<string | null>(null);
+  const [predict, setPredict] = useState<{
+    likely_decision: string;
+    confidence: number;
+    message: string;
+    savings_hint?: string | null;
+  } | null>(null);
 
   async function runDecision(sessionState?: UserState, people?: number) {
     setLoading(true);
@@ -446,8 +451,8 @@ function DecisionPageInner() {
 
       try {
         const pred = await api.predictMeal();
-        if (pred.message) setPredictHint(pred.message);
-      } catch { /* optional */ }
+        if (pred.message) setPredict(pred);
+      } catch { /* optional — does not block decide */ }
 
       await runDecision(preset, people);
     }
@@ -520,10 +525,36 @@ function DecisionPageInner() {
             </MonoLabel>
           )}
         </div>
-        {predictHint && (
-          <p className="text-xs font-mono text-kitchen-muted mt-2" style={{ letterSpacing: "0.04em" }}>
-            ✦ {predictHint}
-          </p>
+        {predict && (
+          <div
+            className="mt-3 p-3 rounded-card font-mono text-xs"
+            style={{
+              border: "1px solid var(--kitchen-line)",
+              background: "rgb(var(--kitchen-surface))",
+              letterSpacing: "0.03em",
+            }}
+          >
+            <div className="flex flex-wrap items-center gap-2 mb-2">
+              <span className="text-kitchen-muted">HISTORY SUGGESTS</span>
+              <span
+                className="px-2 py-0.5 rounded-btn uppercase"
+                style={{
+                  background: "rgb(var(--kitchen-accent) / 0.12)",
+                  color: "rgb(var(--kitchen-accent))",
+                  fontSize: 10,
+                }}
+              >
+                {predict.likely_decision.replace("_", " ")}
+              </span>
+              <span className="text-kitchen-muted">
+                {Math.round(predict.confidence * 100)}% confidence
+              </span>
+            </div>
+            <p className="text-kitchen-text m-0 leading-relaxed">{predict.message}</p>
+            {predict.savings_hint && (
+              <p className="text-kitchen-accent mt-2 mb-0 opacity-90">{predict.savings_hint}</p>
+            )}
+          </div>
         )}
         {result?.reasoning?.[0] && (
           <p className="text-sm text-kitchen-muted mt-1">{result.reasoning[0]}</p>
