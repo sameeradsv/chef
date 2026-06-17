@@ -38,3 +38,7 @@ Do not re-add without real notification delivery or persisted preference fields.
 ## Terminal UI: Conduit only (2026-06-17)
 
 **Decision:** Chef `/chat` is app-native Groq agent (personal kitchen Q&A). Terminal hub + diary routing → **Conduit only**. Do not add Conduit-style terminal shell to Chef.
+
+## Groq-only AI (2026-06-17)
+
+All LLM features (narrative, vision, chat agent, recipe generation, semantic rerank) require `GROQ_API_KEY` only. No Anthropic/OpenAI backends.
