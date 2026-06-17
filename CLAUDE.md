@@ -182,6 +182,7 @@ These components were built during implementation and are intentional additions 
 - `services/personalization.py` — user profile derived from cooking history; feeds history-aware meal recommendations
 - **Pantry FAB layout** — FABs use `lg:hidden` (not `md:hidden`) so scan/add/photo buttons remain visible on landscape mobile and portrait tablet; ingredient list has `pb-[260px] lg:pb-4` so bottom-of-list item buttons never hide behind the FAB stack
 - **Grocery restock from use/discard** — `ConsumeSheet` and `DiscardSheet` in `app/inventory/page.tsx` each have a "Add to grocery list for next shop" checkbox (checked by default, opt-out); on confirm, calls `POST /grocery` with the ingredient name, quantity, and unit
+- **`slowapi` + FastAPI body injection incompatibility**: `@limiter.limit` wraps the route function, hiding Pydantic model type annotations from FastAPI's dependency injector — FastAPI treats the parameter as a query param and returns 422 "Field required". Using `= Body()` as default is worse: FastAPI injects the raw `FieldInfo` object, causing `AttributeError` that escapes past `CORSMiddleware` to `ServerErrorMiddleware` (outside CORS) → 500 with no CORS headers → "Failed to fetch" in browser. **Fix**: all rate-limited endpoints that take a JSON body must use `async def` + `await request.json()` + `Model.model_validate()` via the `_parse_body` helper in `routers/auth.py`. Never add a typed Pydantic parameter to a `@limiter.limit`-decorated route.
 
 ## UI & Responsive Standards
 
