@@ -1,5 +1,6 @@
 import asyncio
 import os
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -22,10 +23,26 @@ from app.routers.energy import router as energy_router
 from app.routers.nutrition import router as nutrition_router
 from app.seed import seed_database
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    Base.metadata.create_all(bind=engine)
+    _ensure_migrations_table()
+    for name, fn in [
+        ("sqlite_schema", _migrate_sqlite),
+        ("postgres_schema", _migrate_postgres),
+    ]:
+        if not _migration_done(name):
+            fn()
+            _mark_done(name)
+    asyncio.get_running_loop().run_in_executor(None, _seed_in_thread)
+    yield
+
+
 app = FastAPI(
     title="Chef API",
     description="Kitchen decision intelligence — deterministic scoring first",
     version="0.2.0",
+    lifespan=lifespan,
 )
 
 origins = os.getenv(
@@ -76,20 +93,6 @@ def _seed_in_thread() -> None:
         seed_database(db)
     finally:
         db.close()
-
-
-@app.on_event("startup")
-async def on_startup():
-    Base.metadata.create_all(bind=engine)
-    _ensure_migrations_table()
-    for name, fn in [
-        ("sqlite_schema", _migrate_sqlite),
-        ("postgres_schema", _migrate_postgres),
-    ]:
-        if not _migration_done(name):
-            fn()
-            _mark_done(name)
-    asyncio.get_event_loop().run_in_executor(None, _seed_in_thread)
 
 
 @app.get("/health")

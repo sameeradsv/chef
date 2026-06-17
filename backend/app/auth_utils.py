@@ -7,7 +7,7 @@ import secrets
 from datetime import datetime, timedelta, timezone
 
 import httpx
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from app.models import AuthSessionModel, UserAccountModel
@@ -44,12 +44,23 @@ def verify_password(password: str, stored: str) -> bool:
     return secrets.compare_digest(digest.hex(), digest_hex)
 
 
+def _now_naive() -> datetime:
+    return datetime.now(timezone.utc).replace(tzinfo=None)
+
+
 def create_session(db: Session, user: UserAccountModel) -> AuthSessionModel:
+    now = _now_naive()
+    db.execute(
+        delete(AuthSessionModel).where(
+            AuthSessionModel.user_id == user.id,
+            AuthSessionModel.expires_at < now,
+        )
+    )
     token = secrets.token_urlsafe(32)
     session = AuthSessionModel(
         token=token,
         user_id=user.id,
-        expires_at=datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(days=SESSION_DAYS),
+        expires_at=now + timedelta(days=SESSION_DAYS),
     )
     db.add(session)
     db.commit()
@@ -64,7 +75,7 @@ def get_user_for_token(db: Session, token: str | None) -> UserAccountModel | Non
     session = db.scalar(
         select(AuthSessionModel).where(
             AuthSessionModel.token == token,
-            AuthSessionModel.expires_at > datetime.now(timezone.utc).replace(tzinfo=None),
+            AuthSessionModel.expires_at > _now_naive(),
         )
     )
     if session:
@@ -113,7 +124,7 @@ def _validate_cortex_token(db: Session, token: str) -> UserAccountModel | None:
         local_session = AuthSessionModel(
             token=token,
             user_id=user.id,
-            expires_at=datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(days=SESSION_DAYS),
+            expires_at=_now_naive() + timedelta(days=SESSION_DAYS),
         )
         db.add(local_session)
         db.commit()

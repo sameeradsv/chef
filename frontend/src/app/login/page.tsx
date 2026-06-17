@@ -285,19 +285,21 @@ export default function LoginPage() {
             <div className="flex-1 h-px" style={{ background: "var(--kitchen-line)" }} />
           </div>
 
-          <button
-            type="button"
-            onClick={handleDemo}
-            disabled={loading}
-            className="w-full py-2.5 text-sm text-kitchen-accent disabled:opacity-50 transition-opacity hover:opacity-80"
-            style={{
-              border: "1.5px dashed rgb(var(--kitchen-accent2))",
-              background: "rgb(var(--kitchen-accent) / 0.05)",
-              borderRadius: "var(--radius-btn)",
-            }}
-          >
-            Try the demo — no sign‑up
-          </button>
+          {process.env.NEXT_PUBLIC_SHOW_DEMO === "true" && (
+            <button
+              type="button"
+              onClick={handleDemo}
+              disabled={loading}
+              className="w-full py-2.5 text-sm text-kitchen-accent disabled:opacity-50 transition-opacity hover:opacity-80"
+              style={{
+                border: "1.5px dashed rgb(var(--kitchen-accent2))",
+                background: "rgb(var(--kitchen-accent) / 0.05)",
+                borderRadius: "var(--radius-btn)",
+              }}
+            >
+              Try the demo — no sign‑up
+            </button>
+          )}
 
           {supported && (
             <>
@@ -343,7 +345,7 @@ export default function LoginPage() {
           {isLogin ? "New here? " : "Have an account? "}
           <button
             type="button"
-            onClick={() => { setMode(isLogin ? "register" : "login"); setError(null); }}
+            onClick={() => { setMode(isLogin ? "register" : "login"); setError(null); setPasscode(""); }}
             className="text-kitchen-accent hover:opacity-80 transition-opacity"
           >
             {isLogin ? "Create account" : "Sign in"}
