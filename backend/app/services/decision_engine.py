@@ -51,6 +51,25 @@ def pantry_expiry_urgency(ingredients: list) -> float:
     return max(urgencies) if urgencies else 0.0
 
 
+def recipe_pantry_expiry_urgency(recipe: RecipeResponse, pantry_ingredients: list) -> float:
+    """Max expiry urgency restricted to pantry items the recipe actually uses."""
+    if not pantry_ingredients or not recipe.ingredients:
+        return 0.0
+    recipe_pantry_names = {
+        ing.normalized_name.lower().replace("_", " ")
+        for ing in recipe.ingredients
+        if ing.in_pantry
+    }
+    if not recipe_pantry_names:
+        return 0.0
+    matched = [
+        item for item in pantry_ingredients
+        if (getattr(item, "name", None) or (item.get("name", "") if isinstance(item, dict) else ""))
+           .lower().strip() in recipe_pantry_names
+    ]
+    return pantry_expiry_urgency(matched)
+
+
 def score_cook(
     recipe: RecipeResponse,
     state: UserStatePayload,
@@ -297,7 +316,7 @@ def compare_options(
     cooking_skill: int = 3,
     order_restaurant: RestaurantOption | None = None,
 ) -> CookVsOrderResponse:
-    pantry_urgency = pantry_expiry_urgency(pantry_ingredients)
+    pantry_urgency = recipe_pantry_expiry_urgency(recipe, pantry_ingredients)
     order_ref = order_restaurant if order_restaurant and order_restaurant.delivery_available else (
         restaurant if restaurant.delivery_available else order_restaurant
     )
