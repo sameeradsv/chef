@@ -9,11 +9,14 @@ Stack: Next.js 15 / React 19 / TypeScript / Tailwind CSS — static export deplo
 ## Dashboard
 
 - expiring ingredients
-- quick recommendations
-- suggested meals
-- decision cards
+- meal pick card (`POST /decision/recommend-meal?fast=true`)
+- meal-type tabs + quick recipe row (`GET /recipes/recommend`)
+- week glance (history dots)
+- mood pills (writes craving to user state, reloads picks)
 
-**Data sources:** `GET /ingredients` (expiry highlights), `GET /recipes/recommend`, decision summary from `POST /decision/recommend-meal` or cached cook-vs-order result.
+**Data sources:** `GET /ingredients` (expiry highlights), `GET /recipes/recommend`, `POST /decision/recommend-meal?fast=true`, optional `GET /recipes/suggest` (LLM one-liner).
+
+**Loading behaviour:** pantry/expiring loads first; recommendations use `Promise.allSettled` so one failed endpoint does not discard the other. If meal pick or recipe row is empty after load, show inline retry copy (not a blank section).
 
 ---
 

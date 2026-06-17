@@ -6,11 +6,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 
-from app.database import (
-    Base, SessionLocal, engine,
-    _migrate_postgres, _migrate_sqlite,
-    _ensure_migrations_table, _migration_done, _mark_done,
-)
+from app.database import Base, SessionLocal, engine, run_pending_migrations
 from app.routers import decisions, ingredients, recipes, user
 from app.routers.auth import router as auth_router
 from app.routers.grocery import router as grocery_router
@@ -26,14 +22,7 @@ from app.seed import seed_database
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     Base.metadata.create_all(bind=engine)
-    _ensure_migrations_table()
-    for name, fn in [
-        ("sqlite_schema", _migrate_sqlite),
-        ("postgres_schema", _migrate_postgres),
-    ]:
-        if not _migration_done(name):
-            fn()
-            _mark_done(name)
+    run_pending_migrations()
     asyncio.get_running_loop().run_in_executor(None, _seed_in_thread)
     yield
 

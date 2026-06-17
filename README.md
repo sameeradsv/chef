@@ -278,7 +278,7 @@ chef/
                     # GroceryItem, DiscardedIngredient, AuthSession, WebAuthnCredential/Challenge)
       schemas.py    # Pydantic request/response types
       tz_utils.py   # IST ↔ UTC conversion for all API datetimes
-      database.py   # session factory + migration helpers
+      database.py   # session factory; run_pending_migrations() (schema_migrations registry)
     data/           # seed_recipes.json, seed_restaurants.json
   frontend/
     src/

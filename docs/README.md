@@ -61,3 +61,4 @@ Chef is not just a recipe app or pantry tracker. It is a **kitchen decision inte
 - Implement deterministic logic per `DECISION_ENGINE.md` and `AI.md`; do not expand scope into full Swiggy/Zomato integrations.
 - Follow `ROADMAP.md` phase boundaries unless the user explicitly reprioritizes.
 - All API datetimes are naive IST on the wire; see [DATA_MODELS.md — Timezones](./DATA_MODELS.md#timezones) before touching history, energy, or datetime inputs.
+- **Schema changes:** register each additive migration as a new named entry in `MIGRATIONS` (`backend/app/database.py`); see [CLAUDE.md](../CLAUDE.md) — Database migrations.

@@ -419,16 +419,18 @@ export default function DashboardPage() {
       setExpiring(exp);
       setStatus("ok");
 
-      try {
-        const [rec, recMeal] = await Promise.all([
-          api.recommendRecipes(5, detected, true),
-          api.recommendMeal(true),
-        ]);
-        setRecipes(rec);
-        setMeal(recMeal);
+      const [recResult, mealResult] = await Promise.allSettled([
+        api.recommendRecipes(5, detected, true),
+        api.recommendMeal(true),
+      ]);
+      if (recResult.status === "fulfilled") {
+        setRecipes(recResult.value);
+      }
+      if (mealResult.status === "fulfilled") {
+        setMeal(mealResult.value);
+      }
+      if (recResult.status === "fulfilled" || mealResult.status === "fulfilled") {
         loadSuggestion(detected);
-      } catch {
-        /* pantry visible; picks can retry via mood or refresh */
       }
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Failed to load";
@@ -567,6 +569,14 @@ export default function DashboardPage() {
             <LoadingShimmer className="h-56" />
           ) : meal ? (
             <TonightCard meal={meal} pickLabel={mealPickLabel(mealType)} />
+          ) : !recLoading ? (
+            <div
+              className="p-4 text-center"
+              style={{ border: "1px solid var(--kitchen-line)", borderRadius: "var(--radius-card)", background: "rgb(var(--kitchen-card))" }}
+            >
+              <p className="text-sm text-kitchen-text">Could not load meal pick</p>
+              <p className="text-xs text-kitchen-muted mt-1">Tap refresh below or open Decide for options.</p>
+            </div>
           ) : null}
 
 
@@ -615,6 +625,8 @@ export default function DashboardPage() {
                   <QuickRecipeCard key={r.id} recipe={r} />
                 ))}
               </div>
+            ) : !recLoading && !recipeTabLoading ? (
+              <p className="text-xs text-kitchen-muted">No recipe picks right now — try refresh or browse all recipes.</p>
             ) : null}
           </div>
 

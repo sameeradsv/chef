@@ -47,12 +47,12 @@ docker compose up -d postgres
 
 | File | Responsibility |
 |---|---|
-| `main.py` | FastAPI app init, router registration, CORS, DB seed on startup |
+| `main.py` | FastAPI app init, lifespan hook, router registration, CORS; `run_pending_migrations()` + async seed on startup |
 | `models.py` | SQLAlchemy ORM: `Ingredient`, `UserState`, `UserPreferences`, `CookingHistory`, `GroceryItem`, `DiscardedIngredient`, `AuthSession`, `WebAuthnCredential`, `WebAuthnChallenge` |
 | `schemas.py` | Pydantic request/response types |
 | `tz_utils.py` | IST wall-clock ↔ naive UTC conversion for all API datetimes |
-| `database.py` | DB session factory; SQLite default, PostgreSQL via `DATABASE_URL` env var |
-| `seed.py` | Populates `data/seed_recipes.json` + `data/seed_restaurants.json` on first run |
+| `database.py` | DB session factory; SQLite default, PostgreSQL via `DATABASE_URL`; additive migrations via `run_pending_migrations()` |
+| `seed.py` | Populates `data/seed_recipes.json` + `data/seed_restaurants.json` on first run (background thread — does not block request acceptance) |
 
 **Routers**:
 - `/ingredients` (CRUD), `/recipes/recommend|search/{id}`, `/decision/cook-vs-order|recommend-meal`, `/user/state|preferences (GET+PUT)`, `/grocery` (CRUD + suggestions), `/history` (log+list+patch+delete), `/auth/register|login|me`, `/health`
@@ -63,6 +63,8 @@ docker compose up -d postgres
 - `/vision/parse` — image-to-meal/ingredient parsing via Groq Llama 4 Scout
 - `/agent/chat` — native Groq chat agent (SSE); tools: meal recommendations, cook-vs-order, food log, log meal. Requires `GROQ_API_KEY`; model override via `CHEF_AGENT_MODEL`
 - `/auth/webauthn/register/begin|complete` (Bearer), `/auth/webauthn/login/begin|complete` (public, returns JWT)
+
+**Database migrations** (no Alembic): additive `ALTER TABLE` / `CREATE TABLE IF NOT EXISTS` only. On lifespan startup, `run_pending_migrations()` in `database.py` loads applied names from `schema_migrations` in one query, then runs only pending entries from `MIGRATIONS`. Warm boots skip schema inspection entirely. **Each new column or table must be registered as its own named migration** in `MIGRATIONS` — do not only append to `_migrate_sqlite` / `_migrate_postgres`, or production will skip it once the coarse `sqlite_schema` / `postgres_schema` rows exist.
 
 **Services** (the core logic):
 - `decision_engine.py` — Deterministic scoring: cook score = `pantry_urgency + health + cost_savings − effort_cost − cleanup`; order score = `convenience + craving_match − delivery_delay − budget_penalty`; eat-out score similar with travel time (~25 min). When the primary venue is dine-in-only, order scoring uses a separate delivery pick (`order_restaurant` in `compare_options`). Expiring-ingredient bonus: +2 for cook. Energy-aware restaurant selection.

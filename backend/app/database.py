@@ -1,4 +1,5 @@
 import os
+from collections.abc import Callable
 from pathlib import Path
 
 from sqlalchemy import create_engine
@@ -170,7 +171,47 @@ def _migrate_postgres() -> None:
             conn.commit()
 
 
-def _ensure_migrations_table() -> None:
+def _migrate_restaurant_delivery_json() -> None:
+    """Standalone migration — must be registered separately from postgres_schema."""
+    with engine.connect() as conn:
+        from sqlalchemy import inspect, text
+        inspector = inspect(engine)
+        if "user_preferences" not in inspector.get_table_names():
+            return
+        existing = {c["name"] for c in inspector.get_columns("user_preferences")}
+        if "restaurant_delivery_json" in existing:
+            return
+        conn.execute(text(
+            "ALTER TABLE user_preferences ADD COLUMN restaurant_delivery_json TEXT DEFAULT '{}'"
+        ))
+        conn.commit()
+
+
+def _applied_migrations(conn) -> set[str]:
+    from sqlalchemy import text
+    rows = conn.execute(text("SELECT name FROM schema_migrations"))
+    return {r[0] for r in rows}
+
+
+def _mark_done_conn(conn, name: str) -> None:
+    from sqlalchemy import text
+    if DATABASE_URL.startswith("sqlite"):
+        conn.execute(text("INSERT OR IGNORE INTO schema_migrations (name) VALUES (:n)"), {"n": name})
+    else:
+        conn.execute(text("INSERT INTO schema_migrations (name) VALUES (:n) ON CONFLICT DO NOTHING"), {"n": name})
+
+
+# Each entry runs at most once. Add new columns as their own named migration —
+# do not only append to _migrate_postgres/_migrate_sqlite.
+MIGRATIONS: list[tuple[str, Callable[[], None]]] = [
+    ("sqlite_schema", _migrate_sqlite),
+    ("postgres_schema", _migrate_postgres),
+    ("restaurant_delivery_json", _migrate_restaurant_delivery_json),
+]
+
+
+def run_pending_migrations() -> None:
+    """Warm boot: one connection, one SELECT, no schema inspection."""
     from sqlalchemy import text
     with engine.connect() as conn:
         conn.execute(text(
@@ -179,24 +220,14 @@ def _ensure_migrations_table() -> None:
             "applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)"
         ))
         conn.commit()
-
-
-def _migration_done(name: str) -> bool:
-    from sqlalchemy import text
-    with engine.connect() as conn:
-        return conn.execute(
-            text("SELECT 1 FROM schema_migrations WHERE name = :n"), {"n": name}
-        ).fetchone() is not None
-
-
-def _mark_done(name: str) -> None:
-    from sqlalchemy import text
-    with engine.connect() as conn:
-        if DATABASE_URL.startswith("sqlite"):
-            conn.execute(text("INSERT OR IGNORE INTO schema_migrations (name) VALUES (:n)"), {"n": name})
-        else:
-            conn.execute(text("INSERT INTO schema_migrations (name) VALUES (:n) ON CONFLICT DO NOTHING"), {"n": name})
-        conn.commit()
+        applied = _applied_migrations(conn)
+        for name, fn in MIGRATIONS:
+            if name in applied:
+                continue
+            fn()
+            _mark_done_conn(conn, name)
+            conn.commit()
+            applied.add(name)
 
 
 def get_db():
