@@ -376,6 +376,7 @@ function DecisionPageInner() {
     message: string;
     savings_hint?: string | null;
   } | null>(null);
+  const [costInsights, setCostInsights] = useState<string[]>([]);
 
   async function runDecision(sessionState?: UserState, people?: number) {
     setLoading(true);
@@ -453,6 +454,11 @@ function DecisionPageInner() {
         const pred = await api.predictMeal();
         if (pred.message) setPredict(pred);
       } catch { /* optional — does not block decide */ }
+
+      try {
+        const ci = await api.costInsights();
+        setCostInsights(ci.insights);
+      } catch { /* optional */ }
 
       await runDecision(preset, people);
     }
@@ -554,6 +560,23 @@ function DecisionPageInner() {
             {predict.savings_hint && (
               <p className="text-kitchen-accent mt-2 mb-0 opacity-90">{predict.savings_hint}</p>
             )}
+          </div>
+        )}
+        {costInsights.length > 0 && (
+          <div
+            className="mt-3 p-3 rounded-card font-mono text-xs"
+            style={{
+              border: "1px solid var(--kitchen-line)",
+              background: "rgb(var(--kitchen-surface))",
+              letterSpacing: "0.03em",
+            }}
+          >
+            <div className="text-kitchen-muted mb-2">SPEND TRENDS (30D)</div>
+            <ul className="m-0 p-0 list-none space-y-1">
+              {costInsights.map((line) => (
+                <li key={line} className="text-kitchen-text leading-relaxed">{line}</li>
+              ))}
+            </ul>
           </div>
         )}
         {result?.reasoning?.[0] && (

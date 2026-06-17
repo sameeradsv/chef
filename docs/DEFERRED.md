@@ -3,13 +3,19 @@
 **Last updated:** 2026-06-17  
 **Canonical copy:** [Circuit `docs/DEFERRED.md`](https://github.com/sameeradsv/circuit/blob/main/docs/DEFERRED.md)
 
-## Chef — still deferred
+## BLOCKED (Chef)
 
 | Item | Notes |
 |------|--------|
-| **Swiggy / Zomato deep links** | **Blocked** — APIs unavailable |
-| Phase 3 remainder, pgvector, connected services | See master doc |
+| Swiggy / Zomato APIs + deep links | [INTEGRATIONS.md](./INTEGRATIONS.md) |
+| Spoonacular, Edamam | Not provisioned |
+| Native pgvector | Groq rerank shipped |
+| Platform live pricing | Logged-meal trends shipped instead |
+| Connected services | Deferred until real delivery APIs |
 
-## Shipped polish (2026-06-17)
+## Shipped (2026-06-17)
 
-- Decide predict card (`likely_decision`, confidence, savings hint) on `/decision`
+- `GET /decision/cost-insights` + Decide spend-trends card
+- `GET /plan/week` + Home meal-plan strip
+- `POST /sync/export` + `/sync/import` (Settings → Data)
+- Decide predict history card (prior polish pass)

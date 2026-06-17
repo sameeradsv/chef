@@ -180,3 +180,32 @@ These components were built during implementation and are intentional additions 
 - `routers/nutrition.py` + `services/health.py` — keyword-based macro/micronutrient analysis with RDA gap detection and Indian-diet-aware food suggestions
 - `routers/vision.py` — Groq Llama 4 Scout image parser; powers screenshot-to-log on the history page
 - `services/personalization.py` — user profile derived from cooking history; feeds history-aware meal recommendations
+
+## UI & Responsive Standards
+
+All UI changes must work correctly across **every** combination of these views before being considered done:
+
+| View | Width | Notes |
+|------|-------|-------|
+| Mobile portrait | ≤ 430 px | Primary design target; no horizontal scroll |
+| Mobile landscape | ≤ 932 px, short viewport | Reflow; critical controls must stay on-screen |
+| Tablet / iPad portrait | 768–1024 px | Two-column layouts where content warrants |
+| Tablet / iPad landscape | 1024–1366 px | Same as portrait but wider; avoid dead whitespace |
+| Laptop / desktop | ≥ 1025 px | Full layout; sidebar nav preferred over bottom tabs |
+
+### Touch & gesture rules
+- **Minimum tap target: 44 × 44 px** — applies to all buttons, chips, and icon controls.
+- **Swipe-left to confirm** (right-reveal action): implemented on grocery list via `SwipeGroceryRow`. Use the same pointer-event pattern for any new swipeable list.
+- Swipe is layered on top of existing tap controls — both must remain functional.
+
+### Voice input
+- Present a mic button whenever the field accepts free-text input on the primary capture path.
+- Voice mode for ingredient entry uses the raw `SpeechRecognition` API in `app/inventory/page.tsx`. For new voice fields use the same pattern or extract a shared hook.
+- Show a clear "listening…" state; hide the mic button entirely when the API is unsupported (SSR / unsupported browser).
+- `autoFocus` **off** by default on mobile to avoid keyboard jump on load.
+
+### Input affordances
+- Keyboard shortcut hints are desktop-only — render them inside `hidden sm:block` or equivalent so they don't clutter mobile.
+
+### Config & environment
+- **Never** add `localhost` or `127.0.0.1` to `CORS_ORIGINS`, `render.yaml`, or Pydantic config defaults. Dev origins belong in `.env` only.

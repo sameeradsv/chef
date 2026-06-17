@@ -2,7 +2,8 @@ from __future__ import annotations
 
 from datetime import datetime, timezone, time as _time, timedelta
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -14,6 +15,8 @@ from app.tz_utils import (
     meal_day_bounds,
     utc_naive_to_ist_str,
 )
+
+from app.services.export_crypto import decrypt_export, encrypt_export
 
 router = APIRouter(prefix="/sync", tags=["sync"])
 
@@ -109,3 +112,126 @@ def energy_summary(
         "meals_today": meals_detail,
         "skipped_meals": skipped_meals,
     }
+
+
+class ExportBody(BaseModel):
+    passphrase: str = Field(min_length=8, max_length=128)
+
+
+class ImportBody(BaseModel):
+    passphrase: str = Field(min_length=8, max_length=128)
+    blob: dict
+
+
+def _collect_chef_export(db: Session, user_id: str) -> dict:
+    from app.models import GroceryItemModel, IngredientModel, UserPreferencesModel, UserStateModel
+
+    ingredients = db.query(IngredientModel).filter(IngredientModel.user_id == user_id).all()
+    grocery = db.query(GroceryItemModel).filter(GroceryItemModel.user_id == user_id).all()
+    history = db.query(CookingHistoryModel).filter(CookingHistoryModel.user_id == user_id).limit(500).all()
+    prefs = db.query(UserPreferencesModel).filter(UserPreferencesModel.user_id == user_id).first()
+    state = db.query(UserStateModel).filter(UserStateModel.user_id == user_id).first()
+
+    return {
+        "ingredients": [
+            {
+                "name": i.name,
+                "quantity": i.quantity,
+                "unit": i.unit,
+                "expiry_date": i.expiry_date.isoformat() if i.expiry_date else None,
+                "buy_date": i.buy_date.isoformat() if i.buy_date else None,
+                "storage_type": i.storage_type,
+                "opened": i.opened,
+            }
+            for i in ingredients
+        ],
+        "grocery": [
+            {"ingredient_name": g.ingredient_name, "quantity": g.quantity, "unit": g.unit, "bought": g.bought}
+            for g in grocery
+        ],
+        "history": [
+            {
+                "decision": h.decision,
+                "recipe_name": h.recipe_name,
+                "restaurant_name": h.restaurant_name,
+                "cost": h.cost,
+                "satisfaction": h.satisfaction,
+                "timestamp": utc_naive_to_ist_str(h.timestamp),
+            }
+            for h in history
+        ],
+        "preferences": {
+            "vegetarian": prefs.vegetarian if prefs else True,
+            "favorite_cuisines": prefs.favorite_cuisines if prefs else "",
+            "people_count": prefs.people_count if prefs else 2,
+        } if prefs else None,
+        "state": {
+            "energy_level": state.energy_level,
+            "budget_today": state.budget_today,
+        } if state else None,
+    }
+
+
+@router.post("/export")
+def export_data(
+    body: ExportBody,
+    db: Session = Depends(get_db),
+    current_user: UserAccountModel = Depends(get_current_user),
+):
+    payload = _collect_chef_export(db, current_user.id)
+    return encrypt_export(payload, body.passphrase)
+
+
+@router.post("/import")
+def import_data(
+    body: ImportBody,
+    db: Session = Depends(get_db),
+    current_user: UserAccountModel = Depends(get_current_user),
+):
+    from app.models import GroceryItemModel, IngredientModel
+    from app.services.normalize import normalize_ingredient_name
+
+    try:
+        inner = decrypt_export(body.blob, body.passphrase)
+    except Exception as exc:
+        raise HTTPException(400, "Could not decrypt export") from exc
+
+    ing_added = 0
+    for row in inner.get("ingredients", []):
+        name = (row.get("name") or "").strip()
+        if not name:
+            continue
+        existing = (
+            db.query(IngredientModel)
+            .filter(IngredientModel.user_id == current_user.id, IngredientModel.name == name)
+            .first()
+        )
+        if existing:
+            continue
+        db.add(IngredientModel(
+            user_id=current_user.id,
+            name=name,
+            normalized_name=normalize_ingredient_name(name),
+            quantity=row.get("quantity") or 1,
+            unit=row.get("unit") or "pcs",
+            storage_type=row.get("storage_type") or row.get("storage") or "fridge",
+            opened=bool(row.get("opened")),
+        ))
+        ing_added += 1
+
+    grocery_added = 0
+    for row in inner.get("grocery", []):
+        name = (row.get("ingredient_name") or "").strip()
+        if not name:
+            continue
+        db.add(GroceryItemModel(
+            user_id=current_user.id,
+            ingredient_name=name,
+            quantity=row.get("quantity") or 1,
+            unit=row.get("unit") or "pcs",
+            bought=bool(row.get("bought")),
+        ))
+        grocery_added += 1
+
+    db.commit()
+    return {"status": "merged", "ingredients_added": ing_added, "grocery_added": grocery_added}

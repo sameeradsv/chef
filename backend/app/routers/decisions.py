@@ -254,3 +254,13 @@ def predict_tonight(
     from app.services.predictive import predict_meal_tendency
 
     return predict_meal_tendency(db, current_user.id)
+
+
+@router.get("/cost-insights", response_model=dict)
+def cost_insights_route(
+    db: Session = Depends(get_db),
+    current_user: UserAccountModel = Depends(get_current_user),
+):
+    from app.services.cost_insights import cost_insights
+
+    return cost_insights(db, current_user.id)

@@ -168,6 +168,14 @@ export default function SettingsPage() {
   const [error, setError] = useState<string | null>(null);
   const [prefsOpen, setPrefsOpen] = useState(false);
   const [showPrivacy, setShowPrivacy] = useState(false);
+  const [exportPass, setExportPass] = useState("");
+  const [importPass, setImportPass] = useState("");
+  const [importBlob, setImportBlob] = useState("");
+  const [exporting, setExporting] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [exportErr, setExportErr] = useState<string | null>(null);
+  const [importErr, setImportErr] = useState<string | null>(null);
+  const [importResult, setImportResult] = useState<string | null>(null);
 
   const [decisionState, setDecisionState] = useState<UserState | null>(null);
   const [defaultWillingness, setDefaultWillingness] = useState(5);
@@ -698,6 +706,100 @@ export default function SettingsPage() {
           </div>
         </div>
       )}
+
+      {/* Data backup */}
+      <div
+        className="overflow-hidden mt-3"
+        style={{
+          border: "1px solid var(--kitchen-line)",
+          borderRadius: "var(--radius-card)",
+          background: "rgb(var(--kitchen-card))",
+        }}
+      >
+        <SectionHeader>DATA</SectionHeader>
+        <div className="p-4 space-y-4">
+          <div>
+            <p className="text-xs text-kitchen-muted mb-2">Export pantry, grocery, and recent history (encrypted JSON).</p>
+            <form
+              className="flex gap-2"
+              onSubmit={async (e) => {
+                e.preventDefault();
+                setExporting(true);
+                setExportErr(null);
+                try {
+                  const blob = await api.exportData(exportPass);
+                  const a = document.createElement("a");
+                  a.href = URL.createObjectURL(new Blob([JSON.stringify(blob, null, 2)], { type: "application/json" }));
+                  a.download = `chef-export-${new Date().toISOString().slice(0, 10)}.json`;
+                  a.click();
+                  URL.revokeObjectURL(a.href);
+                } catch (err) {
+                  setExportErr(err instanceof Error ? err.message : "Export failed");
+                } finally {
+                  setExporting(false);
+                }
+              }}
+            >
+              <input
+                type="password"
+                value={exportPass}
+                onChange={(e) => setExportPass(e.target.value)}
+                placeholder="Passphrase (8+ chars)"
+                className="flex-1 min-w-0 px-3 py-2 text-sm bg-transparent border border-kitchen-line rounded-btn"
+                required
+                minLength={8}
+              />
+              <button type="submit" disabled={exporting} className="text-xs text-kitchen-accent px-3 py-2 border border-kitchen-line rounded-btn">
+                {exporting ? "…" : "Export"}
+              </button>
+            </form>
+            {exportErr && <p className="text-xs text-kitchen-danger mt-1">{exportErr}</p>}
+          </div>
+          <div>
+            <p className="text-xs text-kitchen-muted mb-2">Import merges new pantry and grocery items (skips duplicate ingredient names).</p>
+            <form
+              className="space-y-2"
+              onSubmit={async (e) => {
+                e.preventDefault();
+                setImporting(true);
+                setImportErr(null);
+                setImportResult(null);
+                try {
+                  const blob = JSON.parse(importBlob);
+                  const result = await api.importData(importPass, blob);
+                  setImportResult(`Merged: ${result.ingredients_added} ingredients, ${result.grocery_added} grocery items`);
+                } catch (err) {
+                  setImportErr(err instanceof Error ? err.message : "Import failed");
+                } finally {
+                  setImporting(false);
+                }
+              }}
+            >
+              <input
+                type="password"
+                value={importPass}
+                onChange={(e) => setImportPass(e.target.value)}
+                placeholder="Passphrase"
+                className="w-full px-3 py-2 text-sm bg-transparent border border-kitchen-line rounded-btn"
+                required
+                minLength={8}
+              />
+              <textarea
+                value={importBlob}
+                onChange={(e) => setImportBlob(e.target.value)}
+                placeholder="Paste exported JSON…"
+                className="w-full px-3 py-2 text-sm bg-transparent border border-kitchen-line rounded-btn min-h-[80px] font-mono text-xs"
+                required
+              />
+              <button type="submit" disabled={importing} className="text-xs text-kitchen-accent px-3 py-2 border border-kitchen-line rounded-btn">
+                {importing ? "Importing…" : "Import"}
+              </button>
+            </form>
+            {importErr && <p className="text-xs text-kitchen-danger mt-1">{importErr}</p>}
+            {importResult && <p className="text-xs text-kitchen-muted mt-1">{importResult}</p>}
+          </div>
+        </div>
+      </div>
 
       {/* About */}
       <div

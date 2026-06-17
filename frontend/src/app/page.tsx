@@ -162,6 +162,46 @@ function WeekGlance({ entries }: { entries: HistoryEntry[] }) {
   );
 }
 
+type WeekPlanDay = {
+  date: string;
+  label: string;
+  recipe_id: string | null;
+  recipe_name: string | null;
+  hint: string;
+};
+
+function WeekPlanStrip({ days }: { days: WeekPlanDay[] }) {
+  if (!days.length) return null;
+  return (
+    <div>
+      <MonoLabel className="block mb-2">Meal plan</MonoLabel>
+      <div className="flex gap-2 overflow-x-auto pb-1 -mx-[22px] px-[22px]">
+        {days.map((d) => (
+          <div
+            key={d.date}
+            className="flex-shrink-0 p-3 w-28"
+            style={{
+              borderRadius: "var(--radius-card)",
+              border: "1px solid var(--kitchen-line)",
+              background: "rgb(var(--kitchen-card))",
+            }}
+          >
+            <p className="text-[9px] font-mono text-kitchen-muted m-0">{d.label}</p>
+            <p className="text-xs text-kitchen-text mt-1 mb-0 leading-snug line-clamp-2">
+              {d.recipe_name ?? "—"}
+            </p>
+            {d.recipe_id && (
+              <Link href={`/recipe/${d.recipe_id}`} className="text-[9px] font-mono text-kitchen-accent mt-1 inline-block">
+                VIEW →
+              </Link>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function TonightCard({ meal, pickLabel }: { meal: RecommendMealResult; pickLabel: string }) {
   const name = meal.mode === "cook" && meal.recipe
     ? meal.recipe.name
@@ -380,6 +420,7 @@ export default function DashboardPage() {
   const [suggestion, setSuggestion] = useState<string>("");
   const [recipeTabLoading, setRecipeTabLoading] = useState(false);
   const [weekHistory, setWeekHistory] = useState<HistoryEntry[]>([]);
+  const [weekPlan, setWeekPlan] = useState<WeekPlanDay[]>([]);
 
   async function loadSuggestion(mt: MealType) {
     setSuggestion("");
@@ -455,6 +496,9 @@ export default function DashboardPage() {
     const today = currentMealDayKey();
     api.getHistoryPage({ from: startOfISTWeek(today), to: today, limit: 50 })
       .then((page) => setWeekHistory(page.items))
+      .catch(() => {});
+    api.weekPlan()
+      .then((p) => setWeekPlan(p.days))
       .catch(() => {});
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -634,6 +678,7 @@ export default function DashboardPage() {
           </div>
 
           {/* Week glance */}
+          {weekPlan.length > 0 && <WeekPlanStrip days={weekPlan} />}
           <WeekGlance entries={weekHistory} />
 
           {/* Quick nav cards */}

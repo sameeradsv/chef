@@ -370,6 +370,31 @@ export const api = {
       message: string;
       savings_hint?: string | null;
     }>("/decision/predict"),
+  costInsights: () =>
+    request<{ insights: string[]; meal_count: number }>("/decision/cost-insights"),
+  weekPlan: () =>
+    request<{
+      days: {
+        date: string;
+        label: string;
+        recipe_id: string | null;
+        recipe_name: string | null;
+        pantry_match_pct: number;
+        uses_expiring: string[];
+        hint: string;
+      }[];
+      expiring_soon: string[];
+    }>("/plan/week"),
+  exportData: (passphrase: string) =>
+    request<Record<string, unknown>>("/sync/export", {
+      method: "POST",
+      body: JSON.stringify({ passphrase }),
+    }),
+  importData: (passphrase: string, blob: Record<string, unknown>) =>
+    request<{ status: string; ingredients_added: number; grocery_added: number }>("/sync/import", {
+      method: "POST",
+      body: JSON.stringify({ passphrase, blob }),
+    }),
 
   // Grocery
   listGrocery: () => request<GroceryItem[]>("/grocery"),
