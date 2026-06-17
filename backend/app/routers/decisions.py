@@ -244,3 +244,13 @@ def recommend_meal_endpoint(
         result.narrative = generate_decision_narrative(result)
     _dcache_set(rkey, result)
     return result
+
+
+@router.get("/predict", response_model=dict)
+def predict_tonight(
+    db: Session = Depends(get_db),
+    current_user: UserAccountModel = Depends(get_current_user),
+):
+    from app.services.predictive import predict_meal_tendency
+
+    return predict_meal_tendency(db, current_user.id)

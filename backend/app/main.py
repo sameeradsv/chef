@@ -1,10 +1,14 @@
 import asyncio
+import logging
 import os
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
+
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
 
 from app.database import Base, SessionLocal, engine, run_pending_migrations
 from app.routers import decisions, ingredients, recipes, user
@@ -18,12 +22,16 @@ from app.routers.agent import router as agent_router
 from app.routers.energy import router as energy_router
 from app.routers.nutrition import router as nutrition_router
 from app.seed import seed_database
+from app.limiter import limiter
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     Base.metadata.create_all(bind=engine)
     run_pending_migrations()
-    asyncio.get_running_loop().run_in_executor(None, _seed_in_thread)
+    fut = asyncio.get_running_loop().run_in_executor(None, _seed_in_thread)
+    fut.add_done_callback(
+        lambda f: logging.warning("seed_database failed: %s", f.exception()) if f.exception() else None
+    )
     yield
 
 
@@ -33,10 +41,12 @@ app = FastAPI(
     version="0.2.0",
     lifespan=lifespan,
 )
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 origins = os.getenv(
     "CORS_ORIGINS",
-    "http://localhost:3000,http://localhost:3001,http://127.0.0.1:3000,http://127.0.0.1:3001,https://sameeradsv.github.io",
+    "https://sameeradsv.github.io",
 ).split(",")
 
 app.add_middleware(GZipMiddleware, minimum_size=500)

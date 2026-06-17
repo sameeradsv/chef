@@ -355,7 +355,7 @@ export const api = {
         ...(state ?? {}),
       }),
     }),
-  recommendMeal: (fast = false) =>
+    recommendMeal: (fast = false) =>
     request<RecommendMealResult>(
       `/decision/recommend-meal${fast ? "?fast=true" : ""}`,
       {
@@ -363,6 +363,13 @@ export const api = {
         body: JSON.stringify({}),
       },
     ),
+  predictMeal: () =>
+    request<{
+      likely_decision: string;
+      confidence: number;
+      message: string;
+      savings_hint?: string | null;
+    }>("/decision/predict"),
 
   // Grocery
   listGrocery: () => request<GroceryItem[]>("/grocery"),

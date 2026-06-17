@@ -166,6 +166,10 @@ def search(
             seen_names.add(r.name.lower())
 
     if results:
+        from app.services.groq_search import groq_rerank_recipes
+
+        if q.strip():
+            results = groq_rerank_recipes(q.strip(), results, limit=12)
         ranked = _rank_recipe_responses(results, state, spice_level=prefs.spice_level)
         return ranked
 

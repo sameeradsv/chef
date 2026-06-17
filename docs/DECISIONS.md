@@ -32,8 +32,8 @@ Do not re-add without real notification delivery or persisted preference fields.
 | Item | Notes |
 |------|--------|
 | Swiggy/Zomato live APIs | **Not available** — seed restaurants only ([INTEGRATIONS.md](./INTEGRATIONS.md#swiggy-and-zomato-integration)) |
-| pgvector recipe search | Keyword `q` only |
-| Phase 3 predictive engine | Out of scope unless requested |
+| pgvector recipe search | Groq semantic rerank on keyword pool (`groq_search.py`); native pgvector deferred |
+| Phase 3 predictive engine | `GET /decision/predict` + expiring-pantry hints shipped; full dynamic pricing deferred |
 
 ## Terminal UI: Conduit only (2026-06-17)
 

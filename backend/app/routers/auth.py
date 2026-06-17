@@ -2,13 +2,14 @@ from __future__ import annotations
 
 from typing import Optional
 
-from fastapi import APIRouter, Depends, Header, HTTPException, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from app.auth_utils import create_session, hash_password, verify_password
 from app.database import get_db
 from app.dependencies import get_current_user
+from app.limiter import limiter
 from app.models import AuthSessionModel, UserAccountModel
 from app.schemas import LoginRequest, RegisterRequest, TokenResponse, UserAccountResponse
 
@@ -16,7 +17,8 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 
 @router.post("/register", response_model=TokenResponse, status_code=201)
-def register(payload: RegisterRequest, db: Session = Depends(get_db)):
+@limiter.limit("3/minute")
+def register(request: Request, payload: RegisterRequest, db: Session = Depends(get_db)):
     username = payload.username.lower()
     if db.scalar(select(UserAccountModel.id).where(UserAccountModel.username == username)):
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Username already taken")
@@ -32,7 +34,8 @@ def register(payload: RegisterRequest, db: Session = Depends(get_db)):
 
 
 @router.post("/login", response_model=TokenResponse)
-def login(payload: LoginRequest, db: Session = Depends(get_db)):
+@limiter.limit("5/minute")
+def login(request: Request, payload: LoginRequest, db: Session = Depends(get_db)):
     user = db.scalar(select(UserAccountModel).where(UserAccountModel.username == payload.username.lower()))
     if not user or not verify_password(payload.passcode, user.hashed_passcode):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid username or passcode")

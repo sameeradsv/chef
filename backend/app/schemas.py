@@ -1,3 +1,4 @@
+import re
 from datetime import date, datetime
 from typing import Annotated, Any, Dict, List, Literal, Optional, Tuple
 
@@ -242,10 +243,11 @@ class RegisterRequest(BaseModel):
 
     @field_validator("username")
     @classmethod
-    def username_no_spaces(cls, v: str) -> str:
-        if " " in v:
-            raise ValueError("Username must not contain spaces")
-        return v.lower()
+    def username_valid_chars(cls, v: str) -> str:
+        lowered = v.strip().lower()
+        if not re.fullmatch(r'[a-z0-9_.-]+', lowered):
+            raise ValueError("Username may only contain letters, numbers, underscores, hyphens, and dots")
+        return lowered
 
 
 class LoginRequest(BaseModel):

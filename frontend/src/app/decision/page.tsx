@@ -370,6 +370,7 @@ function DecisionPageInner() {
   const [logging, setLogging] = useState(false);
   const [logMessage, setLogMessage] = useState<string | null>(null);
   const [consumeResult, setConsumeResult] = useState<{ consumed: string[]; depleted: string[]; not_found: string[] } | null>(null);
+  const [predictHint, setPredictHint] = useState<string | null>(null);
 
   async function runDecision(sessionState?: UserState, people?: number) {
     setLoading(true);
@@ -443,6 +444,11 @@ function DecisionPageInner() {
         setPeopleCount(people);
       } catch { /* use default */ }
 
+      try {
+        const pred = await api.predictMeal();
+        if (pred.message) setPredictHint(pred.message);
+      } catch { /* optional */ }
+
       await runDecision(preset, people);
     }
     init();
@@ -514,6 +520,11 @@ function DecisionPageInner() {
             </MonoLabel>
           )}
         </div>
+        {predictHint && (
+          <p className="text-xs font-mono text-kitchen-muted mt-2" style={{ letterSpacing: "0.04em" }}>
+            ✦ {predictHint}
+          </p>
+        )}
         {result?.reasoning?.[0] && (
           <p className="text-sm text-kitchen-muted mt-1">{result.reasoning[0]}</p>
         )}
