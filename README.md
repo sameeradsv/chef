@@ -292,7 +292,7 @@ chef/
                     # DecisionScoreWaterfall, RecipeCoverageScatter, TerminalChat
       lib/          # api.ts (typed fetch), tz.ts (IST), cross-app-energy.ts (combined preset), utils.ts
       contexts/     # AuthContext
-  docs/             # Architecture, decision engine, API, data models, roadmap docs
+  docs/             # Architecture, decision engine, API, data models, roadmap, DEFERRED.md
   render.yaml       # Render deploy blueprint
   docker-compose.yml
 ```
@@ -309,6 +309,13 @@ Chef's backend is consumed by **Conduit** — the hub app that provides cross-ap
 Chef also has an embedded terminal chat at `/chat` (in the sidebar and mobile bottom tab), powered by Chef's native Groq agent at `POST /agent/chat`. Requires `GROQ_API_KEY` on the Chef backend and `NEXT_PUBLIC_API_URL` on the frontend. No Conduit dependency for in-app chat.
 
 Chef login also supports **Cortex** single sign-on (shared account across Chef, Canopy, Circuit). Set `NEXT_PUBLIC_CORTEX_URL` plus `NEXT_PUBLIC_CIRCUIT_API_URL` and `NEXT_PUBLIC_CANOPY_API_URL` for combined energy on the Decide page. Each backend needs `CORTEX_AUTH_URL` on Render.
+
+---
+
+## Docs
+
+- [Deferred & future work](docs/DEFERRED.md) — ecosystem backlog (master in Circuit repo)
+- [DECISIONS.md](docs/DECISIONS.md) · [ROADMAP.md](docs/ROADMAP.md) · [INTEGRATIONS.md](docs/INTEGRATIONS.md)
 
 ---
 

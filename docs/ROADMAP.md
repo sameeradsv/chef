@@ -81,15 +81,11 @@ Sources: [INTEGRATIONS.md](./INTEGRATIONS.md). AI behavior: [AI.md](./AI.md).
 - AI suggestions (`GET /grocery/suggestions`) based on pantry gaps — implemented
 - Predictive / frequency-based suggestions — **implemented** (90-day bought-history staples merged with recipe-gap misses)
 
-### Pick up next (post–stub cleanup)
+### Pick up next
 
-| Item | Notes |
-|------|--------|
-| Live delivery APIs | **Not available** — Swiggy/Zomato ([INTEGRATIONS.md](./INTEGRATIONS.md#swiggy-and-zomato-integration)) |
-| pgvector semantic recipe search | Keyword search shipped |
-| Phase 3 predictive engine | Out of scope unless requested |
+See **[DEFERRED.md](./DEFERRED.md)** — no open Phase 2 code items; remaining work is Phase 3 and external integrations.
 
-**Shipped in 2026-06 restore pass:** grocery swipe (`SwipeGroceryRow`), health/stress in Settings, savings badge on Home. See [DECISIONS.md](./DECISIONS.md).
+**Shipped in 2026-06 restore pass:** grocery swipe, health/stress Settings, savings badge, frequency grocery, Groq recipe rerank, `/decision/predict`. See [DECISIONS.md](./DECISIONS.md).
 
 ---
 

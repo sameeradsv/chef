@@ -29,11 +29,14 @@ Do not re-add without real notification delivery or persisted preference fields.
 
 ## Deferred (not blocked on product — infra or external APIs)
 
+Full list: **[DEFERRED.md](./DEFERRED.md)**.
+
 | Item | Notes |
 |------|--------|
-| Swiggy/Zomato live APIs | **Not available** — seed restaurants only ([INTEGRATIONS.md](./INTEGRATIONS.md#swiggy-and-zomato-integration)) |
-| pgvector recipe search | Groq semantic rerank on keyword pool (`groq_search.py`); native pgvector deferred |
-| Phase 3 predictive engine | `GET /decision/predict` + expiring-pantry hints shipped; full dynamic pricing deferred |
+| Swiggy/Zomato live APIs | **Not available** — [INTEGRATIONS.md](./INTEGRATIONS.md#swiggy-and-zomato-integration) |
+| Spoonacular, Edamam | Not integrated |
+| Native pgvector recipe search | Groq rerank substitute shipped |
+| Phase 3 (remainder) | `predict` partial; meal planning + dynamic pricing open |
 
 ## Terminal UI: Conduit only (2026-06-17)
 

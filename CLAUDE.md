@@ -146,7 +146,7 @@ The design handoff (`Claude Design/chef-designs/design_handoff_kitchen_intellige
 
 ### Open Design Gaps (tracked, not yet built)
 
-_None at this time — see deferred items in `docs/DECISIONS.md` (pgvector, predictive grocery, live delivery APIs)._
+See **[DEFERRED.md](./DEFERRED.md)** — no UI-only gaps; remaining work is deferred phases (delivery APIs, pgvector, meal planning).
 
 ### Closed Design Gaps (implemented)
 
