@@ -33,3 +33,7 @@ Do not re-add without real notification delivery or persisted preference fields.
 | Swiggy/Zomato live APIs | **Not available** — seed restaurants only ([INTEGRATIONS.md](./INTEGRATIONS.md#swiggy-and-zomato-integration)) |
 | pgvector recipe search | Keyword `q` only |
 | Predictive grocery suggestions | Phase 2 ([ROADMAP.md](./ROADMAP.md)) |
+
+## Terminal UI: Conduit only (2026-06-17)
+
+**Decision:** Chef `/chat` is app-native Groq agent (personal kitchen Q&A). Terminal hub + diary routing → **Conduit only**. Do not add Conduit-style terminal shell to Chef.
