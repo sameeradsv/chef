@@ -147,3 +147,47 @@
     width: 100%;
   }
 }
+
+/* ─── Grocery add form ─────────────────────────────────────────────────────── */
+.grocery-add-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  gap: 8px;
+  min-width: 0;
+  max-width: 100%;
+}
+.grocery-add-name {
+  flex: 1 1 160px;
+  min-width: 0;
+}
+.grocery-add-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  gap: 8px;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.grocery-add-qty {
+  width: 4rem;
+  min-width: 0;
+  flex: 0 1 4rem;
+}
+.grocery-add-unit {
+  width: 5rem;
+  min-width: 0;
+  flex: 0 1 5rem;
+}
+.grocery-add-submit {
+  margin-left: auto;
+}
+
+@media (orientation: portrait), (max-width: 480px) {
+  .grocery-add-name {
+    flex: 1 1 100%;
+  }
+  .grocery-add-meta {
+    flex: 1 1 100%;
+  }
+}

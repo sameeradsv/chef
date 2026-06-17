@@ -113,7 +113,7 @@ export default function GroceryPage() {
       {/* Add input */}
       <form
         onSubmit={handleAdd}
-        className="flex gap-2"
+        className="grocery-add-form"
         style={{
           border: "1px solid var(--kitchen-line2)",
           borderRadius: "var(--radius-card)",
@@ -126,33 +126,35 @@ export default function GroceryPage() {
           onChange={(e) => setName(e.target.value)}
           placeholder="Add an item…"
           required
-          className={`flex-1 ${inputCls} bg-transparent`}
+          className={`grocery-add-name ${inputCls} bg-transparent`}
           style={{ border: "none", borderRadius: 0, padding: "2px 0" }}
         />
-        <input
-          value={qty}
-          onChange={(e) => setQty(e.target.value)}
-          placeholder="Qty"
-          type="number"
-          min="0"
-          className={`w-16 ${inputCls}`}
-          style={inputStyle}
-        />
-        <input
-          value={unit}
-          onChange={(e) => setUnit(e.target.value)}
-          placeholder="Unit"
-          className={`w-20 ${inputCls}`}
-          style={inputStyle}
-        />
-        <button
-          type="submit"
-          disabled={adding || !name.trim()}
-          className="px-3 py-2 text-sm font-medium disabled:opacity-50 transition-opacity hover:opacity-90 flex-shrink-0"
-          style={{ background: "rgb(var(--kitchen-accent))", color: "rgb(26 18 10)", borderRadius: "var(--radius-btn)" }}
-        >
-          {adding ? "…" : "+"}
-        </button>
+        <div className="grocery-add-meta">
+          <input
+            value={qty}
+            onChange={(e) => setQty(e.target.value)}
+            placeholder="Qty"
+            type="number"
+            min="0"
+            className={`grocery-add-qty ${inputCls}`}
+            style={inputStyle}
+          />
+          <input
+            value={unit}
+            onChange={(e) => setUnit(e.target.value)}
+            placeholder="Unit"
+            className={`grocery-add-unit ${inputCls}`}
+            style={inputStyle}
+          />
+          <button
+            type="submit"
+            disabled={adding || !name.trim()}
+            className="grocery-add-submit px-3 py-2 text-sm font-medium disabled:opacity-50 transition-opacity hover:opacity-90 flex-shrink-0"
+            style={{ background: "rgb(var(--kitchen-accent))", color: "rgb(26 18 10)", borderRadius: "var(--radius-btn)" }}
+          >
+            {adding ? "…" : "+"}
+          </button>
+        </div>
       </form>
 
       {/* AI suggestion chips */}
