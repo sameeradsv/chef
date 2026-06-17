@@ -78,10 +78,8 @@ DB file: `backend/data/chef.db` (SQLite, auto-created with seed data on first ru
 Optional env vars:
 
 ```bash
-GROQ_API_KEY=...                      # enables LLM narratives, vision parsing, and /chat agent
-DATABASE_URL=postgres://              # switches from SQLite to PostgreSQL
-NEXT_PUBLIC_CORTEX_URL=http://...     # Cortex backend URL for cross-app auth (optional)
-NEXT_PUBLIC_SHOW_DEMO=true           # show "Try the demo" button on the login page (off by default)
+GROQ_API_KEY=...           # enables LLM narratives, vision parsing, and /chat agent
+DATABASE_URL=postgres://   # switches from SQLite to PostgreSQL
 
 # WebAuthn (passkey login) — set these in production
 WEBAUTHN_RP_ID=your-domain.com
@@ -99,6 +97,13 @@ npm run dev
 ```
 
 App: http://localhost:3000
+
+Optional env vars (set in `.env.local` or as GitHub Actions / Render variables):
+
+```bash
+NEXT_PUBLIC_CORTEX_URL=http://...   # Cortex backend URL for cross-app auth
+NEXT_PUBLIC_SHOW_DEMO=true          # show "Try the demo" button on the login page (off by default)
+```
 
 ---
 
