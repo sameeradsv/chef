@@ -33,13 +33,76 @@ def _looks_dine_in_only(name: str) -> bool:
     return any(kw in lower for kw in _DINE_IN_ONLY_KEYWORDS)
 
 
-def _infer_delivery_available(order_count: int, eat_out_count: int, name: str) -> bool:
-    """True when the venue has been ordered from, or isn't clearly dine-in only."""
+def _infer_delivery_available(
+    order_count: int,
+    eat_out_count: int,
+    name: str,
+    overrides: dict[str, bool] | None = None,
+) -> bool:
+    """True when the venue has been ordered from, isn't clearly dine-in only, or user overrode."""
+    key = name.strip().lower()
+    if overrides and key in overrides:
+        return overrides[key]
     if order_count > 0:
         return True
     if eat_out_count > 0:
         return False
     return not _looks_dine_in_only(name)
+
+
+def load_delivery_overrides(db: Session, user_id: str) -> dict[str, bool]:
+    from app.models import UserPreferencesModel
+
+    row = (
+        db.query(UserPreferencesModel)
+        .filter(UserPreferencesModel.user_id == user_id)
+        .first()
+    )
+    if not row or not row.restaurant_delivery_json:
+        return {}
+    try:
+        data = json.loads(row.restaurant_delivery_json)
+        if not isinstance(data, dict):
+            return {}
+        return {str(k).lower(): bool(v) for k, v in data.items()}
+    except (json.JSONDecodeError, TypeError, ValueError):
+        return {}
+
+
+def save_delivery_override(db: Session, user_id: str, name: str, available: bool) -> None:
+    from app.models import UserPreferencesModel
+
+    key = name.strip()
+    if not key:
+        return
+    row = (
+        db.query(UserPreferencesModel)
+        .filter(UserPreferencesModel.user_id == user_id)
+        .first()
+    )
+    if not row:
+        row = UserPreferencesModel(user_id=user_id)
+        db.add(row)
+    overrides = load_delivery_overrides(db, user_id)
+    overrides[key.lower()] = available
+    row.restaurant_delivery_json = json.dumps(overrides)
+
+
+def resolve_delivery_available_for_log(
+    decision: str,
+    restaurant_name: str | None,
+    delivery_available: bool | None,
+) -> bool | None:
+    """Return explicit delivery flag when a restaurant is named, else None."""
+    if not restaurant_name or not restaurant_name.strip():
+        return None
+    if delivery_available is not None:
+        return delivery_available
+    if decision == "order":
+        return True
+    if decision == "eat_out":
+        return False
+    return None
 
 
 def _get_client():
@@ -105,6 +168,8 @@ def generate_history_restaurant_suggestions(
     if not entries:
         return []
 
+    overrides = load_delivery_overrides(db, user_id)
+
     buckets: dict[str, dict] = {}
     for entry in entries:
         name = entry.restaurant_name.strip()
@@ -161,6 +226,7 @@ def generate_history_restaurant_suggestions(
             bucket["order_count"],
             bucket["eat_out_count"],
             bucket["name"],
+            overrides,
         )
 
         seed = seed_by_name.get(key)
@@ -307,6 +373,7 @@ Vary the platforms and cuisines. Make names sound like real local restaurants in
                 "cuisine": s.get("cuisine", cuisine_hint.split(",")[0].strip()),
                 "discount_available": bool(s.get("discount_available", False)),
                 "vegetarian_friendly": vegetarian,
+                "delivery_available": True,
             })
 
         if use_cache:
@@ -365,7 +432,7 @@ def best_ai_restaurant(
     return best
 
 
-def pick_restaurant_for_user(
+def _merged_restaurant_pool(
     db: Session,
     user_id: str,
     *,
@@ -373,17 +440,8 @@ def pick_restaurant_for_user(
     vegetarian: bool,
     city: str = "",
     cuisines: list[str] | None = None,
-    restaurant_id: str | None = None,
     skip_ai: bool = False,
-) -> dict:
-    """Resolve a restaurant: explicit id → history → AI (city) → seed fallback."""
-    from app.services.recipes import best_restaurant_for_state, get_restaurant_by_id
-
-    if restaurant_id:
-        found = get_restaurant_by_id(restaurant_id)
-        if found:
-            return found
-
+) -> list[dict]:
     fav_cuisines = cuisines or []
     history = generate_history_restaurant_suggestions(db, user_id, vegetarian=vegetarian)
     known_names = [
@@ -410,16 +468,107 @@ def pick_restaurant_for_user(
         if veg_seed:
             seed = veg_seed
 
-    merged = merge_restaurant_suggestions(history, ai, seed)
-    if not merged:
-        return best_restaurant_for_state(state, vegetarian=vegetarian)
+    return merge_restaurant_suggestions(history, ai, seed)
+
+
+def pick_restaurants_for_decision(
+    db: Session,
+    user_id: str,
+    *,
+    state: UserStatePayload,
+    vegetarian: bool,
+    city: str = "",
+    cuisines: list[str] | None = None,
+    restaurant_id: str | None = None,
+    skip_ai: bool = False,
+) -> tuple[dict, dict | None]:
+    """Return (primary restaurant, delivery restaurant for order scoring)."""
+    from app.services.recipes import best_restaurant_for_state, get_restaurant_by_id
 
     sat_map = _satisfaction_by_restaurant(db, user_id)
-    picked = best_ai_restaurant(
+    merged = _merged_restaurant_pool(
+        db,
+        user_id,
+        state=state,
+        vegetarian=vegetarian,
+        city=city,
+        cuisines=cuisines,
+        skip_ai=skip_ai,
+    )
+
+    if restaurant_id:
+        found = get_restaurant_by_id(restaurant_id)
+        if found:
+            primary = dict(found)
+            if primary.get("delivery_available", True):
+                return primary, primary
+            delivery_pool = [r for r in merged if r.get("delivery_available", True)]
+            order = best_ai_restaurant(
+                delivery_pool,
+                state.craving,
+                state.budget_today,
+                energy_level=state.energy_level,
+                satisfaction_by_name=sat_map or None,
+            )
+            if not order:
+                fallback = best_restaurant_for_state(state, vegetarian=vegetarian)
+                if fallback.get("delivery_available", True):
+                    order = fallback
+            return primary, order
+
+    if not merged:
+        fallback = best_restaurant_for_state(state, vegetarian=vegetarian)
+        return fallback, fallback
+
+    primary = best_ai_restaurant(
         merged,
         state.craving,
         state.budget_today,
         energy_level=state.energy_level,
         satisfaction_by_name=sat_map or None,
     )
-    return picked or best_restaurant_for_state(state, vegetarian=vegetarian)
+    primary = primary or best_restaurant_for_state(state, vegetarian=vegetarian)
+
+    if primary.get("delivery_available", True):
+        return primary, primary
+
+    delivery_pool = [r for r in merged if r.get("delivery_available", True)]
+    if not delivery_pool:
+        fallback = best_restaurant_for_state(state, vegetarian=vegetarian)
+        if fallback.get("delivery_available", True):
+            return primary, fallback
+        return primary, None
+
+    order = best_ai_restaurant(
+        delivery_pool,
+        state.craving,
+        state.budget_today,
+        energy_level=state.energy_level,
+        satisfaction_by_name=sat_map or None,
+    )
+    return primary, order or delivery_pool[0]
+
+
+def pick_restaurant_for_user(
+    db: Session,
+    user_id: str,
+    *,
+    state: UserStatePayload,
+    vegetarian: bool,
+    city: str = "",
+    cuisines: list[str] | None = None,
+    restaurant_id: str | None = None,
+    skip_ai: bool = False,
+) -> dict:
+    """Resolve a restaurant: explicit id → history → AI (city) → seed fallback."""
+    primary, _ = pick_restaurants_for_decision(
+        db,
+        user_id,
+        state=state,
+        vegetarian=vegetarian,
+        city=city,
+        cuisines=cuisines,
+        restaurant_id=restaurant_id,
+        skip_ai=skip_ai,
+    )
+    return primary

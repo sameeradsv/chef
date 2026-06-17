@@ -80,7 +80,7 @@ ordering_score = (
 - `delivery_delay` — from `estimated_delivery_minutes`
 - `high_cost_penalty` — from `total_cost`, `delivery_fee`, vs `budget_today`
 
-**Dine-in-only venues:** When [Restaurant Option](./DATA_MODELS.md#restaurant-option) `delivery_available` is `false`, the ordering score is not computed and the **Order** option is omitted from the comparison (cook vs eat-out only). This prevents history-derived dine-in places (e.g. office cafeteria logged as `eat_out`) from appearing as delivery options. Seed and AI delivery suggestions default to `delivery_available: true`.
+**Dine-in-only venues:** When the **primary** [Restaurant Option](./DATA_MODELS.md#restaurant-option) has `delivery_available: false`, eat-out scoring still uses that venue. Order scoring uses a separate delivery-capable pick from the merged pool (`pick_restaurants_for_decision` in `restaurants.py`) so the Decide screen always offers Cook · Order · Eat out when any delivery option exists. A single venue is never suggested for delivery when inferred or overridden as dine-in-only (e.g. office cafeteria logged as `eat_out` only). Seed and AI delivery suggestions default to `delivery_available: true`. User overrides from History (`restaurant_delivery` on preferences) take precedence over inference.
 
 Eat-out can be modeled similarly with travel/time and higher effort penalties; compare all applicable options and select argmax with tie-break rules defined in code.
 

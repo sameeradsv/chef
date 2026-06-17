@@ -112,6 +112,7 @@ export default function HistoryPage() {
   const [logCost, setLogCost]         = useState<string>("");
   const [logSatisfaction, setLogSatisfaction] = useState<number | undefined>();
   const [logTimestamp, setLogTimestamp] = useState(() => toDatetimeLocalInput());
+  const [logDeliveryAvailable, setLogDeliveryAvailable] = useState(true);
   const [submitting, setSubmitting]   = useState(false);
   const [parsing, setParsing]         = useState(false);
   const [parseError, setParseError]   = useState<string | null>(null);
@@ -126,7 +127,9 @@ export default function HistoryPage() {
   const [editCost, setEditCost]           = useState<string>("");
   const [editSatisfaction, setEditSatisfaction] = useState<number | undefined>();
   const [editTimestamp, setEditTimestamp] = useState("");
+  const [editDeliveryAvailable, setEditDeliveryAvailable] = useState(false);
   const [editSaving, setEditSaving]       = useState(false);
+  const [deliveryOverrides, setDeliveryOverrides] = useState<Record<string, boolean>>({});
 
   async function loadPage(nextPage = page, filter = timeFilter) {
     setLoading(true);
@@ -153,6 +156,40 @@ export default function HistoryPage() {
   useEffect(() => {
     loadPage(0, timeFilter);
   }, [timeFilter]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    api.getPreferences()
+      .then((prefs) => setDeliveryOverrides(prefs.restaurant_delivery ?? {}))
+      .catch(() => {});
+  }, []);
+
+  function resolveDeliveryFlag(
+    restaurantName: string,
+    decision: "cook" | "order" | "eat_out",
+  ): boolean {
+    const key = restaurantName.trim().toLowerCase();
+    if (key && deliveryOverrides[key] !== undefined) return deliveryOverrides[key];
+    return decision === "order";
+  }
+
+  useEffect(() => {
+    if (logDecision === "order") setLogDeliveryAvailable(true);
+    else if (logDecision === "eat_out") setLogDeliveryAvailable(resolveDeliveryFlag(logRestaurant, "eat_out"));
+  }, [logDecision]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  function handleLogRestaurantChange(name: string) {
+    setLogRestaurant(name);
+    if (logDecision === "eat_out") {
+      setLogDeliveryAvailable(resolveDeliveryFlag(name, "eat_out"));
+    }
+  }
+
+  function handleEditRestaurantChange(name: string) {
+    setEditRestaurant(name);
+    if (editDecision === "eat_out") {
+      setEditDeliveryAvailable(resolveDeliveryFlag(name, "eat_out"));
+    }
+  }
 
   async function handleScreenshot(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -190,10 +227,18 @@ export default function HistoryPage() {
         satisfaction: logSatisfaction,
         timestamp: datetimeLocalToIST(logTimestamp),
         cost: logCost ? parseFloat(logCost) : undefined,
+        ...(logRestaurant.trim() && (logDecision === "order" || logDecision === "eat_out")
+          ? { delivery_available: logDecision === "order" ? true : logDeliveryAvailable }
+          : {}),
       });
+      if (logRestaurant.trim() && (logDecision === "order" || logDecision === "eat_out")) {
+        const key = logRestaurant.trim().toLowerCase();
+        const available = logDecision === "order" ? true : logDeliveryAvailable;
+        setDeliveryOverrides((prev) => ({ ...prev, [key]: available }));
+      }
       setEntries((prev) => [entry, ...prev]);
       setShowLog(false);
-      setLogRecipe(""); setLogRestaurant(""); setLogCuisine(""); setLogCost(""); setLogSatisfaction(undefined); setLogTimestamp(localDatetimeValue());
+      setLogRecipe(""); setLogRestaurant(""); setLogCuisine(""); setLogCost(""); setLogSatisfaction(undefined); setLogTimestamp(localDatetimeValue()); setLogDeliveryAvailable(true);
       loadPage(0, timeFilter);
     } catch {
       setError("Failed to save. Please try again.");
@@ -211,6 +256,7 @@ export default function HistoryPage() {
     setEditCost(entry.cost != null ? String(entry.cost) : "");
     setEditSatisfaction(entry.satisfaction ?? undefined);
     setEditTimestamp(localDatetimeValue(entry.timestamp));
+    setEditDeliveryAvailable(resolveDeliveryFlag(entry.restaurant_name ?? "", entry.decision));
   }
 
   async function handleEditSave(id: string) {
@@ -224,7 +270,15 @@ export default function HistoryPage() {
         satisfaction: editSatisfaction,
         timestamp: editTimestamp ? datetimeLocalToIST(editTimestamp) : undefined,
         cost: editCost ? parseFloat(editCost) : undefined,
+        ...(editRestaurant.trim() && (editDecision === "order" || editDecision === "eat_out")
+          ? { delivery_available: editDecision === "order" ? true : editDeliveryAvailable }
+          : {}),
       });
+      if (editRestaurant.trim() && (editDecision === "order" || editDecision === "eat_out")) {
+        const key = editRestaurant.trim().toLowerCase();
+        const available = editDecision === "order" ? true : editDeliveryAvailable;
+        setDeliveryOverrides((prev) => ({ ...prev, [key]: available }));
+      }
       setEntries((prev) => prev.map((e) => (e.id === id ? updated : e)));
       setEditingId(null);
       loadPage(page, timeFilter);
@@ -341,7 +395,11 @@ export default function HistoryPage() {
               <button
                 key={m}
                 type="button"
-                onClick={() => setLogDecision(m)}
+                onClick={() => {
+                  setLogDecision(m);
+                  if (m === "order") setLogDeliveryAvailable(true);
+                  else if (m === "eat_out") setLogDeliveryAvailable(resolveDeliveryFlag(logRestaurant, "eat_out"));
+                }}
                 className="flex-1 py-2 text-xs font-mono transition-all"
                 style={{
                   borderRadius: "var(--radius-btn)",
@@ -367,7 +425,22 @@ export default function HistoryPage() {
             {(logDecision === "order" || logDecision === "eat_out") && (
               <div className="col-span-2">
                 <MonoLabel className="text-kitchen-muted block mb-1.5">RESTAURANT (OPTIONAL)</MonoLabel>
-                <input value={logRestaurant} onChange={(e) => setLogRestaurant(e.target.value)} placeholder="e.g. Meghana Foods" className={inputCls} style={inputStyle} />
+                <input value={logRestaurant} onChange={(e) => handleLogRestaurantChange(e.target.value)} placeholder="e.g. Meghana Foods" className={inputCls} style={inputStyle} />
+                {logRestaurant.trim() && (
+                  logDecision === "order" ? (
+                    <p className="text-xs text-kitchen-muted mt-1.5">Saved as a delivery order for this restaurant.</p>
+                  ) : (
+                    <label className="flex items-center gap-2 mt-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={logDeliveryAvailable}
+                        onChange={(e) => setLogDeliveryAvailable(e.target.checked)}
+                        className="accent-kitchen-accent"
+                      />
+                      <span className="text-xs text-kitchen-muted">Delivery available here (include in order suggestions)</span>
+                    </label>
+                  )
+                )}
               </div>
             )}
             <div>
@@ -517,7 +590,11 @@ export default function HistoryPage() {
                         <button
                           key={m}
                           type="button"
-                          onClick={() => setEditDecision(m)}
+                          onClick={() => {
+                            setEditDecision(m);
+                            if (m === "order") setEditDeliveryAvailable(true);
+                            else if (m === "eat_out") setEditDeliveryAvailable(resolveDeliveryFlag(editRestaurant, "eat_out"));
+                          }}
                           className="flex-1 py-1.5 text-xs font-mono transition-all"
                           style={{
                             borderRadius: "var(--radius-btn)",
@@ -550,11 +627,26 @@ export default function HistoryPage() {
                         <div className="col-span-2">
                           <input
                             value={editRestaurant}
-                            onChange={(e) => setEditRestaurant(e.target.value)}
+                            onChange={(e) => handleEditRestaurantChange(e.target.value)}
                             placeholder="Restaurant (optional)"
                             className={inputCls}
                             style={inputStyle}
                           />
+                          {editRestaurant.trim() && (
+                            editDecision === "order" ? (
+                              <p className="text-xs text-kitchen-muted mt-1.5">Saved as a delivery order for this restaurant.</p>
+                            ) : (
+                              <label className="flex items-center gap-2 mt-2 cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  checked={editDeliveryAvailable}
+                                  onChange={(e) => setEditDeliveryAvailable(e.target.checked)}
+                                  className="accent-kitchen-accent"
+                                />
+                                <span className="text-xs text-kitchen-muted">Delivery available here (include in order suggestions)</span>
+                              </label>
+                            )
+                          )}
                         </div>
                       )}
                       <input

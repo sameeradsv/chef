@@ -47,7 +47,7 @@ from app.services.recipes import (
     get_recipe_by_id,
     recommend_recipes,
 )
-from app.services.restaurants import pick_restaurant_for_user
+from app.services.restaurants import pick_restaurants_for_decision
 
 router = APIRouter(prefix="/decision", tags=["decisions"])
 
@@ -140,7 +140,7 @@ def cook_vs_order(
         recipe = get_recipe_by_id(raw["id"], pantry)
 
     if body.restaurant_id:
-        rest_raw = pick_restaurant_for_user(
+        primary_raw, order_raw = pick_restaurants_for_decision(
             db,
             current_user.id,
             state=state,
@@ -150,7 +150,7 @@ def cook_vs_order(
             restaurant_id=body.restaurant_id,
         )
     else:
-        rest_raw = pick_restaurant_for_user(
+        primary_raw, order_raw = pick_restaurants_for_decision(
             db,
             current_user.id,
             state=state,
@@ -158,7 +158,8 @@ def cook_vs_order(
             city=city,
             cuisines=fav_cuisines,
         )
-    restaurant = _restaurant_dto(rest_raw)
+    restaurant = _restaurant_dto(primary_raw)
+    order_restaurant = _restaurant_dto(order_raw) if order_raw else None
 
     result = compare_options(
         recipe,
@@ -169,6 +170,7 @@ def cook_vs_order(
         profile,
         people_count,
         cooking_skill,
+        order_restaurant=order_restaurant,
     )
     result.narrative = generate_decision_narrative(result)
     _dcache_set(ckey, result)
@@ -207,7 +209,7 @@ def recommend_meal_endpoint(
         fast=fast,
     )
     recipe = recs[0] if recs else get_recipe_by_id("r-dal-tadka", pantry)
-    rest_raw = pick_restaurant_for_user(
+    primary_raw, order_raw = pick_restaurants_for_decision(
         db,
         current_user.id,
         state=state,
@@ -216,7 +218,8 @@ def recommend_meal_endpoint(
         cuisines=fav_cuisines,
         skip_ai=fast,
     )
-    restaurant = _restaurant_dto(rest_raw)
+    restaurant = _restaurant_dto(primary_raw)
+    order_restaurant = _restaurant_dto(order_raw) if order_raw else None
     result = recommend_meal(
         recipe,
         restaurant,
@@ -226,6 +229,7 @@ def recommend_meal_endpoint(
         profile,
         pref_people,
         cooking_skill,
+        order_restaurant=order_restaurant,
     )
     if not fast:
         result.narrative = generate_decision_narrative(result)

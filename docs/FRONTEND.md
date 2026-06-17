@@ -91,6 +91,7 @@ Substitutions: [AI.md](./AI.md). Recipe model: [DATA_MODELS.md](./DATA_MODELS.md
 - **week grouping** — Month/Year/All views group by IST calendar week (This week / Last week / Earlier)
 - datetime picker labelled **DATE & TIME (IST)** — value sent as naive IST; backend converts to UTC
 - log from order screenshot (vision AI → `POST /vision/parse` pre-fills form)
+- **restaurant delivery flag** — when logging **Order** or **Eat out** with a restaurant name: Order is always saved as delivery; Eat out shows checkbox *Delivery available here (include in order suggestions)*; persists via `delivery_available` on `POST`/`PATCH /history` into `user_preferences.restaurant_delivery_json`
 - edit and delete entries
 
 **Data sources:** `GET /history?include_summary=true&from_date&to_date&limit&offset`, `POST /history`, `PATCH /history/{id}`, `DELETE /history/{id}`, `POST /vision/parse`.

@@ -295,13 +295,17 @@ def compare_options(
     profile: Optional[UserProfileResponse] = None,
     people_count: int = 2,
     cooking_skill: int = 3,
+    order_restaurant: RestaurantOption | None = None,
 ) -> CookVsOrderResponse:
     pantry_urgency = pantry_expiry_urgency(pantry_ingredients)
-    cook_opt = score_cook(recipe, state, pantry_urgency, restaurant.total_cost, people_count, cooking_skill)
+    order_ref = order_restaurant if order_restaurant and order_restaurant.delivery_available else (
+        restaurant if restaurant.delivery_available else order_restaurant
+    )
+    cook_opt = score_cook(recipe, state, pantry_urgency, (order_ref or restaurant).total_cost, people_count, cooking_skill)
     eat_opt = score_eat_out(restaurant, state, state.craving, people_count)
 
-    if restaurant.delivery_available:
-        order_opt = score_order(restaurant, state, state.craving, people_count)
+    if order_ref and order_ref.delivery_available:
+        order_opt = score_order(order_ref, state, state.craving, people_count)
         cook_opt, order_opt = _apply_personalization(cook_opt, order_opt, profile, recipe.cuisine)
         options = [cook_opt, order_opt, eat_opt]
     else:
@@ -312,14 +316,18 @@ def compare_options(
     mode_map = {"cook": "cook", "order": "order", "eat_out": "eat_out"}
     rec_mode = mode_map[winner.mode]
 
-    reasoning = build_reasoning(winner, recipe, restaurant, expiring_names, restaurant.total_cost, state)
+    reasoning = build_reasoning(winner, recipe, order_ref or restaurant, expiring_names, (order_ref or restaurant).total_cost, state)
+
+    rec_restaurant = restaurant
+    if rec_mode == "order" and order_ref:
+        rec_restaurant = order_ref
 
     return CookVsOrderResponse(
         recommendation=rec_mode,
         options=options,
         reasoning=reasoning,
         recommended_recipe=recipe if rec_mode == "cook" else None,
-        recommended_restaurant=restaurant if rec_mode in ("order", "eat_out") else None,
+        recommended_restaurant=rec_restaurant if rec_mode in ("order", "eat_out") else None,
     )
 
 
@@ -332,14 +340,26 @@ def recommend_meal(
     profile: Optional[UserProfileResponse] = None,
     people_count: int = 2,
     cooking_skill: int = 3,
+    order_restaurant: RestaurantOption | None = None,
 ) -> RecommendMealResponse:
-    comparison = compare_options(recipe, restaurant, state, pantry_ingredients, expiring_names, profile, people_count, cooking_skill)
+    comparison = compare_options(
+        recipe,
+        restaurant,
+        state,
+        pantry_ingredients,
+        expiring_names,
+        profile,
+        people_count,
+        cooking_skill,
+        order_restaurant=order_restaurant,
+    )
     winner = comparison.options[0]
     label = winner.label
     if winner.mode == "cook" and recipe:
         label = f"Cook {recipe.name}"
 
-    savings = max(0, restaurant.total_cost - recipe.estimated_cost)
+    order_ref = order_restaurant if order_restaurant and order_restaurant.delivery_available else restaurant
+    savings = max(0, order_ref.total_cost - recipe.estimated_cost)
 
     return RecommendMealResponse(
         recommendation=label,

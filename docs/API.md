@@ -68,7 +68,7 @@ GET /user/preferences
 | Method | Purpose |
 |--------|---------|
 | `POST /user/state` | Set session context: energy, time, budget, craving, etc. ([User state](./DATA_MODELS.md#user-state)) |
-| `GET /user/preferences` | Longer-lived preferences (Phase 2 habits; MVP may return defaults or partial profile) |
+| `GET /user/preferences` | Longer-lived preferences including `restaurant_delivery` (map of restaurant name → delivery available). See [Restaurant option](./DATA_MODELS.md#restaurant-option). |
 
 ---
 
@@ -124,8 +124,8 @@ DELETE /history/{id}
 | Method | Purpose |
 |--------|---------|
 | `GET /history` | List decision log. Query params: `limit` (1–100, default 20), `offset` (default 0), `from_date` / `to_date` (inclusive IST `YYYY-MM-DD`, filters by meal `timestamp`), `date` (`today` or `YYYY-MM-DD`). With `include_summary=true`, returns `{ items, total, offset, limit, summary }` where `summary` has `{ total, total_spent, cook, order, eat_out }`. Without it, returns a plain `HistoryEntry[]` (backward-compatible with Conduit). |
-| `POST /history` | Log a decision. Body includes optional `timestamp` (naive IST meal time). |
-| `PATCH /history/{id}` | Edit entry fields including `timestamp`. |
+| `POST /history` | Log a decision. Body includes optional `timestamp` (naive IST meal time) and optional `delivery_available` when `restaurant_name` is set (persists delivery override; see [Cooking history entry](./DATA_MODELS.md#cooking-history-entry)). |
+| `PATCH /history/{id}` | Edit entry fields including `timestamp` and `delivery_available` (with `restaurant_name`). |
 | `DELETE /history/{id}` | Delete entry. |
 
 Response entries use naive IST for `timestamp` and `created_at` — see [Timezones](./DATA_MODELS.md#timezones).

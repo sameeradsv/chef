@@ -18,8 +18,21 @@ from app.schemas import (
     HistorySummary,
 )
 from app.tz_utils import current_meal_day, meal_day_bounds
+from app.services.restaurants import resolve_delivery_available_for_log, save_delivery_override
 
 router = APIRouter(prefix="/history", tags=["history"])
+
+
+def _persist_delivery_override(
+    db: Session,
+    user_id: str,
+    decision: str,
+    restaurant_name: str | None,
+    delivery_available: bool | None,
+) -> None:
+    flag = resolve_delivery_available_for_log(decision, restaurant_name, delivery_available)
+    if flag is not None and restaurant_name:
+        save_delivery_override(db, user_id, restaurant_name, flag)
 
 
 def _to_response(entry: CookingHistoryModel) -> CookingHistoryResponse:
@@ -80,6 +93,13 @@ def log_decision(
         **({"timestamp": payload.timestamp} if payload.timestamp else {}),
     )
     db.add(entry)
+    _persist_delivery_override(
+        db,
+        current_user.id,
+        payload.decision,
+        payload.restaurant_name,
+        payload.delivery_available,
+    )
     db.commit()
     db.refresh(entry)
     return _to_response(entry)
@@ -99,8 +119,19 @@ def update_entry(
     )
     if not entry:
         raise HTTPException(status_code=404, detail="Entry not found")
-    for k, v in payload.model_dump(exclude_unset=True).items():
+    data = payload.model_dump(exclude_unset=True)
+    delivery_available = data.pop("delivery_available", None)
+    for k, v in data.items():
         setattr(entry, k, v)
+    decision = entry.decision
+    restaurant_name = entry.restaurant_name
+    _persist_delivery_override(
+        db,
+        current_user.id,
+        decision,
+        restaurant_name,
+        delivery_available,
+    )
     db.commit()
     db.refresh(entry)
     return _to_response(entry)

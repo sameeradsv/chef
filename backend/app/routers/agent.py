@@ -30,7 +30,7 @@ from app.services.recipes import (
     get_recipe_by_id,
     recommend_recipes,
 )
-from app.services.restaurants import pick_restaurant_for_user
+from app.services.restaurants import pick_restaurants_for_decision
 from app.tz_utils import current_meal_day, ist_today, meal_day_bounds
 
 router = APIRouter(prefix="/agent", tags=["agent"])
@@ -264,7 +264,7 @@ def _tool_cook_vs_order(db: Session, user_id: str) -> Any:
         raw = load_recipes()[0]
         recipe = get_recipe_by_id(raw["id"], pantry)
 
-    rest_raw = pick_restaurant_for_user(
+    primary_raw, order_raw = pick_restaurants_for_decision(
         db,
         user_id,
         state=state,
@@ -275,7 +275,8 @@ def _tool_cook_vs_order(db: Session, user_id: str) -> Any:
 
     from app.schemas import RestaurantOption
 
-    restaurant = RestaurantOption(**rest_raw)
+    restaurant = RestaurantOption(**primary_raw)
+    order_restaurant = RestaurantOption(**order_raw) if order_raw else None
     result = compare_options(
         recipe,
         restaurant,
@@ -285,6 +286,7 @@ def _tool_cook_vs_order(db: Session, user_id: str) -> Any:
         profile,
         people_count,
         cooking_skill,
+        order_restaurant=order_restaurant,
     )
     result.narrative = generate_decision_narrative(result)
     return result.model_dump(mode="json")

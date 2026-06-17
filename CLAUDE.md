@@ -65,14 +65,14 @@ docker compose up -d postgres
 - `/auth/webauthn/register/begin|complete` (Bearer), `/auth/webauthn/login/begin|complete` (public, returns JWT)
 
 **Services** (the core logic):
-- `decision_engine.py` — Deterministic scoring: cook score = `pantry_urgency + health + cost_savings − effort_cost − cleanup`; order score = `convenience + craving_match − delivery_delay − budget_penalty` (skipped when `delivery_available` is false); eat-out score similar with travel time (~25 min). Expiring-ingredient bonus: +2 for cook. Energy-aware restaurant selection.
+- `decision_engine.py` — Deterministic scoring: cook score = `pantry_urgency + health + cost_savings − effort_cost − cleanup`; order score = `convenience + craving_match − delivery_delay − budget_penalty`; eat-out score similar with travel time (~25 min). When the primary venue is dine-in-only, order scoring uses a separate delivery pick (`order_restaurant` in `compare_options`). Expiring-ingredient bonus: +2 for cook. Energy-aware restaurant selection.
 - `freshness.py` — `compute_freshness_score(expiry_date, buy_date, opened)` → 0–10; `compute_expiry_urgency(expiry_date)` → 0–10
 - `recipes.py` — Recipe matching against pantry inventory + ingredient substitutions; history-aware recommendations
 - `normalize.py` — Ingredient name normalization before DB storage
 - `health.py` — Keyword-based nutrition estimation (`estimate_meal_nutrition`), daily RDA averages (`analyze_history`), gap-driven food suggestions (`build_suggestions`)
 - `personalization.py` — `get_user_profile`: analyzes last 30 history entries + stored prefs to derive favorite cuisines, cook frequency, weekday patterns
 - `barcode.py` — Open Food Facts API (`world.openfoodfacts.org`) lookup; parses quantity/unit from product data
-- `restaurants.py` — Seed-data restaurant scoring + filtering; history-derived venues with `delivery_available` (order vs eat-out log); dine-in-only venues excluded from order scoring and AI delivery hints; energy-aware fast-food option injection
+- `restaurants.py` — Seed/history/AI restaurant pools; `pick_restaurants_for_decision` returns primary + delivery venue; `delivery_available` inferred from order vs eat-out history, dine-in name heuristics, and user overrides (`restaurant_delivery_json` on preferences, set from History log/edit); energy-aware fast-food option injection
 - `grocery.py` — Grocery suggestion logic
 - `llm.py` — Groq Llama 3.1 8B narrative explanations (requires `GROQ_API_KEY`)
 - `chef_agent.py` — Groq tool-calling stream for `/agent/chat` (requires `GROQ_API_KEY`)

@@ -8,6 +8,8 @@ from app.dependencies import get_current_user
 from app.models import UserAccountModel, UserPreferencesModel, UserStateModel
 from app.schemas import UserPreferencesPayload, UserPreferencesResponse, UserProfileResponse, UserStatePayload, UserStateResponse
 
+from app.services.restaurants import load_delivery_overrides
+
 router = APIRouter(prefix="/user", tags=["user"])
 
 
@@ -86,6 +88,7 @@ def get_preferences(
         city=row.city or "",
         people_count=row.people_count if row.people_count is not None else 2,
         cooking_skill=row.cooking_skill if row.cooking_skill is not None else 3,
+        restaurant_delivery=load_delivery_overrides(db, current_user.id),
     )
 
 
@@ -117,4 +120,5 @@ def update_preferences(
         city=row.city or "",
         people_count=row.people_count if row.people_count is not None else 2,
         cooking_skill=row.cooking_skill if row.cooking_skill is not None else 3,
+        restaurant_delivery=load_delivery_overrides(db, current_user.id),
     )

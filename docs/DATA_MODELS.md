@@ -149,9 +149,11 @@ Posted via [API.md](./API.md) `POST /user/state`. Used by [DECISION_ENGINE.md](.
 | `rating` | Quality signal |
 | `cuisine` | Match against craving and preferences |
 | `discount_available` | Whether a promo applies (MVP: manual or scraped signal) |
-| `delivery_available` | Whether the **Order** path applies. `false` for dine-in-only venues (e.g. office cafeteria logged as `eat_out` only). When false, cook-vs-order returns cook + eat-out only. |
+| `delivery_available` | Whether this venue applies to the **Order** path for that restaurant record. `false` for dine-in-only venues (e.g. office cafeteria logged as `eat_out` only). When the **primary** picked venue is dine-in-only, the decision engine still shows **Order** using a separate delivery-capable venue from the merged pool (history / AI / seed). |
 
-**History-derived venues** (`restaurants.py`): built from logged `order` / `eat_out` history. A venue is orderable if the user has logged at least one `order` there; venues logged only as `eat_out` are dine-in-only. Name heuristics (`cafeteria`, `canteen`, `office`, `mess`, etc.) also mark a venue dine-in-only when there is no order history. AI delivery suggestions reuse only orderable history names.
+**History-derived venues** (`restaurants.py`): built from logged `order` / `eat_out` history. Inference order: (1) user override in `user_preferences.restaurant_delivery_json` (set when logging or editing history with a restaurant name); (2) at least one `order` log → orderable; (3) only `eat_out` logs → dine-in-only; (4) name heuristics (`cafeteria`, `canteen`, `office`, `mess`, etc.) when there is no order history. AI delivery suggestions reuse only orderable history names.
+
+**User overrides:** `GET /user/preferences` returns `restaurant_delivery` — map of lowercase restaurant name → `bool`. Written on `POST /history` and `PATCH /history/{id}` when `restaurant_name` is set: `order` logs force `true`; `eat_out` logs use optional body field `delivery_available` (default `false`).
 
 MVP sourcing: [INTEGRATIONS.md](./INTEGRATIONS.md)—not full platform API integration.
 
@@ -171,6 +173,12 @@ MVP sourcing: [INTEGRATIONS.md](./INTEGRATIONS.md)—not full platform API integ
   "created_at": "2026-06-15T10:00:00"
 }
 ```
+
+**Create/update body** (not stored on the row; persists delivery override when `restaurant_name` is set):
+
+| Field | Semantics |
+|-------|-----------|
+| `delivery_available` | Optional. On `order` + restaurant → saved as `true`. On `eat_out` + restaurant → user toggle (default `false`). Updates `user_preferences.restaurant_delivery_json`. |
 
 | Field | Semantics |
 |-------|-----------|

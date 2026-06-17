@@ -162,6 +162,7 @@ class UserPreferencesResponse(BaseModel):
     city: str = ""
     people_count: int = 2
     cooking_skill: int = 3
+    restaurant_delivery: Dict[str, bool] = Field(default_factory=dict)
 
 
 class UserPreferencesPayload(BaseModel):
@@ -267,6 +268,7 @@ class CookingHistoryCreate(BaseModel):
     satisfaction: Optional[int] = Field(None, ge=1, le=5)
     timestamp: ISTDateTimeInput = None
     cost: Optional[float] = None
+    delivery_available: Optional[bool] = None
 
 
 class CookingHistoryUpdate(BaseModel):
@@ -277,6 +279,7 @@ class CookingHistoryUpdate(BaseModel):
     satisfaction: Optional[int] = Field(None, ge=1, le=5)
     timestamp: ISTDateTimeInput = None
     cost: Optional[float] = None
+    delivery_available: Optional[bool] = None
 
 
 class CookingHistoryResponse(BaseModel):

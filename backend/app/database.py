@@ -64,6 +64,9 @@ def _migrate_sqlite() -> None:
         if "cooking_skill" not in existing:
             conn.execute(text("ALTER TABLE user_preferences ADD COLUMN cooking_skill INTEGER DEFAULT 3"))
             conn.commit()
+        if "restaurant_delivery_json" not in existing:
+            conn.execute(text("ALTER TABLE user_preferences ADD COLUMN restaurant_delivery_json TEXT DEFAULT '{}'"))
+            conn.commit()
         if "cooking_history" in inspector.get_table_names():
             existing_hist = {c["name"] for c in inspector.get_columns("cooking_history")}
             if "cost" not in existing_hist:
@@ -121,6 +124,9 @@ def _migrate_postgres() -> None:
             conn.commit()
         if "cooking_skill" not in existing_prefs:
             conn.execute(text("ALTER TABLE user_preferences ADD COLUMN cooking_skill INTEGER DEFAULT 3"))
+            conn.commit()
+        if "restaurant_delivery_json" not in existing_prefs:
+            conn.execute(text("ALTER TABLE user_preferences ADD COLUMN restaurant_delivery_json TEXT DEFAULT '{}'"))
             conn.commit()
         if "cooking_history" in inspector.get_table_names():
             existing_hist = {c["name"] for c in inspector.get_columns("cooking_history")}

@@ -173,6 +173,7 @@ export interface UserPreferences {
   city: string;
   people_count: number;
   cooking_skill: number;
+  restaurant_delivery?: Record<string, boolean>;
 }
 
 export interface DiscardedIngredient {
@@ -407,9 +408,9 @@ export const api = {
     if (query.date) params.set("date", query.date);
     return request<HistoryPage>(`/history?${params.toString()}`);
   },
-  logHistory: (data: { decision: string; recipe_name?: string; restaurant_name?: string; cuisine?: string; satisfaction?: number; timestamp?: string; cost?: number }) =>
+  logHistory: (data: { decision: string; recipe_name?: string; restaurant_name?: string; cuisine?: string; satisfaction?: number; timestamp?: string; cost?: number; delivery_available?: boolean }) =>
     request<HistoryEntry>("/history", { method: "POST", body: JSON.stringify(data) }),
-  updateHistory: (id: string, data: { decision?: string; recipe_name?: string; restaurant_name?: string; cuisine?: string; satisfaction?: number; timestamp?: string; cost?: number }) =>
+  updateHistory: (id: string, data: { decision?: string; recipe_name?: string; restaurant_name?: string; cuisine?: string; satisfaction?: number; timestamp?: string; cost?: number; delivery_available?: boolean }) =>
     request<HistoryEntry>(`/history/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
   deleteHistory: (id: string) =>
     request<void>(`/history/${id}`, { method: "DELETE" }),

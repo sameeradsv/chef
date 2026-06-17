@@ -86,6 +86,7 @@ class UserPreferencesModel(Base):
     city: Mapped[Optional[str]] = mapped_column(String(100), default="", nullable=True)
     people_count: Mapped[Optional[int]] = mapped_column(Integer, default=2, nullable=True)
     cooking_skill: Mapped[Optional[int]] = mapped_column(Integer, default=3, nullable=True)
+    restaurant_delivery_json: Mapped[str] = mapped_column(Text, default="{}")
 
 
 class DiscardedIngredientModel(Base):
