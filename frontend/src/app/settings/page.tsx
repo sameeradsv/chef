@@ -196,14 +196,12 @@ export default function SettingsPage() {
   const [prefsOpen, setPrefsOpen] = useState(false);
 
   // Local-only settings
-  const [reduceMotion, setReduceMotion] = useState(false);
   const [notifExpiring, setNotifExpiring] = useState(false);
   const [notifTimeToStart, setNotifTimeToStart] = useState(false);
   const [defaultCookTime, setDefaultCookTime] = useState(45);
   const [effortBudget, setEffortBudget] = useState(8);
 
   useEffect(() => {
-    setReduceMotion(readLocalBool("chef_reduce_motion", false));
     setNotifExpiring(readLocalBool("chef_notif_expiring", false));
     setNotifTimeToStart(readLocalBool("chef_notif_timetostart", false));
     const ct = localStorage.getItem("chef_default_cook_time");
@@ -212,11 +210,6 @@ export default function SettingsPage() {
     if (eb) setEffortBudget(Number(eb));
   }, []);
 
-  function toggleReduceMotion(v: boolean) {
-    setReduceMotion(v);
-    writeLocal("chef_reduce_motion", v);
-    document.documentElement.dataset.reduceMotion = v ? "true" : "false";
-  }
   function toggleNotifExpiring(v: boolean) {
     setNotifExpiring(v);
     writeLocal("chef_notif_expiring", v);
@@ -338,7 +331,6 @@ export default function SettingsPage() {
           <p className="font-medium text-kitchen-text capitalize">{username ?? "—"}</p>
           <MonoLabel className="text-kitchen-muted block mt-0.5">SIGNED IN</MonoLabel>
         </div>
-        <div className="ml-auto text-kitchen-muted text-sm">›</div>
       </div>
 
       {/* Appearance */}
@@ -355,13 +347,6 @@ export default function SettingsPage() {
               <p className="text-[11px] text-kitchen-muted mt-0.5 capitalize">Currently {theme} — {theme === "hearth" ? "dark premium" : "warm editorial"}</p>
             </div>
             <ThemePickerCard theme={theme} setTheme={setTheme} compact />
-          </div>
-        </div>
-        {/* Reduce motion */}
-        <div className="px-4 py-3.5" style={{ borderBottom: "1px solid var(--kitchen-line)" }}>
-          <div className="flex items-center justify-between">
-            <p className="text-sm text-kitchen-text">Reduce motion</p>
-            <Toggle value={reduceMotion} onChange={toggleReduceMotion} />
           </div>
         </div>
       </div>
