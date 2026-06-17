@@ -5,7 +5,7 @@ A kitchen **decision intelligence** system: manage your pantry, track food waste
 Chef answers *"What is the best food decision right now?"* — not only *"What recipe do you want?"*
 
 **Live:** [sameeradsv.github.io/chef](https://sameeradsv.github.io/chef) · API on Render (free tier — first request may take ~30s to wake up)  
-**Demo account:** `demo` / `demo1234`
+**Demo account:** `demo` / `demo1234` — visible in the login UI only when `NEXT_PUBLIC_SHOW_DEMO=true` is set on the frontend.
 
 ---
 
@@ -28,7 +28,7 @@ Chef answers *"What is the best food decision right now?"* — not only *"What r
 | Log history from order screenshot (vision AI) | Implemented |
 | User preferences (cuisines, spice, dietary, skill) | Implemented |
 | LLM narrative explanations | Implemented (Groq Llama 3.1; requires `GROQ_API_KEY`) |
-| Multi-user auth (JWT, bcrypt, 30-day tokens) | Implemented |
+| Multi-user auth (JWT, PBKDF2-SHA256 100k iterations, 30-day tokens) | Implemented |
 | WebAuthn passkey / biometric sign-in | Implemented — enable from **Settings → Security** |
 | Live Swiggy/Zomato API | Stub (seed restaurant data only) |
 | pgvector semantic search | Stub (keyword search only) |
@@ -81,6 +81,7 @@ Optional env vars:
 GROQ_API_KEY=...                      # enables LLM narratives, vision parsing, and /chat agent
 DATABASE_URL=postgres://              # switches from SQLite to PostgreSQL
 NEXT_PUBLIC_CORTEX_URL=http://...     # Cortex backend URL for cross-app auth (optional)
+NEXT_PUBLIC_SHOW_DEMO=true           # show "Try the demo" button on the login page (off by default)
 
 # WebAuthn (passkey login) — set these in production
 WEBAUTHN_RP_ID=your-domain.com
@@ -140,7 +141,9 @@ export DATABASE_URL=postgresql://chef:chef@localhost:5432/chef
 |--------|------|-------------|
 | POST | `/auth/register` | Register new user |
 | POST | `/auth/login` | Login → JWT token |
+| DELETE | `/auth/logout` | Invalidate current session (requires Bearer token) |
 | GET | `/auth/me` | Current user info |
+| GET | `/auth/status` | Whether any users exist (`has_users`) |
 | POST | `/auth/webauthn/register/begin` | Start passkey registration (requires Bearer token) |
 | POST | `/auth/webauthn/register/complete` | Finish passkey registration |
 | POST | `/auth/webauthn/login/begin` | Start passkey login |
