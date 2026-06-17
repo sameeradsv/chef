@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTheme, type Theme } from "@/contexts/ThemeContext";
-import { api, type UserPreferences } from "@/lib/api";
+import { api, type UserPreferences, type UserState } from "@/lib/api";
 import { usePasskey } from "@/hooks/usePasskey";
 
 function readLocalBool(key: string, fallback: boolean): boolean {
@@ -200,6 +200,10 @@ export default function SettingsPage() {
   const [notifTimeToStart, setNotifTimeToStart] = useState(false);
   const [defaultCookTime, setDefaultCookTime] = useState(45);
   const [effortBudget, setEffortBudget] = useState(8);
+  const [decisionState, setDecisionState] = useState<UserState | null>(null);
+  const [defaultWillingness, setDefaultWillingness] = useState(5);
+  const [savingDecisionDefaults, setSavingDecisionDefaults] = useState(false);
+  const [decisionDefaultsSaved, setDecisionDefaultsSaved] = useState(false);
 
   useEffect(() => {
     setNotifExpiring(readLocalBool("chef_notif_expiring", false));
@@ -223,6 +227,33 @@ export default function SettingsPage() {
     localStorage.setItem("chef_effort_budget", String(effortBudget));
   }
 
+  async function saveDecisionDefaults(willingness: number) {
+    setSavingDecisionDefaults(true);
+    setDecisionDefaultsSaved(false);
+    try {
+      const base: UserState = decisionState ?? {
+        energy_level: 5,
+        time_available_minutes: 30,
+        budget_today: 300,
+        health_priority: 5,
+        craving: "",
+        willingness_to_cook: 5,
+        stress_level: 5,
+      };
+      const updated = await api.setUserState({
+        ...base,
+        willingness_to_cook: willingness,
+      });
+      setDecisionState(updated);
+      setDecisionDefaultsSaved(true);
+      setTimeout(() => setDecisionDefaultsSaved(false), 2000);
+    } catch {
+      setError("Failed to save decision defaults.");
+    } finally {
+      setSavingDecisionDefaults(false);
+    }
+  }
+
   const PRESET_SKIPS = ["mushroom", "soy", "nuts", "dairy", "onion", "garlic", "shellfish"];
 
   useEffect(() => {
@@ -239,6 +270,13 @@ export default function SettingsPage() {
       })
       .catch(() => setError("Could not load preferences. Try refreshing."))
       .finally(() => setLoading(false));
+
+    api.getUserState()
+      .then((s) => {
+        setDecisionState(s);
+        setDefaultWillingness(s.willingness_to_cook);
+      })
+      .catch(() => { /* defaults stay at 5 */ });
   }, []);
 
   function toggleSkip(item: string) {
@@ -582,6 +620,48 @@ export default function SettingsPage() {
         className="overflow-hidden mt-3"
         style={{ border: "1px solid var(--kitchen-line)", borderRadius: "var(--radius-card)", background: "rgb(var(--kitchen-card))" }}
       >
+        <SectionHeader>DECISION DEFAULTS</SectionHeader>
+        <div className="px-4 py-4 space-y-5" style={{ borderBottom: "1px solid var(--kitchen-line)" }}>
+          <p className="text-[11px] text-kitchen-muted -mt-2">
+            Cooking mood is used on Decide unless you override for this session. Energy presets from Canopy&apos;s combined total (Circuit + Canopy + Chef).
+          </p>
+          <div>
+            <MonoLabel className="text-kitchen-muted block mb-2">UP FOR COOKING?</MonoLabel>
+            <div className="flex gap-2">
+              {([
+                { label: "Not really", value: 2 },
+                { label: "Maybe", value: 5 },
+                { label: "Let's go", value: 9 },
+              ] as const).map(({ label, value }) => {
+                const active = value === 2 ? defaultWillingness <= 3 : value === 5 ? defaultWillingness >= 4 && defaultWillingness <= 7 : defaultWillingness >= 8;
+                return (
+                  <button
+                    key={label}
+                    type="button"
+                    disabled={savingDecisionDefaults}
+                    onClick={() => {
+                      setDefaultWillingness(value);
+                      saveDecisionDefaults(value);
+                    }}
+                    className="flex-1 py-2 text-xs font-mono transition-all disabled:opacity-50"
+                    style={{
+                      borderRadius: "var(--radius-btn)",
+                      border: active ? "1px solid rgb(var(--kitchen-accent) / 0.5)" : "1px solid var(--kitchen-line2)",
+                      background: active ? "rgb(var(--kitchen-accent) / 0.1)" : "transparent",
+                      color: active ? "rgb(var(--kitchen-accent))" : "rgb(var(--kitchen-ink3))",
+                      letterSpacing: "0.06em",
+                    }}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+          {decisionDefaultsSaved && (
+            <p className="text-[11px] font-mono" style={{ color: "rgb(var(--kitchen-success))" }}>Defaults saved</p>
+          )}
+        </div>
         <SectionHeader>KITCHEN</SectionHeader>
         <div className="px-4 py-4 space-y-5" style={{ borderBottom: "1px solid var(--kitchen-line)" }}>
           <div>

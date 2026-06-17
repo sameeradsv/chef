@@ -32,7 +32,7 @@ npm run build                   # Generates PWA icons then builds
 npm run lint
 ```
 
-Set `NEXT_PUBLIC_API_URL=http://localhost:8000` in `frontend/.env.local` (see `.env.local.example`).
+Set `NEXT_PUBLIC_API_URL=http://localhost:8000` in `frontend/.env.local` (see `.env.local.example`). For cross-app combined energy on Decide, also set `NEXT_PUBLIC_CORTEX_URL`, `NEXT_PUBLIC_CIRCUIT_API_URL`, and `NEXT_PUBLIC_CANOPY_API_URL` (same names as Canopy/Circuit).
 
 ### Optional PostgreSQL (via Docker)
 
@@ -93,16 +93,17 @@ Data is multi-user — all tables keyed by `user_id`. JWT auth (30-day tokens, b
 | `app/layout.tsx` | Root layout wrapped in `<AuthWrapper>` |
 | `app/page.tsx` | Dashboard — expiring items, recommendations, `WeekGlance` strip, `ThemeToggle` |
 | `app/inventory/page.tsx` | Pantry CRUD |
-| `app/decision/page.tsx` | Cook vs order vs eat out comparison UI |
+| `app/decision/page.tsx` | Cook vs order vs eat out — combined energy preset (`lib/cross-app-energy.ts`), session overrides, direct history log, score waterfall |
 | `app/recipe/page.tsx` | Recipe browse + `RecipeCoverageScatter` pantry coverage chart |
 | `app/recipe/[id]/page.tsx` | Recipe detail with pantry ingredient usage and interactive cooking steps |
 | `app/grocery/page.tsx` | Grocery list — add/buy/delete items + AI suggestions |
 | `app/history/page.tsx` | Decision history — IST datetime picker, Week/Month/Year/All filters (server-side by meal `timestamp`), pagination (20/page), edit/delete, satisfaction ratings; screenshot-to-log via vision API |
 | `app/health/page.tsx` | Nutrition health — macro rings (SVG), per-nutrient RDA bars, meal-type-keyed food suggestions |
 | `app/chat/page.tsx` | Terminal-style chat UI — native Groq agent via `POST /agent/chat` (`<TerminalChat>`) |
-| `app/settings/page.tsx` | User preferences — cuisines, spice level, dietary |
+| `app/settings/page.tsx` | User preferences — cuisines, spice, dietary; decision default (cooking mood only); passkey |
 | `app/login/page.tsx` | Login / register; pings `/health` to check backend reachability |
 | `lib/api.ts` | Typed fetch wrapper; all API types live here; reads `NEXT_PUBLIC_API_URL` |
+| `lib/cross-app-energy.ts` | Combined energy preset for Decide — fetches Circuit/Canopy/Chef timelines (same total as Canopy Energy page); uses `NEXT_PUBLIC_CIRCUIT_API_URL`, `NEXT_PUBLIC_CANOPY_API_URL`, `NEXT_PUBLIC_CORTEX_URL` |
 | `lib/tz.ts` | IST-only display/input helpers — naive IST strings from API; no client-side UTC conversion |
 | `lib/utils.ts` | `expiryBadge`, `formatCurrency` helpers |
 | `contexts/AuthContext.tsx` | JWT token state, login/register/logout, localStorage persistence |
@@ -114,7 +115,7 @@ Custom Tailwind color tokens are defined as CSS variables (`--kitchen-bg`, `--ki
 
 - **Frontend**: GitHub Actions builds `next export` (static) with `basePath: "/chef"`, deploys to GitHub Pages. PWA is disabled in dev and on GitHub Pages build.
 - **Backend**: Render Blueprint (`render.yaml`) — Python 3.12, `uvicorn app.main:app --host 0.0.0.0 --port $PORT`; health check path `/health`. Database is **Neon PostgreSQL** (free tier, external) — set `DATABASE_URL` manually in Render dashboard after deploy. Set `GROQ_API_KEY` manually in Render dashboard to enable LLM narratives, vision parsing, and chat agent. Set `ANTHROPIC_API_KEY` to enable recipe generation.
-- **CI/CD** (`.github/workflows/deploy.yml`): `CHEF_API_URL` repo Actions variable sets the backend URL baked into the frontend build. `RENDER_DEPLOY_HOOK` secret triggers backend redeploy.
+- **CI/CD** (`.github/workflows/deploy.yml`): `CHEF_API_URL` repo Actions variable sets the backend URL baked into the frontend build (`NEXT_PUBLIC_API_URL`). Also pass `NEXT_PUBLIC_CORTEX_URL`, `NEXT_PUBLIC_CIRCUIT_API_URL`, and `NEXT_PUBLIC_CANOPY_API_URL` for Decide combined energy. `RENDER_DEPLOY_HOOK` secret triggers backend redeploy.
 
 ### Stubbed / Not Yet Implemented
 
@@ -167,7 +168,8 @@ These components were built during implementation and are intentional additions 
 
 - `components/DecisionScoreWaterfall.tsx` — horizontal bar chart breaking down score factors per decision mode; shown as collapsible section on the Decision page
 - `components/RecipeCoverageScatter.tsx` — scatter/coverage visualisation for recipe pantry match; used on `app/recipe/page.tsx`
-- `routers/energy.py` + `routers/sync.py` — cumulative meal-energy timeline (signed deltas, running balance, restorative good meals) and today's drain; consumed by cross-app energy integrations
+- `routers/energy.py` + `routers/sync.py` — cumulative meal-energy timeline (signed deltas, running balance, restorative good meals) and today's drain; consumed by Canopy/Circuit cross-app charts and Chef Decide preset via `GET /energy/timeline`
+- `frontend/src/lib/cross-app-energy.ts` — client-side combined energy (Circuit start + merged deltas from all three apps); presets Decide page energy slider
 - `routers/nutrition.py` + `services/health.py` — keyword-based macro/micronutrient analysis with RDA gap detection and Indian-diet-aware food suggestions
 - `routers/vision.py` — Groq Llama 4 Scout image parser; powers screenshot-to-log on the history page
 - `services/personalization.py` — user profile derived from cooking history; feeds history-aware meal recommendations

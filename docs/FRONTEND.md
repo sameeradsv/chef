@@ -47,6 +47,10 @@ With:
 - time
 - effort
 - recommendation reasoning
+- **Log this decision** — `POST /history` with selected mode, recipe/restaurant, and cost (then navigates to History)
+- **Override sheet** — session-only sliders for energy, cooking mood, time, budget, people, craving (not persisted to Settings except via explicit save paths)
+- **Combined energy preset** — on load, energy defaults to the same total as Canopy → Energy (Circuit `start_energy` + merged deltas from Circuit, Canopy, and Chef timelines today). Requires Cortex sign-in and sibling API URLs in env ([INTEGRATIONS.md](./INTEGRATIONS.md#cross-app-energy))
+- score breakdown waterfall (`DecisionScoreWaterfall`)
 
 **Example reasoning copy** (from product spec—mirror in UI):
 
@@ -136,10 +140,11 @@ Substitutions: [AI.md](./AI.md). Recipe model: [DATA_MODELS.md](./DATA_MODELS.md
 ## Settings screen
 
 - cuisines, spice level, dietary restrictions, vegetarian toggle, cooking skill, city, people count
+- **Decision defaults** — “Up for cooking?” (saved to `user/state.willingness_to_cook`); energy is **not** set here (comes from cross-app combined total on Decide)
 - appearance (theme picker — Hearth dark / Mise warm)
 - Security section — WebAuthn passkey registration (`POST /auth/webauthn/register/begin|complete`)
 
-**Data sources:** `GET /user/preferences`, `PUT /user/preferences`. Theme is localStorage-only.
+**Data sources:** `GET /user/preferences`, `PUT /user/preferences`, `GET /user/state`, `POST /user/state`. Theme is localStorage-only.
 
 ---
 
@@ -153,3 +158,4 @@ Substitutions: [AI.md](./AI.md). Recipe model: [DATA_MODELS.md](./DATA_MODELS.md
 - Timestamp semantics: API datetimes are naive IST strings; frontend displays/edits IST only (`lib/tz.ts`); backend converts to UTC. History filters and energy/nutrition use meal `timestamp`, so backdated entries land on the correct date.
 - Dashboard **Week glance** shows Mon–today (IST) only, fetched with `from_date`/`to_date` on `GET /history`.
 - Pantry theme (third colour scheme) and density control were deliberately dropped — do not re-add without approval.
+- Cross-app energy on Decide: `frontend/src/lib/cross-app-energy.ts` — env var names match Canopy/Circuit (`NEXT_PUBLIC_CIRCUIT_API_URL`, `NEXT_PUBLIC_CANOPY_API_URL`, `NEXT_PUBLIC_CORTEX_URL`).

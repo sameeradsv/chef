@@ -205,6 +205,14 @@ class CookVsOrderRequest(BaseModel):
     recipe_id: Optional[str] = None
     restaurant_id: Optional[str] = None
     people_count: Optional[int] = Field(None, ge=1, le=20)
+    # Session-only overrides — merged over persisted user_state for this comparison only.
+    energy_level: Optional[int] = Field(None, ge=1, le=10)
+    willingness_to_cook: Optional[int] = Field(None, ge=1, le=10)
+    time_available_minutes: Optional[int] = Field(None, ge=5)
+    budget_today: Optional[float] = Field(None, ge=0)
+    health_priority: Optional[int] = Field(None, ge=1, le=10)
+    craving: Optional[str] = None
+    stress_level: Optional[int] = Field(None, ge=1, le=10)
 
 
 class CookVsOrderResponse(BaseModel):

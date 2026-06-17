@@ -104,6 +104,8 @@ def energy_summary(
         "source": "chef",
         "drain_so_far": round(min(past_drain, 1.0), 3),
         "drain_ahead": 0.0,
+        "energy_so_far": round(max(0.0, 1.0 - min(past_drain, 1.0)), 3),
+        "energy_ahead": round(max(0.0, 1.0 - min(past_drain, 1.0)), 3),
         "meals_today": meals_detail,
         "skipped_meals": skipped_meals,
     }

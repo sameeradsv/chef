@@ -98,12 +98,16 @@ npm run dev
 
 App: http://localhost:3000
 
-Optional env vars (set in `.env.local` or as GitHub Actions / Render variables):
+Optional env vars (set in `frontend/.env.local` or as GitHub Actions variables):
 
 ```bash
-NEXT_PUBLIC_CORTEX_URL=http://...   # Cortex backend URL for cross-app auth
-NEXT_PUBLIC_SHOW_DEMO=true          # show "Try the demo" button on the login page (off by default)
+NEXT_PUBLIC_CORTEX_URL=http://...              # Cortex auth (cross-app SSO + energy sync)
+NEXT_PUBLIC_CIRCUIT_API_URL=http://...         # Circuit backend (combined energy timelines)
+NEXT_PUBLIC_CANOPY_API_URL=http://...          # Canopy backend (combined energy timelines)
+NEXT_PUBLIC_SHOW_DEMO=true                     # show "Try the demo" button on the login page (off by default)
 ```
+
+See [docs/INTEGRATIONS.md](./docs/INTEGRATIONS.md#cross-app-energy) for how Decide presets energy from the Canopy-style combined total.
 
 ---
 
@@ -128,14 +132,14 @@ export DATABASE_URL=postgresql://chef:chef@localhost:5432/chef
 |-------|---------|
 | `/` | Dashboard — expiring items, mood-aware recommendation, quick recipes, week glance strip (IST calendar week) |
 | `/inventory` | Pantry CRUD, barcode/photo add, expiry badges, discard + waste log |
-| `/decision` | Cook vs order vs eat out — factor breakdown, context sliders, score waterfall |
+| `/decision` | Cook vs order vs eat out — combined energy preset, session overrides, log decision, score waterfall |
 | `/recipe` | Recipe browse — list + pantry coverage scatter chart |
 | `/recipe/[id]` | Recipe detail, pantry match, substitutions, interactive cooking steps |
 | `/grocery` | Grocery list — add/buy/delete, AI suggestions |
 | `/history` | Decision log — Week/Month/Year/All filters, pagination, IST datetime picker, auto-fill from screenshot |
 | `/health` | Nutrition health — macro rings, per-nutrient RDA status, meal-type food suggestions |
 | `/chat` | Terminal chat — ask "What should I cook?", "Should I order tonight?", "Log that I ate sushi" |
-| `/settings` | Cuisines, spice level, dietary restrictions, cooking skill, biometric sign-in (Security section) |
+| `/settings` | Cuisines, spice, dietary, cooking skill, decision defaults (cooking mood), biometric sign-in |
 
 ---
 
@@ -243,7 +247,7 @@ Key factors:
 - **Expiring ingredients** get a +2 cook bonus
 - **Missing ingredients** penalise the cook score by ~₹45 each + sourcing effort
 - **Cooking skill gap** (`difficulty − skill`) penalises cook score by 1.5× per gap point
-- **Energy** is inferred from time of day (6–9→7, 9–12→8, 12–15→6, 18–21→7, else→4) and overridden by cross-app Cortex data
+- **Energy on Decide** — preset from combined Circuit + Canopy + Chef timeline (same as Canopy Energy page); override per session; cooking mood default from Settings
 
 ---
 
@@ -252,7 +256,7 @@ Key factors:
 ### GitHub Pages + Render (current setup)
 
 1. **Render backend:** New → Blueprint → connect repo → apply `render.yaml`. Set `DATABASE_URL` (Neon PostgreSQL) and optionally `GROQ_API_KEY` in Render dashboard.
-2. **GitHub variable:** Settings → Actions → Variables → `CHEF_API_URL` = Render URL (no trailing slash).
+2. **GitHub variables:** Settings → Actions → Variables → `CHEF_API_URL` = Render URL (no trailing slash). For cross-app energy on Decide, also set `NEXT_PUBLIC_CORTEX_URL`, `NEXT_PUBLIC_CIRCUIT_API_URL`, and `NEXT_PUBLIC_CANOPY_API_URL` (same names as Canopy/Circuit repos).
 3. **(Optional)** Render Deploy Hook URL → GitHub secret `RENDER_DEPLOY_HOOK`.
 4. Push to `main` — GitHub Actions builds the frontend static export and deploys to Pages.
 
@@ -286,7 +290,7 @@ chef/
                     # /grocery, /history, /health, /chat, /settings, /login)
       components/   # Layout (8-tab nav), AuthWrapper, BarcodeScanner, Card,
                     # DecisionScoreWaterfall, RecipeCoverageScatter, TerminalChat
-      lib/          # api.ts (typed fetch), tz.ts (IST display/input), utils.ts
+      lib/          # api.ts (typed fetch), tz.ts (IST), cross-app-energy.ts (combined preset), utils.ts
       contexts/     # AuthContext
   docs/             # Architecture, decision engine, API, data models, roadmap docs
   render.yaml       # Render deploy blueprint
@@ -304,7 +308,7 @@ Chef's backend is consumed by **Conduit** — the hub app that provides cross-ap
 
 Chef also has an embedded terminal chat at `/chat` (in the sidebar and mobile bottom tab), powered by Chef's native Groq agent at `POST /agent/chat`. Requires `GROQ_API_KEY` on the Chef backend and `NEXT_PUBLIC_API_URL` on the frontend. No Conduit dependency for in-app chat.
 
-Chef login also supports **Cortex** single sign-on (shared account across Chef, Canopy, Circuit). Set `NEXT_PUBLIC_CORTEX_URL` for cross-app auth and energy sync.
+Chef login also supports **Cortex** single sign-on (shared account across Chef, Canopy, Circuit). Set `NEXT_PUBLIC_CORTEX_URL` plus `NEXT_PUBLIC_CIRCUIT_API_URL` and `NEXT_PUBLIC_CANOPY_API_URL` for combined energy on the Decide page. Each backend needs `CORTEX_AUTH_URL` on Render.
 
 ---
 

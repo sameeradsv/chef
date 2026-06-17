@@ -2,9 +2,11 @@
 
 import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useSearchParams } from "next/navigation";
-import { api, type CookVsOrderResult, type DecisionOption, type UserState, getToken } from "@/lib/api";
-import { TZ, istHour } from "@/lib/tz";
+import { api, type CookVsOrderResult, type DecisionOption, type UserState } from "@/lib/api";
+import { gatherCombinedEnergy } from "@/lib/cross-app-energy";
+import { TZ } from "@/lib/tz";
 import { formatCurrency } from "@/lib/utils";
 import {
   sheetFooterPadding,
@@ -30,82 +32,16 @@ const defaultState: UserState = {
   stress_level: 5,
 };
 
-// ── Cross-app energy pre-fill ─────────────────────────────────────────────────
-
-const CORTEX_URL  = (process.env.NEXT_PUBLIC_CORTEX_URL  ?? "").replace(/\/$/, "");
-const CIRCUIT_URL = (process.env.NEXT_PUBLIC_CIRCUIT_URL ?? "").replace(/\/$/, "");
-const CANOPY_URL  = (process.env.NEXT_PUBLIC_CANOPY_URL  ?? "").replace(/\/$/, "");
-const CHEF_URL    = (process.env.NEXT_PUBLIC_API_URL     ?? "http://localhost:8000").replace(/\/$/, "");
-
-interface EnergySummary { drain_so_far: number; drain_ahead: number; source: string }
-
-async function fetchEnergy(baseUrl: string, path: string, token: string): Promise<EnergySummary | null> {
-  try {
-    const res = await fetch(`${baseUrl}${path}`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (!res.ok) return null;
-    return await res.json();
-  } catch {
-    return null;
-  }
+function willingnessBand(value: number): "low" | "mid" | "high" {
+  if (value <= 3) return "low";
+  if (value >= 8) return "high";
+  return "mid";
 }
 
-/** Returns true only if the current token is a Cortex account token. */
-async function isCortexAccount(token: string): Promise<boolean> {
-  if (!CORTEX_URL) return false;
-  try {
-    const res = await fetch(`${CORTEX_URL}/auth/me`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    return res.ok;
-  } catch {
-    return false;
-  }
-}
-
-async function gatherEnergyState(): Promise<{ state: Partial<UserState>; sources: string[] }> {
-  const token = getToken();
-  if (!token) return { state: {}, sources: [] };
-
-  // Only pre-fill when the user has a Cortex account.
-  // Local Chef accounts skip this entirely — decision page works as before.
-  const cortex = await isCortexAccount(token);
-  // Always fetch Chef's own drain so skipped-meal penalties reach local accounts.
-  // Circuit/Canopy are only added for Cortex cross-app users.
-  const [circuit, canopy, chef] = await Promise.all([
-    cortex && CIRCUIT_URL ? fetchEnergy(CIRCUIT_URL, "/api/sync/energy", token) : null,
-    cortex && CANOPY_URL  ? fetchEnergy(CANOPY_URL,  "/api/sync/energy", token) : null,
-    fetchEnergy(CHEF_URL, "/sync/energy", token),
-  ]);
-
-  const sources: string[] = [];
-  let drainSoFar = 0;
-  let drainAhead = 0;
-
-  if (circuit) { drainSoFar += circuit.drain_so_far; drainAhead += circuit.drain_ahead; sources.push("Circuit"); }
-  if (canopy)  { drainSoFar += canopy.drain_so_far;  drainAhead += canopy.drain_ahead;  sources.push("Canopy"); }
-  if (chef)    { drainSoFar += chef.drain_so_far; sources.push("Chef"); }
-
-  if (sources.length === 0) return { state: {}, sources: [] };
-
-  drainSoFar = Math.min(drainSoFar, 1);
-  drainAhead = Math.min(drainAhead, 1);
-
-  const energy_level        = Math.max(1, Math.min(10, Math.round((1 - drainSoFar) * 10)));
-  const willingness_to_cook = Math.max(1, Math.min(10, Math.round(Math.max(0, 1 - drainSoFar - drainAhead * 0.4) * 10)));
-
-  return { state: { energy_level, willingness_to_cook }, sources };
-}
-
-function inferEnergyFromTime(): number {
-  const h = istHour();
-  if (h >= 6  && h < 9)  return 7;
-  if (h >= 9  && h < 12) return 8;
-  if (h >= 12 && h < 15) return 6;
-  if (h >= 15 && h < 18) return 5;
-  if (h >= 18 && h < 21) return 7;
-  return 4;
+function restaurantFromOption(opt: DecisionOption): string {
+  if (opt.mode === "order" && opt.label.startsWith("Order from ")) return opt.label.slice("Order from ".length);
+  if (opt.mode === "eat_out" && opt.label.startsWith("Eat at ")) return opt.label.slice("Eat at ".length);
+  return opt.label;
 }
 
 function MonoLabel({ children, className = "" }: { children: React.ReactNode; className?: string }) {
@@ -291,6 +227,7 @@ function ContextSheet({
   state,
   onChange,
   onApply,
+  onReset,
   loading,
   people,
   onPeopleChange,
@@ -300,6 +237,7 @@ function ContextSheet({
   state: UserState;
   onChange: (k: keyof UserState, v: number | string) => void;
   onApply: (people: number) => void;
+  onReset: () => void;
   loading: boolean;
   people: number;
   onPeopleChange: (n: number) => void;
@@ -307,9 +245,10 @@ function ContextSheet({
   onClose: () => void;
 }) {
   const sliders: { key: keyof UserState; label: string; min: number; max: number; step?: number; suffix?: string }[] = [
-    { key: "energy_level",           label: "Energy",         min: 1,  max: 10 },
-    { key: "time_available_minutes", label: "Time available", min: 10, max: 120, step: 5, suffix: "min" },
-    { key: "budget_today",           label: "Budget",         min: 50, max: 800, step: 10, suffix: "₹" },
+    { key: "energy_level",           label: "Energy (override)",         min: 1,  max: 10 },
+    { key: "willingness_to_cook",    label: "Up for cooking (override)", min: 1,  max: 10 },
+    { key: "time_available_minutes", label: "Time available",            min: 10, max: 120, step: 5, suffix: "min" },
+    { key: "budget_today",           label: "Budget",                    min: 50, max: 800, step: 10, suffix: "₹" },
   ];
 
   return (
@@ -324,11 +263,14 @@ function ContextSheet({
         onClick={(e) => e.stopPropagation()}
       >
         <div className="shrink-0 flex items-center justify-between px-5 pt-5 pb-3">
-          <MonoLabel className="text-kitchen-muted">ADJUST CONTEXT</MonoLabel>
+          <MonoLabel className="text-kitchen-muted">SESSION OVERRIDES</MonoLabel>
           <button type="button" onClick={onClose} className="text-kitchen-muted hover:text-kitchen-text w-8 h-8 flex items-center justify-center text-lg">×</button>
         </div>
 
         <div className="flex-1 min-h-0 overflow-y-auto px-5 pb-3 space-y-5">
+          <p className="text-[11px] text-kitchen-muted">
+            Overrides today&apos;s comparison only. Energy preset matches Canopy&apos;s combined total; cooking mood from Settings.
+          </p>
           {sliders.map(({ key, label, min, max, step = 1, suffix }) => (
             <div key={key}>
               <div className="flex justify-between mb-1.5">
@@ -379,9 +321,17 @@ function ContextSheet({
         </div>
 
         <div
-          className="shrink-0 px-5 pt-3"
+          className="shrink-0 px-5 pt-3 space-y-2"
           style={{ borderTop: "1px solid var(--kitchen-line)", paddingBottom: sheetFooterPadding, background: "rgb(var(--kitchen-bg))" }}
         >
+          <button
+            type="button"
+            onClick={onReset}
+            disabled={loading}
+            className="w-full py-2 text-xs font-mono text-kitchen-muted hover:text-kitchen-accent transition-colors disabled:opacity-50"
+          >
+            Reset to combined preset
+          </button>
           <button
             type="button"
             onClick={() => { onApply(people); onClose(); }}
@@ -400,9 +350,11 @@ function ContextSheet({
 /* ─── Page ─────────────────────────────────────────────────────────────── */
 function DecisionPageInner() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const recipeId = searchParams.get("recipe") ?? undefined;
   const [result, setResult] = useState<CookVsOrderResult | null>(null);
   const [state, setState] = useState<UserState>(defaultState);
+  const [baselineState, setBaselineState] = useState<UserState>(defaultState);
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState<"loading" | "waking" | "ready">("loading");
   const [selected, setSelected] = useState<string | null>(null);
@@ -413,14 +365,16 @@ function DecisionPageInner() {
   const [showContext, setShowContext] = useState(false);
   const [showChart, setShowChart] = useState(false);
   const [consuming, setConsuming] = useState(false);
+  const [logging, setLogging] = useState(false);
+  const [logMessage, setLogMessage] = useState<string | null>(null);
   const [consumeResult, setConsumeResult] = useState<{ consumed: string[]; depleted: string[]; not_found: string[] } | null>(null);
 
-  async function runDecision(updatedState?: UserState, people?: number) {
+  async function runDecision(sessionState?: UserState, people?: number) {
     setLoading(true);
     setStatus("loading");
     try {
-      if (updatedState) await api.setUserState(updatedState);
-      const data = await api.cookVsOrder(people ?? peopleCount, recipeId);
+      const activeState = sessionState ?? state;
+      const data = await api.cookVsOrder(people ?? peopleCount, recipeId, activeState);
       setResult(data);
       setSelected(data.recommendation);
       setStatus("ready");
@@ -434,24 +388,51 @@ function DecisionPageInner() {
     }
   }
 
-  // On mount: load saved state + infer energy + cross-app data, then run comparison
+  async function handleLogDecision() {
+    if (!result || !selected) return;
+    setLogging(true);
+    setLogMessage(null);
+    try {
+      const opt = result.options.find((o) => o.mode === selected);
+      const payload: Parameters<typeof api.logHistory>[0] = {
+        decision: selected,
+        cost: opt?.cost,
+      };
+      if (selected === "cook") {
+        payload.recipe_name = result.recommended_recipe?.name ?? opt?.label;
+      } else if (opt) {
+        payload.restaurant_name = restaurantFromOption(opt);
+        payload.cuisine = result.recommended_restaurant?.cuisine;
+        payload.delivery_available = selected === "order";
+      }
+      await api.logHistory(payload);
+      setLogMessage("Logged to history");
+      setTimeout(() => router.push("/history"), 600);
+    } catch {
+      setLogMessage("Could not log — try again");
+    } finally {
+      setLogging(false);
+    }
+  }
+
+  // On mount: settings defaults + synced energy preset, then run comparison
   useEffect(() => {
     async function init() {
-      // 1. Load previously saved user state (willingness_to_cook, craving, budget, etc.)
       let saved: UserState = defaultState;
       try {
         const s = await api.getUserState();
         saved = { ...defaultState, ...s };
       } catch { /* use defaults */ }
 
-      // 2. Override energy: time-of-day inference, then cross-app data wins if available
-      const inferredEnergy = inferEnergyFromTime();
-      const { state: prefill, sources } = await gatherEnergyState();
-      const merged: UserState = { ...saved, energy_level: inferredEnergy, ...prefill };
-      setState(merged);
-      if (sources.length > 0) setEnergySources(sources);
+      const combinedEnergy = await gatherCombinedEnergy();
+      const preset: UserState = {
+        ...saved,
+        energy_level: combinedEnergy.energy_level ?? saved.energy_level,
+      };
+      setBaselineState(preset);
+      setState(preset);
+      if (combinedEnergy.fromCombined) setEnergySources(combinedEnergy.sources);
 
-      // 3. Load people count preference
       let people = 2;
       try {
         const prefs = await api.getPreferences();
@@ -460,7 +441,7 @@ function DecisionPageInner() {
         setPeopleCount(people);
       } catch { /* use default */ }
 
-      await runDecision(merged, people);
+      await runDecision(preset, people);
     }
     init();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -536,44 +517,53 @@ function DecisionPageInner() {
         )}
       </div>
 
-      {/* Cook inclination quick-select */}
-      <div>
-        <MonoLabel className="text-kitchen-muted block mb-2">UP FOR COOKING?</MonoLabel>
-        <div className="flex gap-2">
-          {([
-            { label: "Not really", value: 2 },
-            { label: "Maybe",      value: 5 },
-            { label: "Let's go",   value: 9 },
-          ] as const).map(({ label, value }) => {
-            const w = state.willingness_to_cook;
-            const active = value === 2 ? w <= 3 : value === 5 ? w >= 4 && w <= 7 : w >= 8;
-            return (
-              <button
-                key={label}
-                type="button"
-                disabled={loading}
-                onClick={() => {
-                  const updated = { ...state, willingness_to_cook: value };
-                  setState(updated);
-                  runDecision(updated, peopleCount);
-                }}
-                className="flex-1 py-2 text-xs font-mono transition-all disabled:opacity-50"
-                style={{
-                  borderRadius: "var(--radius-btn)",
-                  border: active ? "1px solid rgb(var(--kitchen-accent) / 0.5)" : "1px solid var(--kitchen-line2)",
-                  background: active ? "rgb(var(--kitchen-accent) / 0.1)" : "transparent",
-                  color: active ? "rgb(var(--kitchen-accent))" : "rgb(var(--kitchen-ink3))",
-                  letterSpacing: "0.06em",
-                }}
-              >
-                {label}
-              </button>
-            );
-          })}
+      {/* Context meta row */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2 min-w-0 flex-wrap">
+          <div
+            className="flex items-center gap-1.5 px-2.5 py-1.5 text-[10px] font-mono truncate"
+            style={{
+              border: `1px solid ${state.energy_level <= 4 ? "rgb(var(--kitchen-warn) / 0.4)" : "var(--kitchen-line)"}`,
+              borderRadius: "var(--radius-btn)",
+              background: state.energy_level <= 4 ? "rgb(var(--kitchen-warn) / 0.07)" : "rgb(var(--kitchen-surface))",
+              color: state.energy_level <= 4 ? "rgb(var(--kitchen-warn))" : "rgb(var(--kitchen-ink3))",
+            }}
+            title={
+              state.energy_level !== baselineState.energy_level
+                ? `Session override (combined preset ${baselineState.energy_level}/10)`
+                : energySources.length > 0
+                ? `Combined from ${energySources.join(" + ")} · ${state.energy_level}/10`
+                : `Energy ${state.energy_level}/10`
+            }
+          >
+            <span style={{ color: state.energy_level <= 4 ? "rgb(var(--kitchen-warn))" : "rgb(var(--kitchen-accent))" }}>◎</span>
+            Energy {state.energy_level}/10
+            {energySources.length > 0 && ` · ${energySources.join(" + ")}`}
+          </div>
+          <div
+            className="flex items-center gap-1.5 px-2.5 py-1.5 text-[10px] font-mono truncate"
+            style={{ border: "1px solid var(--kitchen-line)", borderRadius: "var(--radius-btn)", background: "rgb(var(--kitchen-surface))", color: "rgb(var(--kitchen-ink3))" }}
+            title={
+              state.willingness_to_cook !== baselineState.willingness_to_cook
+                ? `Session override (default ${baselineState.willingness_to_cook}/10)`
+                : `Default from Settings · ${state.willingness_to_cook}/10`
+            }
+          >
+            Cook mood {willingnessBand(state.willingness_to_cook) === "low" ? "low" : willingnessBand(state.willingness_to_cook) === "high" ? "high" : "mid"}
+          </div>
         </div>
+        <button
+          type="button"
+          onClick={() => setShowContext(true)}
+          className="flex-shrink-0 flex items-center gap-1.5 px-2.5 py-1.5 text-[10px] font-mono text-kitchen-muted hover:text-kitchen-accent transition-colors"
+          style={{ border: "1px solid var(--kitchen-line2)", borderRadius: "var(--radius-btn)" }}
+        >
+          <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+            <circle cx="6" cy="6" r="1.5"/><path d="M6 1v1.5M6 9.5V11M1 6h1.5M9.5 6H11M2.4 2.4l1.1 1.1M8.5 8.5l1.1 1.1M9.6 2.4l-1.1 1.1M3.5 8.5l-1.1 1.1"/>
+          </svg>
+          Override
+        </button>
       </div>
-
-      {/* Score cards */}
       {result && (
         <div className="space-y-2.5">
           {result.options.map((opt) => (
@@ -673,44 +663,16 @@ function DecisionPageInner() {
         </div>
       )}
 
-      {/* Context meta row */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2 min-w-0">
-          {energySources.length > 0 && (
-            <div
-              className="flex items-center gap-1.5 px-2.5 py-1.5 text-[10px] font-mono truncate"
-              style={{
-                border: `1px solid ${state.energy_level <= 4 ? "rgb(var(--kitchen-warn) / 0.4)" : "var(--kitchen-line)"}`,
-                borderRadius: "var(--radius-btn)",
-                background: state.energy_level <= 4 ? "rgb(var(--kitchen-warn) / 0.07)" : "rgb(var(--kitchen-surface))",
-                color: state.energy_level <= 4 ? "rgb(var(--kitchen-warn))" : "rgb(var(--kitchen-ink3))",
-              }}
-              title={`Energy level ${state.energy_level}/10 is influencing cook vs order scores`}
-            >
-              <span style={{ color: state.energy_level <= 4 ? "rgb(var(--kitchen-warn))" : "rgb(var(--kitchen-accent))" }}>◎</span>
-              Energy {state.energy_level}/10 · {energySources.join(" + ")}
-            </div>
-          )}
-        </div>
-        <button
-          type="button"
-          onClick={() => setShowContext(true)}
-          className="flex-shrink-0 flex items-center gap-1.5 px-2.5 py-1.5 text-[10px] font-mono text-kitchen-muted hover:text-kitchen-accent transition-colors"
-          style={{ border: "1px solid var(--kitchen-line2)", borderRadius: "var(--radius-btn)" }}
-        >
-          <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-            <circle cx="6" cy="6" r="1.5"/><path d="M6 1v1.5M6 9.5V11M1 6h1.5M9.5 6H11M2.4 2.4l1.1 1.1M8.5 8.5l1.1 1.1M9.6 2.4l-1.1 1.1M3.5 8.5l-1.1 1.1"/>
-          </svg>
-          Adjust
-        </button>
-      </div>
-
       {/* Context sheet (modal) */}
       {showContext && (
         <ContextSheet
           state={state}
           onChange={(k, v) => setState((s) => ({ ...s, [k]: v }))}
           onApply={(people) => { setPeopleCount(people); runDecision(state, people); }}
+          onReset={() => {
+            setState(baselineState);
+            runDecision(baselineState, peopleCount);
+          }}
           loading={loading}
           people={peopleCount}
           onPeopleChange={setPeopleCount}
@@ -754,29 +716,38 @@ function DecisionPageInner() {
 
       {/* Log CTA */}
       {result && (
-        <div className="flex gap-2 pt-1">
-          <Link
-            href="/history"
-            className="flex-1 py-3 text-sm font-medium text-center transition-opacity hover:opacity-90"
-            style={{
-              background: "rgb(var(--kitchen-accent))",
-              color: "rgb(26 18 10)",
-              borderRadius: "var(--radius-btn)",
-            }}
-          >
-            Log this decision
-          </Link>
-          <button
-            type="button"
-            className="px-4 py-3 text-sm text-kitchen-muted transition-colors hover:text-kitchen-text"
-            style={{
-              border: "1px solid var(--kitchen-line2)",
-              borderRadius: "var(--radius-btn)",
-            }}
-            onClick={() => runDecision()}
-          >
-            Refresh
-          </button>
+        <div className="space-y-2 pt-1">
+          <div className="flex gap-2">
+            <button
+              type="button"
+              disabled={logging || !selected}
+              onClick={handleLogDecision}
+              className="flex-1 py-3 text-sm font-medium text-center transition-opacity hover:opacity-90 disabled:opacity-50"
+              style={{
+                background: "rgb(var(--kitchen-accent))",
+                color: "rgb(26 18 10)",
+                borderRadius: "var(--radius-btn)",
+              }}
+            >
+              {logging ? "Logging…" : "Log this decision"}
+            </button>
+            <button
+              type="button"
+              className="px-4 py-3 text-sm text-kitchen-muted transition-colors hover:text-kitchen-text"
+              style={{
+                border: "1px solid var(--kitchen-line2)",
+                borderRadius: "var(--radius-btn)",
+              }}
+              onClick={() => runDecision()}
+            >
+              Refresh
+            </button>
+          </div>
+          {logMessage && (
+            <p className="text-xs text-center font-mono" style={{ color: logMessage.startsWith("Could") ? "rgb(var(--kitchen-danger))" : "rgb(var(--kitchen-success))" }}>
+              {logMessage}
+            </p>
+          )}
         </div>
       )}
     </div>

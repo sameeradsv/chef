@@ -86,6 +86,15 @@ def _state(db: Session, user_id: str) -> UserStatePayload:
     )
 
 
+def _state_with_overrides(base: UserStatePayload, body: CookVsOrderRequest) -> UserStatePayload:
+    data = base.model_dump()
+    for field in UserStatePayload.model_fields:
+        override = getattr(body, field, None)
+        if override is not None:
+            data[field] = override
+    return UserStatePayload(**data)
+
+
 def _expiring_names(pantry: list) -> list[str]:
     names = []
     for p in pantry:
@@ -107,12 +116,12 @@ def cook_vs_order(
 ):
     body = body or CookVsOrderRequest()
     pantry = db.query(IngredientModel).filter(IngredientModel.user_id == current_user.id).all()
-    state = _state(db, current_user.id)
+    state = _state_with_overrides(_state(db, current_user.id), body)
 
     ckey = _dcache_key(
         current_user.id, body.recipe_id, body.restaurant_id, body.people_count,
-        sorted(p.id for p in pantry), state.energy_level, state.craving,
-        state.budget_today, state.time_available_minutes,
+        sorted(p.id for p in pantry), state.energy_level, state.willingness_to_cook,
+        state.craving, state.budget_today, state.time_available_minutes,
     )
     if cached := _dcache_get(ckey):
         return cached

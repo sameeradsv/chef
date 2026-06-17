@@ -81,6 +81,44 @@ Feed `cost_savings`, `delivery_delay`, and `high_cost_penalty` in [DECISION_ENGI
 
 ---
 
+## Cross-app energy
+
+Chef participates in the shared Cortex ecosystem energy model (same convention as Canopy and Circuit).
+
+### Decide page preset
+
+`frontend/src/lib/cross-app-energy.ts` fetches **today's energy timelines** from:
+
+| App | Endpoint | Role |
+|-----|----------|------|
+| Circuit | `GET /api/energy/timeline?date=` | Opening balance (`start_energy` — sleep + carry-over) |
+| Canopy | `GET /api/sync/energy/timeline?date=` | Interaction deltas |
+| Chef | `GET /energy/timeline?date=` | Meal deltas |
+
+It merges events by IST time and applies signed `delta` values up to the current moment — the same combined total shown on **Canopy → Energy**. The result presets the Decide page energy slider (overridable per session).
+
+### Frontend env vars (baked at build time)
+
+Use the **same names as Canopy/Circuit** (see `frontend/.env.local.example`):
+
+| Variable | Purpose |
+|----------|---------|
+| `NEXT_PUBLIC_API_URL` | Chef backend (this app) |
+| `NEXT_PUBLIC_CORTEX_URL` | Cortex auth — required for cross-app JWT |
+| `NEXT_PUBLIC_CIRCUIT_API_URL` | Circuit backend timelines |
+| `NEXT_PUBLIC_CANOPY_API_URL` | Canopy backend timelines |
+
+Chef does **not** use `NEXT_PUBLIC_CHEF_API_URL` for itself — that variable is for sibling apps calling Chef.
+
+**Local:** `frontend/.env.local`  
+**Production:** GitHub repo → Settings → Actions → Variables (plus `CHEF_API_URL` for `NEXT_PUBLIC_API_URL` in CI).
+
+### Backend
+
+Each sibling backend needs `CORTEX_AUTH_URL` on Render so the shared Cortex JWT validates cross-origin timeline requests.
+
+---
+
 ## Implementation notes for agents
 
 - Do NOT start with full Swiggy/Zomato integrations in MVP—estimates, prices, cuisine match, and cost comparison only.

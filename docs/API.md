@@ -51,7 +51,7 @@ POST /decision/recommend-meal
 
 | Method | Purpose |
 |--------|---------|
-| `POST /decision/cook-vs-order` | Compare cook vs order vs eat out; deterministic scores + reasoning payload |
+| `POST /decision/cook-vs-order` | Compare cook vs order vs eat out; deterministic scores + reasoning payload. Optional JSON body: `people_count`, `recipe_id`, and **session-only** state overrides (`energy_level`, `willingness_to_cook`, `time_available_minutes`, `budget_today`, `craving`, etc.) merged over persisted `user_state` for this request only. |
 | `POST /decision/recommend-meal` | Single meal recommendation (e.g. specific recipe or restaurant option) with reasons |
 
 Must use [DECISION_ENGINE.md](./DECISION_ENGINE.md) scoring first.
@@ -106,7 +106,7 @@ GET /sync/energy
 | Method | Purpose |
 |--------|---------|
 | `GET /energy/timeline` | Per-meal energy events for a calendar day (default: today in IST). Returns `events[]` with `occurred_at` (naive IST), `time` (`HH:MM` IST), `delta`, `running_energy`, `energy` (0–1 compat), `label`, `note`, `source`. Satisfaction-weighted signed deltas; skipped meal windows synthesised when a window closes with no logged entry. |
-| `GET /sync/energy` | Today's cumulative decision drain (logged-meal drain + biological skip drain for closed windows). Returns `drain_so_far`, `drain_ahead`, `meals_today[]` (`at` is naive IST), `as_of` (naive IST). |
+| `GET /sync/energy` | Today's cumulative decision drain (logged-meal drain + biological skip drain for closed windows). Returns `drain_so_far`, `drain_ahead`, `energy_so_far`, `energy_ahead`, `meals_today[]` (`at` is naive IST), `as_of` (naive IST). |
 
 Both filter by `CookingHistoryModel.timestamp` (meal time), so backdated entries land on their original date.
 

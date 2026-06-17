@@ -374,10 +374,14 @@ export const api = {
     }),
 
   // Decisions
-  cookVsOrder: (people_count?: number, recipe_id?: string) =>
+  cookVsOrder: (people_count?: number, recipe_id?: string, state?: Partial<UserState>) =>
     request<CookVsOrderResult>("/decision/cook-vs-order", {
       method: "POST",
-      body: JSON.stringify({ people_count, ...(recipe_id ? { recipe_id } : {}) }),
+      body: JSON.stringify({
+        people_count,
+        ...(recipe_id ? { recipe_id } : {}),
+        ...(state ?? {}),
+      }),
     }),
   recommendMeal: (fast = false) =>
     request<RecommendMealResult>(
