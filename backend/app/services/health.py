@@ -186,6 +186,9 @@ def estimate_meal_nutrition(recipe_name: str) -> Dict[str, float]:
 
 
 from app.tz_utils import logical_meal_date_from_utc_naive
+
+
+def analyze_history(entries: List, days: int = 7) -> Dict[str, float]:
     """
     Aggregate nutrition from CookingHistoryModel rows into daily averages.
     Only rows with a recipe_name contribute. Day boundaries use meal-log days (IST).
