@@ -38,7 +38,7 @@ class IngredientModel(Base):
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
     user_id: Mapped[Optional[str]] = mapped_column(
-        String(36), ForeignKey("user_accounts.id"), nullable=True, index=True
+        String(36), ForeignKey("user_accounts.id", ondelete="CASCADE"), nullable=True, index=True
     )
     name: Mapped[str] = mapped_column(String(200))
     normalized_name: Mapped[str] = mapped_column(String(200), index=True)
@@ -59,7 +59,7 @@ class UserStateModel(Base):
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
     user_id: Mapped[Optional[str]] = mapped_column(
-        String(36), ForeignKey("user_accounts.id"), nullable=True, unique=True, index=True
+        String(36), ForeignKey("user_accounts.id", ondelete="CASCADE"), nullable=True, unique=True, index=True
     )
     energy_level: Mapped[int] = mapped_column(Integer, default=5)
     time_available_minutes: Mapped[int] = mapped_column(Integer, default=30)
@@ -76,7 +76,7 @@ class UserPreferencesModel(Base):
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
     user_id: Mapped[Optional[str]] = mapped_column(
-        String(36), ForeignKey("user_accounts.id"), nullable=True, unique=True, index=True
+        String(36), ForeignKey("user_accounts.id", ondelete="CASCADE"), nullable=True, unique=True, index=True
     )
     favorite_cuisines: Mapped[str] = mapped_column(Text, default="Indian,South Indian")
     spice_level: Mapped[int] = mapped_column(Integer, default=5)
@@ -93,7 +93,7 @@ class DiscardedIngredientModel(Base):
     __tablename__ = "discarded_ingredients"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
-    user_id: Mapped[str] = mapped_column(String(36), ForeignKey("user_accounts.id"), nullable=False, index=True)
+    user_id: Mapped[str] = mapped_column(String(36), ForeignKey("user_accounts.id", ondelete="CASCADE"), nullable=False, index=True)
     ingredient_name: Mapped[str] = mapped_column(String(200))
     normalized_name: Mapped[str] = mapped_column(String(200), index=True)
     quantity: Mapped[float] = mapped_column(Float, default=0)
@@ -110,7 +110,7 @@ class CookingHistoryModel(Base):
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
     user_id: Mapped[str] = mapped_column(
-        String(36), ForeignKey("user_accounts.id"), nullable=False, index=True
+        String(36), ForeignKey("user_accounts.id", ondelete="CASCADE"), nullable=False, index=True
     )
     decision: Mapped[str] = mapped_column(String(20))  # cook | order | eat_out
     recipe_name: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
@@ -127,7 +127,7 @@ class GroceryItemModel(Base):
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
     user_id: Mapped[str] = mapped_column(
-        String(36), ForeignKey("user_accounts.id"), nullable=False, index=True
+        String(36), ForeignKey("user_accounts.id", ondelete="CASCADE"), nullable=False, index=True
     )
     ingredient_name: Mapped[str] = mapped_column(String(200))
     quantity: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
