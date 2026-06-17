@@ -63,4 +63,13 @@ def me(current_user: UserAccountModel = Depends(get_current_user)):
 @router.get("/status")
 def status_check(db: Session = Depends(get_db)):
     has_users = db.scalar(select(UserAccountModel.id).limit(1)) is not None
-    return {"has_users": has_users, "sync_ready": True}
+    return {"has_users": has_users}
+
+
+@router.delete("/account", status_code=204)
+def delete_account(
+    db: Session = Depends(get_db),
+    current_user: UserAccountModel = Depends(get_current_user),
+):
+    db.delete(current_user)
+    db.commit()
