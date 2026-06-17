@@ -134,20 +134,24 @@ Posted via [API.md](./API.md) `POST /user/state`. Used by [DECISION_ENGINE.md](.
   "delivery_fee": 45,
   "rating": 4.2,
   "cuisine": "South Indian",
-  "discount_available": true
+  "discount_available": true,
+  "delivery_available": true
 }
 ```
 
 | Field | Semantics |
 |-------|-----------|
-| `platform` | Delivery platform label (e.g. Swiggy, Zomato) |
+| `platform` | Delivery platform label (e.g. Swiggy, Zomato) or `Dine-in` for on-site venues |
 | `restaurant_name` | Venue name |
-| `estimated_delivery_minutes` | Expected wait; penalized in ordering score |
+| `estimated_delivery_minutes` | Expected wait; penalized in ordering score (0 for dine-in-only venues) |
 | `total_cost` | All-in order cost for comparison |
 | `delivery_fee` | Fee component (may inform high_cost_penalty) |
 | `rating` | Quality signal |
 | `cuisine` | Match against craving and preferences |
 | `discount_available` | Whether a promo applies (MVP: manual or scraped signal) |
+| `delivery_available` | Whether the **Order** path applies. `false` for dine-in-only venues (e.g. office cafeteria logged as `eat_out` only). When false, cook-vs-order returns cook + eat-out only. |
+
+**History-derived venues** (`restaurants.py`): built from logged `order` / `eat_out` history. A venue is orderable if the user has logged at least one `order` there; venues logged only as `eat_out` are dine-in-only. Name heuristics (`cafeteria`, `canteen`, `office`, `mess`, etc.) also mark a venue dine-in-only when there is no order history. AI delivery suggestions reuse only orderable history names.
 
 MVP sourcing: [INTEGRATIONS.md](./INTEGRATIONS.md)—not full platform API integration.
 

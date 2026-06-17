@@ -15,6 +15,32 @@ if TYPE_CHECKING:
 _cache: dict[str, tuple[float, list[dict]]] = {}
 _CACHE_TTL = 1800  # 30 minutes
 
+_DINE_IN_ONLY_KEYWORDS = (
+    "cafeteria",
+    "canteen",
+    "office",
+    "mess",
+    "food court",
+    "campus",
+    "staff canteen",
+    "works canteen",
+    "company kitchen",
+)
+
+
+def _looks_dine_in_only(name: str) -> bool:
+    lower = name.lower()
+    return any(kw in lower for kw in _DINE_IN_ONLY_KEYWORDS)
+
+
+def _infer_delivery_available(order_count: int, eat_out_count: int, name: str) -> bool:
+    """True when the venue has been ordered from, or isn't clearly dine-in only."""
+    if order_count > 0:
+        return True
+    if eat_out_count > 0:
+        return False
+    return not _looks_dine_in_only(name)
+
 
 def _get_client():
     api_key = os.getenv("GROQ_API_KEY")
@@ -85,9 +111,21 @@ def generate_history_restaurant_suggestions(
         key = name.lower()
         bucket = buckets.setdefault(
             key,
-            {"name": name, "sats": [], "costs": [], "cuisines": [], "count": 0},
+            {
+                "name": name,
+                "sats": [],
+                "costs": [],
+                "cuisines": [],
+                "count": 0,
+                "order_count": 0,
+                "eat_out_count": 0,
+            },
         )
         bucket["count"] += 1
+        if entry.decision == "order":
+            bucket["order_count"] += 1
+        elif entry.decision == "eat_out":
+            bucket["eat_out_count"] += 1
         if entry.satisfaction is not None:
             bucket["sats"].append(entry.satisfaction)
         if entry.cost is not None:
@@ -119,25 +157,35 @@ def generate_history_restaurant_suggestions(
             if sum(bucket["sats"]) / len(bucket["sats"]) <= 2.0:
                 continue
 
+        delivery_available = _infer_delivery_available(
+            bucket["order_count"],
+            bucket["eat_out_count"],
+            bucket["name"],
+        )
+
         seed = seed_by_name.get(key)
         if seed:
             if vegetarian and not seed.get("vegetarian_friendly", True):
                 continue
             row = dict(seed)
+            if not delivery_available:
+                row["delivery_available"] = False
+                row["platform"] = "Dine-in"
         else:
             cuisine = Counter(bucket["cuisines"]).most_common(1)[0][0] if bucket["cuisines"] else "Indian"
             total_cost = float(bucket["costs"][-1]) if bucket["costs"] else 300.0
             row = {
                 "id": f"hist-{uuid.uuid4().hex[:8]}",
-                "platform": "Swiggy",
+                "platform": "Swiggy" if delivery_available else "Dine-in",
                 "restaurant_name": bucket["name"],
-                "estimated_delivery_minutes": 35,
+                "estimated_delivery_minutes": 35 if delivery_available else 0,
                 "total_cost": total_cost,
-                "delivery_fee": 40.0,
+                "delivery_fee": 40.0 if delivery_available else 0.0,
                 "rating": 4.2,
                 "cuisine": cuisine,
                 "discount_available": False,
                 "vegetarian_friendly": vegetarian,
+                "delivery_available": delivery_available,
             }
         row["from_history"] = True
         results.append(row)
@@ -338,7 +386,11 @@ def pick_restaurant_for_user(
 
     fav_cuisines = cuisines or []
     history = generate_history_restaurant_suggestions(db, user_id, vegetarian=vegetarian)
-    known_names = [r["restaurant_name"] for r in history]
+    known_names = [
+        r["restaurant_name"]
+        for r in history
+        if r.get("delivery_available", True)
+    ]
 
     ai: list[dict] = []
     if city.strip() and not skip_ai:

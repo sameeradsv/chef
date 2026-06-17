@@ -80,7 +80,9 @@ ordering_score = (
 - `delivery_delay` — from `estimated_delivery_minutes`
 - `high_cost_penalty` — from `total_cost`, `delivery_fee`, vs `budget_today`
 
-Eat-out can be modeled similarly with travel/time and higher effort penalties; compare all three options and select argmax with tie-break rules defined in code.
+**Dine-in-only venues:** When [Restaurant Option](./DATA_MODELS.md#restaurant-option) `delivery_available` is `false`, the ordering score is not computed and the **Order** option is omitted from the comparison (cook vs eat-out only). This prevents history-derived dine-in places (e.g. office cafeteria logged as `eat_out`) from appearing as delivery options. Seed and AI delivery suggestions default to `delivery_available: true`.
+
+Eat-out can be modeled similarly with travel/time and higher effort penalties; compare all applicable options and select argmax with tie-break rules defined in code.
 
 ---
 

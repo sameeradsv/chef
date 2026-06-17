@@ -185,6 +185,7 @@ class RestaurantOption(BaseModel):
     rating: float
     cuisine: str
     discount_available: bool = False
+    delivery_available: bool = True
 
 
 class DecisionOption(BaseModel):

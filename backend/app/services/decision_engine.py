@@ -232,7 +232,11 @@ def build_reasoning(
         reasons.append(f"prep time only {recipe.prep_time_minutes + recipe.cook_time_minutes} mins")
         if recipe.cleanup_effort <= 3:
             reasons.append("low cleanup effort")
-        if restaurant and restaurant.estimated_delivery_minutes >= 35:
+        if (
+            restaurant
+            and restaurant.delivery_available
+            and restaurant.estimated_delivery_minutes >= 35
+        ):
             reasons.append("delivery times currently high")
         if energy >= 7:
             reasons.append(f"energy at {energy}/10 — good time to cook")
@@ -294,11 +298,14 @@ def compare_options(
 ) -> CookVsOrderResponse:
     pantry_urgency = pantry_expiry_urgency(pantry_ingredients)
     cook_opt = score_cook(recipe, state, pantry_urgency, restaurant.total_cost, people_count, cooking_skill)
-    order_opt = score_order(restaurant, state, state.craving, people_count)
     eat_opt = score_eat_out(restaurant, state, state.craving, people_count)
-    cook_opt, order_opt = _apply_personalization(cook_opt, order_opt, profile, recipe.cuisine)
 
-    options = [cook_opt, order_opt, eat_opt]
+    if restaurant.delivery_available:
+        order_opt = score_order(restaurant, state, state.craving, people_count)
+        cook_opt, order_opt = _apply_personalization(cook_opt, order_opt, profile, recipe.cuisine)
+        options = [cook_opt, order_opt, eat_opt]
+    else:
+        options = [cook_opt, eat_opt]
     options.sort(key=lambda o: o.score, reverse=True)
     winner = options[0]
 
