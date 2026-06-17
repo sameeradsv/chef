@@ -17,10 +17,11 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 @router.post("/register", response_model=TokenResponse, status_code=201)
 def register(payload: RegisterRequest, db: Session = Depends(get_db)):
-    if db.scalar(select(UserAccountModel.id).where(UserAccountModel.username == payload.username)):
+    username = payload.username.lower()
+    if db.scalar(select(UserAccountModel.id).where(UserAccountModel.username == username)):
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Username already taken")
     user = UserAccountModel(
-        username=payload.username,
+        username=username,
         hashed_passcode=hash_password(payload.passcode),
     )
     db.add(user)

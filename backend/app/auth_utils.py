@@ -110,7 +110,7 @@ def _validate_cortex_token(db: Session, token: str) -> UserAccountModel | None:
         base = username
         candidate = base
         suffix = 2
-        while db.scalar(select(UserAccountModel).where(UserAccountModel.username == candidate)):
+        while db.scalar(select(UserAccountModel.id).where(UserAccountModel.username == candidate)):
             candidate = f"{base}-cx{suffix}"
             suffix += 1
         user = UserAccountModel(username=candidate, hashed_passcode="", cortex_user_id=cortex_id)
