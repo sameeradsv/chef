@@ -77,7 +77,7 @@ docker compose up -d postgres
 - `restaurants.py` — Seed/history/AI restaurant pools; `pick_restaurants_for_decision` returns primary + delivery venue; `delivery_available` inferred from order vs eat-out history, dine-in name heuristics, and user overrides (`restaurant_delivery_json` on preferences, set from History log/edit); energy-aware fast-food option injection
 - `grocery.py` — Grocery suggestion logic
 - `llm.py` — Groq Llama 3.1 8B narrative explanations and one-liner meal suggestions (requires `GROQ_API_KEY`); `generate_meal_suggestion` results are cached in-process for 60 min keyed on meal type + top-8 pantry names + energy + dietary prefs
-- `chef_agent.py` — Groq tool-calling stream for `/agent/chat` (requires `GROQ_API_KEY`)
+- `chef_agent.py` — Groq tool-calling stream for `/agent/chat` (requires `GROQ_API_KEY`); 429 fallback chain (`llama-3.3-70b-versatile` → `llama-3.1-8b-instant`), `_NO_TOOL_MODELS` denylist, `_FUNC_RE` text-format tool call recovery
 - `mealdb.py` — Groq recipe generation (70b for full, 8b for fast) with 30-min in-process cache keyed on pantry contents + meal type + preferences; falls back to TheMealDB live search then seed data. Cache pool is always ≥10 results; callers slice to their requested count. Wired into `/recipes/search` via TheMealDB
 
 **`CookingHistoryModel` field semantics**: `timestamp` = the meal's actual date/time (user-specified, defaults to insert time if omitted); `created_at` = DB insert time (always entry time). Both are stored as naive UTC in the DB; API responses serialize them as **naive IST strings** (`YYYY-MM-DDTHH:MM:SS`). Energy and nutrition endpoints filter by `timestamp` so backdated entries land on their original date, not today.
@@ -125,7 +125,7 @@ These are in-scope future features still using placeholder/seed data:
 
 ### Implemented but needs configuration
 - **LLM narrative explanations** — `services/llm.py` calls Groq Llama 3.1 8B; requires `GROQ_API_KEY` set in Render dashboard. Decision narratives are baked into the `_DCACHE` result (30-min TTL); meal suggestions are cached separately for 60 min
-- **Chat agent** — `routers/agent.py` + `services/chef_agent.py`; Groq Llama 3.3 70B with tool calling; requires same `GROQ_API_KEY`
+- **Chat agent** — `routers/agent.py` + `services/chef_agent.py`; Groq Llama 3.3 70B with tool calling, 429 fallback to `llama-3.1-8b-instant`, text-format tool call recovery; requires same `GROQ_API_KEY`
 - **Vision / screenshot parsing** — `routers/vision.py` calls Groq Llama 4 Scout (`meta-llama/llama-4-scout-17b-16e-instruct`); requires same `GROQ_API_KEY`. Used by history page screenshot-to-log feature.
 - **Recipe generation** — `services/mealdb.py:generate_recipes()` uses Groq; requires `GROQ_API_KEY`. Without it, recipe suggestions return MealDB/seed results only. Results are cached in-process for 30 min; the decision-router `_DCACHE` is also 30 min (both invalidate naturally on pantry changes because cache keys include pantry contents).
 - **TheMealDB live search** — `services/mealdb.py` fetches live results; wired into `/recipes/search` alongside seed data
