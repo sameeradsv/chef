@@ -4,8 +4,9 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "node scripts/generate-pwa-icons.mjs && next build",
-    "build:pages": "node scripts/generate-pwa-icons.mjs && next build",
+    "build": "node scripts/sync-recipe-ids.mjs && node scripts/generate-pwa-icons.mjs && next build",
+    "build:pages": "node scripts/sync-recipe-ids.mjs && node scripts/generate-pwa-icons.mjs && next build",
+    "sync-recipe-ids": "node scripts/sync-recipe-ids.mjs",
     "start": "next start",
     "lint": "next lint",
     "generate-pwa-icons": "node scripts/generate-pwa-icons.mjs"
