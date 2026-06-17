@@ -85,10 +85,11 @@ function ConsumeSheet({
   onClose,
 }: {
   ingredient: Ingredient;
-  onConfirm: (amountUsed: number) => void;
+  onConfirm: (amountUsed: number, addToGrocery: boolean) => void;
   onClose: () => void;
 }) {
   const [amount, setAmount] = useState<string>("");
+  const [addToGrocery, setAddToGrocery] = useState(true);
   const used = parseFloat(amount) || 0;
   const remaining = Math.max(0, ingredient.quantity - used);
   const depleted = used >= ingredient.quantity;
@@ -144,11 +145,34 @@ function ConsumeSheet({
           </div>
         )}
 
+        <button
+          type="button"
+          onClick={() => setAddToGrocery((v) => !v)}
+          className="w-full flex items-center gap-3 px-4 py-3 mb-3 text-left transition-all"
+          style={{
+            border: addToGrocery ? "1px solid rgb(var(--kitchen-accent) / 0.5)" : "1px solid var(--kitchen-line2)",
+            borderRadius: "var(--radius-btn)",
+            background: addToGrocery ? "rgb(var(--kitchen-accent) / 0.07)" : "transparent",
+          }}
+        >
+          <div
+            className="w-4 h-4 rounded border-2 flex items-center justify-center flex-shrink-0 transition-colors"
+            style={{ borderColor: addToGrocery ? "rgb(var(--kitchen-accent))" : "var(--kitchen-line2)" }}
+          >
+            {addToGrocery && (
+              <svg width="10" height="8" viewBox="0 0 10 8" fill="none" stroke="rgb(var(--kitchen-accent))" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M1 4l2.5 2.5L9 1" />
+              </svg>
+            )}
+          </div>
+          <span className="text-sm text-kitchen-text">Add to grocery list for next shop</span>
+        </button>
+
         <div className="flex gap-2">
           <button
             type="button"
             disabled={!used || used <= 0}
-            onClick={() => onConfirm(used)}
+            onClick={() => onConfirm(used, addToGrocery)}
             className="flex-1 py-3 text-sm font-medium transition-opacity hover:opacity-90 disabled:opacity-40"
             style={{ background: "rgb(var(--kitchen-accent))", color: "rgb(26 18 10)", borderRadius: "var(--radius-btn)" }}
           >
@@ -175,11 +199,12 @@ function DiscardSheet({
   onClose,
 }: {
   ingredient: Ingredient;
-  onConfirm: (reason: string) => void;
+  onConfirm: (reason: string, addToGrocery: boolean) => void;
   onClose: () => void;
 }) {
   const isExpired = (ingredient.days_until_expiry ?? 1) < 0;
   const [reason, setReason] = useState(isExpired ? "expired" : "spoiled");
+  const [addToGrocery, setAddToGrocery] = useState(true);
 
   return (
     <div
@@ -204,7 +229,7 @@ function DiscardSheet({
         </div>
 
         <MonoLabel className="text-kitchen-muted block mb-2">REASON</MonoLabel>
-        <div className="space-y-2 mb-5">
+        <div className="space-y-2 mb-4">
           {DISCARD_REASONS.map((r) => (
             <button
               key={r.id}
@@ -237,10 +262,33 @@ function DiscardSheet({
           ))}
         </div>
 
+        <button
+          type="button"
+          onClick={() => setAddToGrocery((v) => !v)}
+          className="w-full flex items-center gap-3 px-4 py-3 mb-3 text-left transition-all"
+          style={{
+            border: addToGrocery ? "1px solid rgb(var(--kitchen-accent) / 0.5)" : "1px solid var(--kitchen-line2)",
+            borderRadius: "var(--radius-btn)",
+            background: addToGrocery ? "rgb(var(--kitchen-accent) / 0.07)" : "transparent",
+          }}
+        >
+          <div
+            className="w-4 h-4 rounded border-2 flex items-center justify-center flex-shrink-0 transition-colors"
+            style={{ borderColor: addToGrocery ? "rgb(var(--kitchen-accent))" : "var(--kitchen-line2)" }}
+          >
+            {addToGrocery && (
+              <svg width="10" height="8" viewBox="0 0 10 8" fill="none" stroke="rgb(var(--kitchen-accent))" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M1 4l2.5 2.5L9 1" />
+              </svg>
+            )}
+          </div>
+          <span className="text-sm text-kitchen-text">Add to grocery list for next shop</span>
+        </button>
+
         <div className="flex gap-2">
           <button
             type="button"
-            onClick={() => onConfirm(reason)}
+            onClick={() => onConfirm(reason, addToGrocery)}
             className="flex-1 py-3 text-sm font-medium transition-opacity hover:opacity-90"
             style={{ background: "rgb(var(--kitchen-warn))", color: "rgb(26 18 10)", borderRadius: "var(--radius-btn)" }}
           >
@@ -1119,7 +1167,7 @@ export default function InventoryPage() {
     load();
   }
 
-  async function handleConsume(amountUsed: number) {
+  async function handleConsume(amountUsed: number, addToGrocery: boolean) {
     if (!consuming) return;
     const remaining = consuming.quantity - amountUsed;
     if (remaining <= 0) {
@@ -1127,13 +1175,19 @@ export default function InventoryPage() {
     } else {
       await api.updateIngredient(consuming.id, { quantity: remaining, opened: true });
     }
+    if (addToGrocery) {
+      await api.addGrocery({ ingredient_name: consuming.name, quantity: consuming.quantity, unit: consuming.unit });
+    }
     setConsuming(null);
     load();
   }
 
-  async function handleDiscard(reason: string) {
+  async function handleDiscard(reason: string, addToGrocery: boolean) {
     if (!discarding) return;
     await api.discardIngredient(discarding.id, reason);
+    if (addToGrocery) {
+      await api.addGrocery({ ingredient_name: discarding.name, quantity: discarding.quantity, unit: discarding.unit });
+    }
     setDiscarding(null);
     load();
   }
@@ -1387,7 +1441,7 @@ export default function InventoryPage() {
             };
 
             return (
-              <div className="space-y-4 pb-4">
+              <div className="space-y-4 pb-[260px] lg:pb-4">
                 {groups.map(({ label: groupLabel, items: groupItems }) => (
                   <div key={groupLabel}>
                     <MonoLabel className="text-kitchen-muted block mb-2">{groupLabel} · {groupItems.length}</MonoLabel>
@@ -1419,7 +1473,7 @@ export default function InventoryPage() {
       {/* FABs — only in pantry view */}
       {view === "pantry" && (
         <div
-          className="fixed right-5 flex flex-col items-center gap-3 z-40 md:hidden"
+          className="fixed right-5 flex flex-col items-center gap-3 z-40 lg:hidden"
           style={{ bottom: "calc(var(--content-bottom-inset) + 12px)" }}
         >
           {imageError && (

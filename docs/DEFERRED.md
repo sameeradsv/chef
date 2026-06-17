@@ -19,3 +19,5 @@
 - `GET /plan/week` + Home meal-plan strip
 - `POST /sync/export` + `/sync/import` (Settings → Data)
 - Decide predict history card (prior polish pass)
+- Pantry FAB layout fix — `lg:hidden` breakpoint + `pb-[260px]` list clearance (landscape visibility + portrait occlusion)
+- Grocery restock from use/discard — opt-out checkbox in `ConsumeSheet` + `DiscardSheet`; calls `POST /grocery` on confirm
