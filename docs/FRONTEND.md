@@ -9,7 +9,7 @@ Stack: Next.js 15 / React 19 / TypeScript / Tailwind CSS — static export deplo
 ## Dashboard
 
 - expiring ingredients
-- meal pick card (`POST /decision/recommend-meal?fast=true`)
+- meal pick card (`POST /decision/recommend-meal?fast=true`) — **TonightCard** shows mode, pantry match %, and **% cheaper vs order** when cook wins
 - meal-type tabs + quick recipe row (`GET /recipes/recommend`)
 - week glance (history dots)
 - mood pills (writes craving to user state, reloads picks)
@@ -48,7 +48,7 @@ With:
 - effort
 - recommendation reasoning
 - **Log this decision** — `POST /history` with selected mode, recipe/restaurant, and cost (then navigates to History)
-- **Override sheet** — session-only sliders for energy, cooking mood, time, budget, people, craving (not persisted to Settings except via explicit save paths)
+- **Override sheet** — session-only sliders for energy, cooking mood, **health priority**, **stress**, time, budget, people, craving (not persisted to Settings except via explicit save paths)
 - **Combined energy preset** — on load, energy defaults to the same total as Canopy → Energy (Circuit `start_energy` + merged deltas from Circuit, Canopy, and Chef timelines today). Requires Cortex sign-in and sibling API URLs in env ([INTEGRATIONS.md](./INTEGRATIONS.md#cross-app-energy))
 - score breakdown waterfall (`DecisionScoreWaterfall`)
 
@@ -142,6 +142,7 @@ Substitutions: [AI.md](./AI.md). Recipe model: [DATA_MODELS.md](./DATA_MODELS.md
 - cuisines, spice level, dietary restrictions, vegetarian toggle, cooking skill, city, people count
 - **Decision defaults** — “Up for cooking?” (saved to `user/state.willingness_to_cook`); energy is **not** set here (comes from cross-app combined total on Decide)
 - appearance (theme picker — Hearth dark / Mise warm)
+- **Help** — GitHub issues link; **Privacy** — in-app modal (no push-notification toggles — deferred per design)
 - Security section — WebAuthn passkey registration (`POST /auth/webauthn/register/begin|complete`)
 
 **Data sources:** `GET /user/preferences`, `PUT /user/preferences`, `GET /user/state`, `POST /user/state`. Theme is localStorage-only.

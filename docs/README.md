@@ -18,6 +18,7 @@ Chef is an AI-powered kitchen decision intelligence system. These docs split pro
 | [AI.md](./AI.md) | Provider (Groq), NL queries, normalization, vision parsing, AI limits |
 | [API.md](./API.md) | REST endpoints |
 | [FRONTEND.md](./FRONTEND.md) | All screens: Dashboard, Inventory, Decision, Recipe, Health, Chat, History, Settings |
+| [DECISIONS.md](./DECISIONS.md) | UI removals, restored features, pick-up-next |
 | [INTEGRATIONS.md](./INTEGRATIONS.md) | Recipe APIs (TheMealDB live), Swiggy/Zomato stub, compare logic |
 
 ---

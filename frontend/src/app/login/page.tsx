@@ -6,7 +6,7 @@ import { CortexSignIn, setAuthToken } from "@shared/cortex";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePasskey } from "@/hooks/usePasskey";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "") ?? "http://localhost:8000";
+const API_BASE = (process.env.NEXT_PUBLIC_API_URL ?? "").replace(/\/$/, "");
 const CORTEX_URL = (process.env.NEXT_PUBLIC_CORTEX_URL ?? "").replace(/\/$/, "");
 
 type BackendStatus = "checking" | "ok" | "waking" | "unreachable";
@@ -256,18 +256,6 @@ export default function LoginPage() {
             >
               {error}
             </p>
-          )}
-
-          {isLogin && (
-            <div className="flex justify-end">
-              <button
-                type="button"
-                onClick={() => alert("Password reset is not available in this build. Contact your account admin.")}
-                className="text-[12px] text-kitchen-muted hover:text-kitchen-accent transition-colors"
-              >
-                Forgot password?
-              </button>
-            </div>
           )}
 
           <button

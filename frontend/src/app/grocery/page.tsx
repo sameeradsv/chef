@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { api, type GroceryItem } from "@/lib/api";
+import { SwipeGroceryRow } from "@/components/SwipeGroceryRow";
 
 function MonoLabel({ children, className = "" }: { children: React.ReactNode; className?: string }) {
   return <span className={`text-[10px] font-mono tracking-[0.12em] uppercase ${className}`}>{children}</span>;
@@ -226,29 +227,32 @@ export default function GroceryPage() {
               <MonoLabel className="text-kitchen-muted mb-2 block">TO BUY · {pending.length}</MonoLabel>
               <ul className="space-y-1.5">
                 {pending.map((item) => (
-                  <li
-                    key={item.id}
-                    className="flex items-center gap-3 px-4 py-3"
-                    style={{
-                      border: "1px solid var(--kitchen-line)",
-                      borderRadius: "var(--radius-card)",
-                      background: "rgb(var(--kitchen-card))",
-                    }}
-                  >
-                    <CheckBox checked={false} onChange={() => toggleBought(item)} />
-                    <span className="flex-1 text-sm text-kitchen-text">{item.ingredient_name}</span>
-                    {item.quantity && (
-                      <MonoLabel className="text-kitchen-muted">
-                        {item.quantity}{item.unit ? ` ${item.unit}` : ""}
-                      </MonoLabel>
-                    )}
-                    <button
-                      onClick={() => handleDelete(item.id)}
-                      className="text-kitchen-muted hover:text-kitchen-danger transition-colors text-base leading-none ml-1"
-                      aria-label="Remove"
+                  <li key={item.id}>
+                    <SwipeGroceryRow onMarkBought={() => toggleBought(item)}>
+                    <div
+                      className="flex items-center gap-3 px-4 py-3"
+                      style={{
+                        border: "1px solid var(--kitchen-line)",
+                        borderRadius: "var(--radius-card)",
+                        background: "rgb(var(--kitchen-card))",
+                      }}
                     >
-                      ×
-                    </button>
+                      <CheckBox checked={false} onChange={() => toggleBought(item)} />
+                      <span className="flex-1 text-sm text-kitchen-text">{item.ingredient_name}</span>
+                      {item.quantity && (
+                        <MonoLabel className="text-kitchen-muted">
+                          {item.quantity}{item.unit ? ` ${item.unit}` : ""}
+                        </MonoLabel>
+                      )}
+                      <button
+                        onClick={() => handleDelete(item.id)}
+                        className="text-kitchen-muted hover:text-kitchen-danger transition-colors text-base leading-none ml-1"
+                        aria-label="Remove"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  </SwipeGroceryRow>
                   </li>
                 ))}
               </ul>

@@ -93,21 +93,21 @@ Data is multi-user — all tables keyed by `user_id`. JWT auth (30-day tokens, b
 | `app/layout.tsx` | Root layout wrapped in `<AuthWrapper>` |
 | `app/page.tsx` | Dashboard — expiring items, recommendations, `WeekGlance` strip, `ThemeToggle` |
 | `app/inventory/page.tsx` | Pantry CRUD |
-| `app/decision/page.tsx` | Cook vs order vs eat out — combined energy preset (`lib/cross-app-energy.ts`), session overrides, direct history log, score waterfall |
-| `app/recipe/page.tsx` | Recipe browse + `RecipeCoverageScatter` pantry coverage chart |
+| `app/recipe/page.tsx` | Recipe browse — debounced `GET /recipes/search?q=` (TheMealDB + seed) + `RecipeCoverageScatter` |
+| `app/decision/page.tsx` | Cook vs order vs eat out — combined energy preset, score waterfall, LLM `narrative` when returned |
 | `app/recipe/[id]/page.tsx` | Recipe detail with pantry ingredient usage and interactive cooking steps |
 | `app/grocery/page.tsx` | Grocery list — add/buy/delete items + AI suggestions |
 | `app/history/page.tsx` | Decision history — IST datetime picker, Week/Month/Year/All filters (server-side by meal `timestamp`), pagination (20/page), edit/delete, satisfaction ratings; screenshot-to-log via vision API |
 | `app/health/page.tsx` | Nutrition health — macro rings (SVG), per-nutrient RDA bars, meal-type-keyed food suggestions |
 | `app/chat/page.tsx` | Terminal-style chat UI — native Groq agent via `POST /agent/chat` (`<TerminalChat>`) |
-| `app/settings/page.tsx` | User preferences — cuisines, spice, dietary; decision default (cooking mood only); passkey |
+| `app/settings/page.tsx` | User preferences, theme, passkey; Help (GitHub issues) + Privacy modal in About |
 | `app/login/page.tsx` | Login / register; pings `/health` to check backend reachability |
 | `lib/api.ts` | Typed fetch wrapper; all API types live here; reads `NEXT_PUBLIC_API_URL` |
 | `lib/cross-app-energy.ts` | Combined energy preset for Decide — fetches Circuit/Canopy/Chef timelines (same total as Canopy Energy page); uses `NEXT_PUBLIC_CIRCUIT_API_URL`, `NEXT_PUBLIC_CANOPY_API_URL`, `NEXT_PUBLIC_CORTEX_URL` |
 | `lib/tz.ts` | IST-only display/input helpers — naive IST strings from API; no client-side UTC conversion |
 | `lib/utils.ts` | `expiryBadge`, `formatCurrency` helpers |
 | `contexts/AuthContext.tsx` | JWT token state, login/register/logout, localStorage persistence |
-| `components/` | `Layout.tsx` (nav — 8 tabs: Home/Pantry/Decide/Grocery/History/Health/Chat/You), `AuthWrapper.tsx`, `Card.tsx`, `DecisionCard.tsx`, `TerminalChat.tsx`, `BarcodeScanner.tsx` |
+| `components/` | `Layout.tsx`, `AuthWrapper.tsx`, `Card.tsx` (`LoadingCard` only), `TerminalChat.tsx`, `BarcodeScanner.tsx`, `DecisionScoreWaterfall.tsx`, `RecipeCoverageScatter.tsx` |
 
 Custom Tailwind color tokens are defined as CSS variables (`--kitchen-bg`, `--kitchen-accent`, `--kitchen-warn`, etc.) in `globals.css`.
 
@@ -140,12 +140,13 @@ The design handoff (`Claude Design/chef-designs/design_handoff_kitchen_intellige
 | **Pantry theme** (third colour scheme) | Dropped | Only two themes (Hearth dark, Mise warm) are shipped; Pantry (cool neutral/blue) was cut as low-usage |
 | **Density control** (compact/standard/comfy) | Dropped | The spacing multiplier adds complexity with negligible perceptible benefit at this scale |
 | **Connected services** (Instacart, OpenTable, DoorDash, Apple Health) | Deferred | Re-enable once Swiggy/Zomato live API integration ships — the rows belong in Settings when real integrations exist |
+| **Push notifications** (expiring pantry, meal reminders) | **Removed from Settings UI** | Deferred — not in MVP; anti-goal is notification overload (`docs/AGENTS.md`). Do not re-add fake toggles without backend. |
+| **Kitchen preference sliders** (noise, cleanup tolerance) | **Removed from Settings UI** | No backend fields; were localStorage-only stubs. |
+| **DecisionCard** component | **Removed** | Superseded by full Decide page layout + `DecisionScoreWaterfall`. |
 
 ### Open Design Gaps (tracked, not yet built)
 
-| Feature | Notes |
-|---|---|
-| Grocery — swipe-to-mark-bought | `translateX(-72px)` swipe revealing amber "Mark bought"; currently uses checkboxes |
+_None at this time — see deferred items in `docs/DECISIONS.md` (pgvector, predictive grocery, live delivery APIs)._
 
 ### Closed Design Gaps (implemented)
 
@@ -160,7 +161,13 @@ The design handoff (`Claude Design/chef-designs/design_handoff_kitchen_intellige
 | Barcode Scanner — detected-product overlay | `components/BarcodeScanner.tsx` — full-screen camera, amber reticle, bottom confirm sheet with qty + storage |
 | Nutrition / Health page | `app/health/page.tsx` — macro rings, per-nutrient RDA status, meal-type-keyed food suggestions; backed by `/nutrition/summary` |
 | Chat page | `app/chat/page.tsx` + `components/TerminalChat.tsx` — native Groq agent (`POST /agent/chat`) |
-| Recipe browse page | `app/recipe/page.tsx` — recipe list with pantry coverage scatter chart |
+| Recipe browse page | `app/recipe/page.tsx` — server-side search + pantry coverage scatter |
+| Recipe search wired to API | `app/recipe/page.tsx` — debounced `GET /recipes/search?q=` |
+| Decide LLM narrative | `app/decision/page.tsx` — shows `narrative` when API returns it |
+| Tonight's Pick savings badge | `app/page.tsx` — `% cheaper` on cook wins (`savings_vs_order`) |
+| Grocery swipe-to-mark-bought | `SwipeGroceryRow` on `app/grocery/page.tsx` |
+| Health/stress in Settings | Decision defaults sliders → `PUT /user/state` |
+| Decide health/stress sliders | `app/decision/page.tsx` — session overrides sheet |
 
 ### Additions Beyond Design Spec
 

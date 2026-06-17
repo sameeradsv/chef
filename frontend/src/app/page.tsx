@@ -233,6 +233,9 @@ function TonightCard({ meal, pickLabel }: { meal: RecommendMealResult; pickLabel
             }}
           >
             {meal.mode.toUpperCase().replace("_", " ")} · {scoreLabel}
+            {meal.mode === "cook" && meal.savings_vs_order > 0 && (
+              <span className="text-kitchen-good"> · {Math.round(meal.savings_vs_order)}% cheaper</span>
+            )}
           </div>
         </div>
 

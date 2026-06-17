@@ -46,6 +46,7 @@ function RecipeCard({ recipe }: { recipe: Recipe }) {
 export default function RecipeListPage() {
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [loading, setLoading] = useState(true);
+  const [searchLoading, setSearchLoading] = useState(false);
   const [query, setQuery] = useState("");
   const [error, setError] = useState<string | null>(null);
 
@@ -56,12 +57,21 @@ export default function RecipeListPage() {
       .finally(() => setLoading(false));
   }, []);
 
-  const filtered = query.trim()
-    ? recipes.filter((r) =>
-        r.name.toLowerCase().includes(query.toLowerCase()) ||
-        r.cuisine.toLowerCase().includes(query.toLowerCase())
-      )
-    : recipes;
+  useEffect(() => {
+    if (loading) return;
+
+    const trimmed = query.trim();
+    const timer = setTimeout(() => {
+      setSearchLoading(true);
+      setError(null);
+      api.searchRecipes(trimmed)
+        .then(setRecipes)
+        .catch(() => setError(trimmed ? "Search failed." : "Could not load recipes."))
+        .finally(() => setSearchLoading(false));
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [query, loading]);
 
   return (
     <div className="space-y-4 pt-2">
@@ -72,13 +82,20 @@ export default function RecipeListPage() {
         </h1>
       </div>
 
-      <input
-        value={query}
-        onChange={(e) => setQuery(e.target.value)}
-        placeholder="Search recipes or cuisine…"
-        className="w-full bg-kitchen-surface text-kitchen-text text-sm px-3.5 py-3 outline-none focus:ring-1 ring-kitchen-accent/50 placeholder:text-kitchen-muted"
-        style={{ border: "1px solid var(--kitchen-line2)", borderRadius: "var(--radius-btn)" }}
-      />
+      <div className="relative">
+        <input
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Search recipes or cuisine…"
+          className="w-full bg-kitchen-surface text-kitchen-text text-sm px-3.5 py-3 outline-none focus:ring-1 ring-kitchen-accent/50 placeholder:text-kitchen-muted"
+          style={{ border: "1px solid var(--kitchen-line2)", borderRadius: "var(--radius-btn)" }}
+        />
+        {searchLoading && (
+          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-mono text-kitchen-muted">
+            Searching…
+          </span>
+        )}
+      </div>
 
       {!loading && recipes.length > 0 && <RecipeCoverageScatter recipes={recipes} />}
 
@@ -95,18 +112,18 @@ export default function RecipeListPage() {
             <div key={i} className="loading-shimmer h-40 rounded-card" />
           ))}
         </div>
-      ) : filtered.length === 0 ? (
+      ) : recipes.length === 0 ? (
         <div className="py-12 text-center" style={{ border: "1px dashed var(--kitchen-line2)", borderRadius: "var(--radius-card)" }}>
           <p className="text-kitchen-muted text-sm">
-            {query ? "No recipes match your search." : "No recipes available with current filters."}
+            {query.trim() ? "No recipes match your search." : "No recipes available with current filters."}
           </p>
-          {!query && (
+          {!query.trim() && (
             <p className="text-kitchen-muted text-xs mt-1">Check your vegetarian / skip settings.</p>
           )}
         </div>
       ) : (
-        <div className="grid grid-cols-2 gap-3">
-          {filtered.map((r) => <RecipeCard key={r.id} recipe={r} />)}
+        <div className={`grid grid-cols-2 gap-3 transition-opacity ${searchLoading ? "opacity-60" : ""}`}>
+          {recipes.map((r) => <RecipeCard key={r.id} recipe={r} />)}
         </div>
       )}
     </div>

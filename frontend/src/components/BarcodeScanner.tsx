@@ -18,9 +18,48 @@ export function BarcodeScanner({ onDetected, onClose }: Props) {
   const [product, setProduct] = useState<BarcodeResult | null>(null);
   const [qty, setQty] = useState<string>("");
   const [storageType, setStorageType] = useState<typeof STORAGE_OPTIONS[number]>("pantry");
+  const [torchOn, setTorchOn] = useState(false);
+  const [torchSupported, setTorchSupported] = useState(false);
   const detectedRef = useRef(false);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const controlsRef = useRef<any>(null);
+
+  useEffect(() => {
+    if (status !== "scanning") return;
+    const detectTorch = () => {
+      const stream = videoRef.current?.srcObject as MediaStream | null;
+      const track = stream?.getVideoTracks()[0];
+      if (!track?.getCapabilities) return;
+      const caps = track.getCapabilities() as MediaTrackCapabilities & { torch?: boolean };
+      setTorchSupported(Boolean(caps.torch));
+    };
+    detectTorch();
+    const id = window.setInterval(detectTorch, 400);
+    return () => window.clearInterval(id);
+  }, [status]);
+
+  useEffect(() => {
+    return () => {
+      if (!torchOn) return;
+      const stream = videoRef.current?.srcObject as MediaStream | null;
+      const track = stream?.getVideoTracks()[0];
+      track?.applyConstraints({ advanced: [{ torch: false } as MediaTrackConstraintSet] }).catch(() => {});
+    };
+  }, [torchOn]);
+
+  async function toggleTorch() {
+    const stream = videoRef.current?.srcObject as MediaStream | null;
+    const track = stream?.getVideoTracks()[0];
+    if (!track) return;
+    const next = !torchOn;
+    try {
+      await track.applyConstraints({ advanced: [{ torch: next } as MediaTrackConstraintSet] });
+      setTorchOn(next);
+    } catch {
+      setTorchSupported(false);
+      setTorchOn(false);
+    }
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -148,16 +187,24 @@ export function BarcodeScanner({ onDetected, onClose }: Props) {
             <path d="M3 3l10 10M13 3L3 13" />
           </svg>
         </button>
-        <button
-          type="button"
-          className="flex items-center justify-center text-white opacity-50 cursor-not-allowed"
-          style={{ width: 36, height: 36, borderRadius: "50%", background: "rgba(0,0,0,0.5)", backdropFilter: "blur(8px)" }}
-          aria-label="Flash (not available)"
-        >
-          <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M9 2L4 9h5l-2 5 7-8H9l2-4z" />
-          </svg>
-        </button>
+        {torchSupported && (
+          <button
+            type="button"
+            onClick={toggleTorch}
+            className="flex items-center justify-center text-white transition-opacity hover:opacity-80"
+            style={{
+              width: 36, height: 36, borderRadius: "50%",
+              background: torchOn ? "rgba(228,160,80,0.55)" : "rgba(0,0,0,0.5)",
+              backdropFilter: "blur(8px)",
+            }}
+            aria-label={torchOn ? "Turn flash off" : "Turn flash on"}
+            aria-pressed={torchOn}
+          >
+            <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M9 2L4 9h5l-2 5 7-8H9l2-4z" />
+            </svg>
+          </button>
+        )}
       </div>
 
       {/* Centered reticle — only when scanning */}

@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.dependencies import get_current_user
 from app.models import UserAccountModel, UserPreferencesModel, UserStateModel
-from app.schemas import UserPreferencesPayload, UserPreferencesResponse, UserProfileResponse, UserStatePayload, UserStateResponse
+from app.schemas import UserPreferencesPayload, UserPreferencesResponse, UserStatePayload, UserStateResponse
 
 from app.services.restaurants import load_delivery_overrides
 

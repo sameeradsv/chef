@@ -7,15 +7,6 @@ import { useTheme, type Theme } from "@/contexts/ThemeContext";
 import { api, type UserPreferences, type UserState } from "@/lib/api";
 import { usePasskey } from "@/hooks/usePasskey";
 
-function readLocalBool(key: string, fallback: boolean): boolean {
-  if (typeof window === "undefined") return fallback;
-  const v = localStorage.getItem(key);
-  return v === null ? fallback : v === "true";
-}
-function writeLocal(key: string, val: boolean) {
-  localStorage.setItem(key, String(val));
-}
-
 function MonoLabel({ children, className = "" }: { children: React.ReactNode; className?: string }) {
   return <span className={`text-[10px] font-mono tracking-[0.12em] uppercase ${className}`}>{children}</span>;
 }
@@ -39,38 +30,20 @@ function SettingsRow({
   onClick?: () => void;
   destructive?: boolean;
 }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="w-full flex items-center justify-between px-4 py-3.5 text-left"
-      style={{ borderBottom: "1px solid var(--kitchen-line)" }}
-    >
+  const className = "w-full flex items-center justify-between px-4 py-3.5 text-left";
+  const style = { borderBottom: "1px solid var(--kitchen-line)" };
+  const content = (
+    <>
       <span className={`text-sm ${destructive ? "text-kitchen-danger" : "text-kitchen-text"}`}>{label}</span>
       {value && <span className="text-sm text-kitchen-muted">{value}</span>}
-    </button>
+    </>
   );
-}
-
-/* ─── Toggle ───────────────────────────────────────────────────────────── */
-function Toggle({ value, onChange }: { value: boolean; onChange: (v: boolean) => void }) {
+  if (!onClick) {
+    return <div className={className} style={style}>{content}</div>;
+  }
   return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={value}
-      onClick={() => onChange(!value)}
-      className="relative flex-shrink-0 transition-colors"
-      style={{ width: 44, height: 26, borderRadius: 999, background: value ? "rgb(var(--kitchen-accent))" : "var(--kitchen-line2)" }}
-    >
-      <span
-        className="absolute top-1 transition-all"
-        style={{
-          width: 18, height: 18, borderRadius: "50%", background: "#fff",
-          left: value ? 22 : 4,
-          boxShadow: "0 1px 3px rgba(0,0,0,0.3)",
-        }}
-      />
+    <button type="button" onClick={onClick} className={className} style={style}>
+      {content}
     </button>
   );
 }
@@ -194,40 +167,16 @@ export default function SettingsPage() {
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [prefsOpen, setPrefsOpen] = useState(false);
+  const [showPrivacy, setShowPrivacy] = useState(false);
 
-  // Local-only settings
-  const [notifExpiring, setNotifExpiring] = useState(false);
-  const [notifTimeToStart, setNotifTimeToStart] = useState(false);
-  const [defaultCookTime, setDefaultCookTime] = useState(45);
-  const [effortBudget, setEffortBudget] = useState(8);
   const [decisionState, setDecisionState] = useState<UserState | null>(null);
   const [defaultWillingness, setDefaultWillingness] = useState(5);
+  const [defaultHealth, setDefaultHealth] = useState(5);
+  const [defaultStress, setDefaultStress] = useState(5);
   const [savingDecisionDefaults, setSavingDecisionDefaults] = useState(false);
   const [decisionDefaultsSaved, setDecisionDefaultsSaved] = useState(false);
 
-  useEffect(() => {
-    setNotifExpiring(readLocalBool("chef_notif_expiring", false));
-    setNotifTimeToStart(readLocalBool("chef_notif_timetostart", false));
-    const ct = localStorage.getItem("chef_default_cook_time");
-    if (ct) setDefaultCookTime(Number(ct));
-    const eb = localStorage.getItem("chef_effort_budget");
-    if (eb) setEffortBudget(Number(eb));
-  }, []);
-
-  function toggleNotifExpiring(v: boolean) {
-    setNotifExpiring(v);
-    writeLocal("chef_notif_expiring", v);
-  }
-  function toggleNotifTimeToStart(v: boolean) {
-    setNotifTimeToStart(v);
-    writeLocal("chef_notif_timetostart", v);
-  }
-  function saveKitchenSettings() {
-    localStorage.setItem("chef_default_cook_time", String(defaultCookTime));
-    localStorage.setItem("chef_effort_budget", String(effortBudget));
-  }
-
-  async function saveDecisionDefaults(willingness: number) {
+  async function saveDecisionDefaults(patch: Partial<Pick<UserState, "willingness_to_cook" | "health_priority" | "stress_level">>) {
     setSavingDecisionDefaults(true);
     setDecisionDefaultsSaved(false);
     try {
@@ -242,9 +191,14 @@ export default function SettingsPage() {
       };
       const updated = await api.setUserState({
         ...base,
-        willingness_to_cook: willingness,
+        willingness_to_cook: patch.willingness_to_cook ?? defaultWillingness,
+        health_priority: patch.health_priority ?? defaultHealth,
+        stress_level: patch.stress_level ?? defaultStress,
       });
       setDecisionState(updated);
+      setDefaultWillingness(updated.willingness_to_cook);
+      setDefaultHealth(updated.health_priority);
+      setDefaultStress(updated.stress_level);
       setDecisionDefaultsSaved(true);
       setTimeout(() => setDecisionDefaultsSaved(false), 2000);
     } catch {
@@ -275,6 +229,8 @@ export default function SettingsPage() {
       .then((s) => {
         setDecisionState(s);
         setDefaultWillingness(s.willingness_to_cook);
+        setDefaultHealth(s.health_priority);
+        setDefaultStress(s.stress_level);
       })
       .catch(() => { /* defaults stay at 5 */ });
   }, []);
@@ -615,13 +571,13 @@ export default function SettingsPage() {
         )}
       </div>
 
-      {/* Kitchen */}
+      {/* Decision defaults */}
       <div
         className="overflow-hidden mt-3"
         style={{ border: "1px solid var(--kitchen-line)", borderRadius: "var(--radius-card)", background: "rgb(var(--kitchen-card))" }}
       >
         <SectionHeader>DECISION DEFAULTS</SectionHeader>
-        <div className="px-4 py-4 space-y-5" style={{ borderBottom: "1px solid var(--kitchen-line)" }}>
+        <div className="px-4 py-4 space-y-5">
           <p className="text-[11px] text-kitchen-muted -mt-2">
             Cooking mood is used on Decide unless you override for this session. Energy presets from Canopy&apos;s combined total (Circuit + Canopy + Chef).
           </p>
@@ -641,7 +597,7 @@ export default function SettingsPage() {
                     disabled={savingDecisionDefaults}
                     onClick={() => {
                       setDefaultWillingness(value);
-                      saveDecisionDefaults(value);
+                      saveDecisionDefaults({ willingness_to_cook: value });
                     }}
                     className="flex-1 py-2 text-xs font-mono transition-all disabled:opacity-50"
                     style={{
@@ -658,70 +614,37 @@ export default function SettingsPage() {
               })}
             </div>
           </div>
+          <div>
+            <MonoLabel className="text-kitchen-muted block mb-2">HEALTH PRIORITY · {defaultHealth}</MonoLabel>
+            <input
+              type="range"
+              min={1}
+              max={10}
+              value={defaultHealth}
+              disabled={savingDecisionDefaults}
+              onChange={(e) => setDefaultHealth(Number(e.target.value))}
+              onMouseUp={(e) => saveDecisionDefaults({ health_priority: Number((e.target as HTMLInputElement).value) })}
+              onTouchEnd={(e) => saveDecisionDefaults({ health_priority: Number((e.target as HTMLInputElement).value) })}
+              className="w-full accent-[rgb(var(--kitchen-accent))]"
+            />
+          </div>
+          <div>
+            <MonoLabel className="text-kitchen-muted block mb-2">STRESS LEVEL · {defaultStress}</MonoLabel>
+            <input
+              type="range"
+              min={1}
+              max={10}
+              value={defaultStress}
+              disabled={savingDecisionDefaults}
+              onChange={(e) => setDefaultStress(Number(e.target.value))}
+              onMouseUp={(e) => saveDecisionDefaults({ stress_level: Number((e.target as HTMLInputElement).value) })}
+              onTouchEnd={(e) => saveDecisionDefaults({ stress_level: Number((e.target as HTMLInputElement).value) })}
+              className="w-full accent-[rgb(var(--kitchen-accent))]"
+            />
+          </div>
           {decisionDefaultsSaved && (
             <p className="text-[11px] font-mono" style={{ color: "rgb(var(--kitchen-success))" }}>Defaults saved</p>
           )}
-        </div>
-        <SectionHeader>KITCHEN</SectionHeader>
-        <div className="px-4 py-4 space-y-5" style={{ borderBottom: "1px solid var(--kitchen-line)" }}>
-          <div>
-            <div className="flex justify-between mb-1.5">
-              <MonoLabel className="text-kitchen-muted">DEFAULT COOK TIME</MonoLabel>
-              <MonoLabel className="text-kitchen-accent">≤ {defaultCookTime}m</MonoLabel>
-            </div>
-            <input
-              type="range" min={10} max={120} step={5}
-              value={defaultCookTime}
-              onChange={(e) => setDefaultCookTime(Number(e.target.value))}
-              onMouseUp={saveKitchenSettings}
-              onTouchEnd={saveKitchenSettings}
-              className="w-full accent-kitchen-accent"
-            />
-            <div className="flex justify-between mt-0.5">
-              <span className="text-[11px] text-kitchen-muted">10m</span>
-              <span className="text-[11px] text-kitchen-muted">2h</span>
-            </div>
-          </div>
-          <div>
-            <div className="flex justify-between mb-1.5">
-              <MonoLabel className="text-kitchen-muted">EFFORT BUDGET</MonoLabel>
-              <MonoLabel className="text-kitchen-accent">{effortBudget} / 10</MonoLabel>
-            </div>
-            <input
-              type="range" min={1} max={10}
-              value={effortBudget}
-              onChange={(e) => setEffortBudget(Number(e.target.value))}
-              onMouseUp={saveKitchenSettings}
-              onTouchEnd={saveKitchenSettings}
-              className="w-full accent-kitchen-accent"
-            />
-            <div className="flex justify-between mt-0.5">
-              <span className="text-[11px] text-kitchen-muted">Easy only</span>
-              <span className="text-[11px] text-kitchen-muted">Anything</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Notifications */}
-      <div
-        className="overflow-hidden mt-3"
-        style={{ border: "1px solid var(--kitchen-line)", borderRadius: "var(--radius-card)", background: "rgb(var(--kitchen-card))" }}
-      >
-        <SectionHeader>NOTIFICATIONS</SectionHeader>
-        <div className="px-4 py-3.5 flex items-center justify-between" style={{ borderBottom: "1px solid var(--kitchen-line)" }}>
-          <div>
-            <p className="text-sm text-kitchen-text">Expiring ingredients</p>
-            <p className="text-[11px] text-kitchen-muted mt-0.5">Daily reminder before things go bad</p>
-          </div>
-          <Toggle value={notifExpiring} onChange={toggleNotifExpiring} />
-        </div>
-        <div className="px-4 py-3.5 flex items-center justify-between">
-          <div>
-            <p className="text-sm text-kitchen-text">Time to start</p>
-            <p className="text-[11px] text-kitchen-muted mt-0.5">Alert when it&apos;s time to begin cooking for tonight</p>
-          </div>
-          <Toggle value={notifTimeToStart} onChange={toggleNotifTimeToStart} />
         </div>
       </div>
 
@@ -787,9 +710,48 @@ export default function SettingsPage() {
       >
         <SectionHeader>ABOUT</SectionHeader>
         <SettingsRow label="Version" value="0.4.2" />
-        <SettingsRow label="Help &amp; support" onClick={() => {}} />
-        <SettingsRow label="Privacy" onClick={() => {}} />
+        <SettingsRow
+          label="Help &amp; support"
+          onClick={() => window.open("https://github.com/sameeradsv/chef/issues", "_blank", "noopener,noreferrer")}
+        />
+        <SettingsRow label="Privacy" onClick={() => setShowPrivacy(true)} />
       </div>
+
+      {showPrivacy && (
+        <div
+          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4"
+          style={{ background: "rgba(0,0,0,0.55)" }}
+          onClick={() => setShowPrivacy(false)}
+        >
+          <div
+            className="w-full max-w-md p-5 space-y-3"
+            style={{
+              background: "rgb(var(--kitchen-card))",
+              border: "1px solid var(--kitchen-line)",
+              borderRadius: "var(--radius-card)",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 className="text-base font-display text-kitchen-text">Privacy</h2>
+            <p className="text-sm text-kitchen-muted leading-relaxed">
+              Chef stores your pantry, meal history, and preferences in your account on our server.
+              We do not sell your data. Camera access is used only while the barcode scanner is open
+              and is never recorded or uploaded.
+            </p>
+            <button
+              type="button"
+              onClick={() => setShowPrivacy(false)}
+              className="w-full py-2.5 text-sm font-medium text-kitchen-accent transition-opacity hover:opacity-80"
+              style={{
+                border: "1px solid rgb(var(--kitchen-accent) / 0.3)",
+                borderRadius: "var(--radius-btn)",
+              }}
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Sign out */}
       <div className="pt-4 pb-8 space-y-2">

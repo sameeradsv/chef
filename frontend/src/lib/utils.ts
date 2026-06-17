@@ -26,16 +26,3 @@ export function expiryBadge(days: number | null | undefined): {
 export function formatCurrency(n: number): string {
   return `₹${Math.round(n)}`;
 }
-
-export function modeLabel(mode: string): string {
-  switch (mode) {
-    case "cook":
-      return "Cook at home";
-    case "order":
-      return "Order delivery";
-    case "eat_out":
-      return "Eat out";
-    default:
-      return mode;
-  }
-}

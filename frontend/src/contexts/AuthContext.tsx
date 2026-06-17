@@ -8,7 +8,7 @@ import {
 } from "@shared/cortex";
 import type { AuthUser } from "@shared/cortex";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "") ?? "http://localhost:8000";
+const API_BASE = (process.env.NEXT_PUBLIC_API_URL ?? "").replace(/\/$/, "");
 
 async function callAuth(
   endpoint: string,

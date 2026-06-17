@@ -7,7 +7,7 @@ const CIRCUIT_URL = (
 const CANOPY_URL = (
   process.env.NEXT_PUBLIC_CANOPY_API_URL ?? process.env.NEXT_PUBLIC_CANOPY_URL ?? ""
 ).replace(/\/$/, "");
-const CHEF_URL = (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000").replace(/\/$/, "");
+const CHEF_URL = (process.env.NEXT_PUBLIC_API_URL ?? "").replace(/\/$/, "");
 
 export interface EnergyTimelineEvent {
   time: string;

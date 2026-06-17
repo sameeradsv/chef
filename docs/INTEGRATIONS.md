@@ -24,7 +24,25 @@ Use for `GET /recipes/search` and `GET /recipes/recommend` ([API.md](./API.md)).
 
 ## Swiggy and Zomato integration
 
-### MVP recommendation
+### Status (2026-06-17): **Not available — do not implement**
+
+**Decision:** Live Swiggy and Zomato APIs are **not available** to this project today (no official partner API, no approved scraping/automation stack). Chef continues to use **`data/seed_restaurants.json`** for order/eat-out comparison in the decision engine.
+
+**Do not:**
+- Add Swiggy/Zomato SDK or unofficial API clients
+- Build scrapers or browser automation against their apps/sites without explicit legal/API approval
+- Ship UI that implies live menu or live delivery quotes from those platforms
+
+**Until APIs exist:**
+- Keep seed/history-based restaurant pools (`services/restaurants.py`)
+- Show cost/time comparisons from deterministic engine + seed data
+- Use **deep links** only if product adds manual “open in app” affordances later
+
+**When APIs become available:** Revisit [INTEGRATIONS.md](./INTEGRATIONS.md) MVP scope (estimates, menu prices, cuisine match, cost comparison — not full in-app ordering).
+
+---
+
+### MVP recommendation (historical — superseded by status above)
 
 **Do NOT start with full integrations.**
 
@@ -37,7 +55,7 @@ Start with:
 
 ---
 
-### Initial approach
+### Initial approach (deferred)
 
 Use:
 
@@ -121,7 +139,7 @@ Each sibling backend needs `CORTEX_AUTH_URL` on Render so the shared Cortex JWT 
 
 ## Implementation notes for agents
 
-- Do NOT start with full Swiggy/Zomato integrations in MVP—estimates, prices, cuisine match, and cost comparison only.
+- Do NOT start with full Swiggy/Zomato integrations — **live APIs unavailable (2026-06-17); see [INTEGRATIONS.md](./INTEGRATIONS.md#swiggy-and-zomato-integration)**. Seed restaurants only until official APIs exist.
 - Prefer deep links to platforms for actual ordering until Phase 2+.
 - Scraping/automation must fail gracefully; decision engine should still run with partial restaurant data.
 - Keep restaurant records as comparison DTOs, not as inventory source of truth.

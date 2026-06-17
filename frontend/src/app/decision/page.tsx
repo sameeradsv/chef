@@ -247,6 +247,8 @@ function ContextSheet({
   const sliders: { key: keyof UserState; label: string; min: number; max: number; step?: number; suffix?: string }[] = [
     { key: "energy_level",           label: "Energy (override)",         min: 1,  max: 10 },
     { key: "willingness_to_cook",    label: "Up for cooking (override)", min: 1,  max: 10 },
+    { key: "health_priority",        label: "Health priority",           min: 1,  max: 10 },
+    { key: "stress_level",           label: "Stress level",              min: 1,  max: 10 },
     { key: "time_available_minutes", label: "Time available",            min: 10, max: 120, step: 5, suffix: "min" },
     { key: "budget_today",           label: "Budget",                    min: 50, max: 800, step: 10, suffix: "₹" },
   ];
@@ -514,6 +516,14 @@ function DecisionPageInner() {
         </div>
         {result?.reasoning?.[0] && (
           <p className="text-sm text-kitchen-muted mt-1">{result.reasoning[0]}</p>
+        )}
+        {result?.narrative && (
+          <p
+            className="text-sm text-kitchen-text mt-2 leading-relaxed"
+            style={{ borderLeft: "2px solid rgb(var(--kitchen-accent) / 0.4)", paddingLeft: 12 }}
+          >
+            {result.narrative}
+          </p>
         )}
       </div>
 

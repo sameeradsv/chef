@@ -1,6 +1,6 @@
 import { getAuthToken, setAuthToken } from "@shared/cortex";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "") ?? "http://localhost:8000";
+const API_BASE = (process.env.NEXT_PUBLIC_API_URL ?? "").replace(/\/$/, "");
 const TOKEN_KEY = "chef_auth_token";
 
 // --- Token helpers (kept for backward compat within this file) ---
@@ -36,34 +36,6 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   if (res.status === 204) return undefined as T;
   return res.json();
 }
-
-// --- Auth (no Bearer needed) ---
-export const auth = {
-  login: async (username: string, passcode: string): Promise<{ access_token: string }> => {
-    const res = await fetch(`${API_BASE}/auth/login`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username, passcode }),
-    });
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({ detail: "Login failed" }));
-      throw new Error(err.detail || "Login failed");
-    }
-    return res.json();
-  },
-  register: async (username: string, passcode: string): Promise<{ access_token: string }> => {
-    const res = await fetch(`${API_BASE}/auth/register`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username, passcode }),
-    });
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({ detail: "Registration failed" }));
-      throw new Error(err.detail || "Registration failed");
-    }
-    return res.json();
-  },
-};
 
 // --- Types ---
 
@@ -402,7 +374,6 @@ export const api = {
   deleteGrocery: (id: string) => request<void>(`/grocery/${id}`, { method: "DELETE" }),
 
   // History
-  getHistory: (limit = 20) => request<HistoryEntry[]>(`/history?limit=${limit}`),
   getHistoryPage: (query: HistoryQuery = {}) => {
     const params = new URLSearchParams({ include_summary: "true" });
     if (query.limit != null) params.set("limit", String(query.limit));

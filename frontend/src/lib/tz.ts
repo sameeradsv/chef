@@ -88,15 +88,6 @@ export function currentMealDayKey(): string {
   return mealLogDateKey(new Date());
 }
 
-export function mealTypeFromIST(d: Date | string | number = new Date()): "breakfast" | "lunch" | "snacks" | "dinner" {
-  const hour = typeof d === "string" ? istHour(istInstant(d)) : istHour(d instanceof Date ? d : istInstant(d));
-  if (hour < MEAL_DAY_START_HOUR) return "dinner";
-  if (hour < 11) return "breakfast";
-  if (hour < 16) return "lunch";
-  if (hour < 19) return "snacks";
-  return "dinner";
-}
-
 export function addDaysIST(dateKey: string, delta: number): string {
   const base = new Date(`${dateKey}T12:00:00+05:30`);
   base.setTime(base.getTime() + delta * 86400000);
