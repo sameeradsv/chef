@@ -94,7 +94,7 @@ Data is multi-user — all tables keyed by `user_id`. JWT auth (30-day tokens, b
 | `app/page.tsx` | Dashboard — expiring items, recommendations, `WeekGlance` strip, `ThemeToggle` |
 | `app/inventory/page.tsx` | Pantry CRUD |
 | `app/recipe/page.tsx` | Recipe browse — debounced `GET /recipes/search?q=` (TheMealDB + seed) + `RecipeCoverageScatter` |
-| `app/decision/page.tsx` | Cook vs order vs eat out — combined energy preset, score waterfall, LLM `narrative` when returned |
+| `app/decision/page.tsx` | Cook vs order vs eat out — combined energy preset, score waterfall; reasoning/narrative/predict/cost-insights collapsed under a RATIONALE toggle below the option cards |
 | `app/recipe/[id]/page.tsx` | Recipe detail with pantry ingredient usage and interactive cooking steps |
 | `app/grocery/page.tsx` | Grocery list — add/buy/delete items + AI suggestions |
 | `app/history/page.tsx` | Decision history — IST datetime picker, Week/Month/Year/All filters (server-side by meal `timestamp`), pagination (20/page), edit/delete, satisfaction ratings; screenshot-to-log via vision API |
@@ -163,7 +163,7 @@ See **[DEFERRED.md](./DEFERRED.md)** — no UI-only gaps; remaining work is defe
 | Chat page | `app/chat/page.tsx` + `components/TerminalChat.tsx` — native Groq agent (`POST /agent/chat`) |
 | Recipe browse page | `app/recipe/page.tsx` — server-side search + pantry coverage scatter |
 | Recipe search wired to API | `app/recipe/page.tsx` — debounced `GET /recipes/search?q=` |
-| Decide LLM narrative | `app/decision/page.tsx` — shows `narrative` when API returns it |
+| Decide LLM narrative | `app/decision/page.tsx` — `narrative`, reasoning, history prediction, and spend-trend insights shown in a collapsible RATIONALE section below the option cards (collapsed by default) |
 | Tonight's Pick savings badge | `app/page.tsx` — `% cheaper` on cook wins (`savings_vs_order`) |
 | Grocery swipe-to-mark-bought | `SwipeGroceryRow` on `app/grocery/page.tsx` |
 | Health/stress in Settings | Decision defaults sliders → `PUT /user/state` |

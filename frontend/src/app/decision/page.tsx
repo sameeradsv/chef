@@ -366,6 +366,7 @@ function DecisionPageInner() {
   const [defaultPeople, setDefaultPeople] = useState(2);
   const [showContext, setShowContext] = useState(false);
   const [showChart, setShowChart] = useState(false);
+  const [showRationale, setShowRationale] = useState(false);
   const [consuming, setConsuming] = useState(false);
   const [logging, setLogging] = useState(false);
   const [logMessage, setLogMessage] = useState<string | null>(null);
@@ -516,79 +517,18 @@ function DecisionPageInner() {
   return (
     <div className="space-y-4 pt-2">
       {/* Header */}
-      <div>
-        <div className="flex items-baseline justify-between">
-          <h1
-            className="font-display font-normal"
-            style={{ fontSize: 28, letterSpacing: "-0.025em" }}
-          >
-            What&apos;s the{" "}
-            <em className="not-italic text-kitchen-accent">move</em>?
-          </h1>
-          {result && (
-            <MonoLabel className="text-kitchen-muted flex-shrink-0">
-              {new Intl.DateTimeFormat("en-IN", { timeZone: TZ, hour: "2-digit", minute: "2-digit" }).format(new Date())}
-            </MonoLabel>
-          )}
-        </div>
-        {predict && (
-          <div
-            className="mt-3 p-3 rounded-card font-mono text-xs"
-            style={{
-              border: "1px solid var(--kitchen-line)",
-              background: "rgb(var(--kitchen-surface))",
-              letterSpacing: "0.03em",
-            }}
-          >
-            <div className="flex flex-wrap items-center gap-2 mb-2">
-              <span className="text-kitchen-muted">HISTORY SUGGESTS</span>
-              <span
-                className="px-2 py-0.5 rounded-btn uppercase"
-                style={{
-                  background: "rgb(var(--kitchen-accent) / 0.12)",
-                  color: "rgb(var(--kitchen-accent))",
-                  fontSize: 10,
-                }}
-              >
-                {predict.likely_decision.replace("_", " ")}
-              </span>
-              <span className="text-kitchen-muted">
-                {Math.round(predict.confidence * 100)}% confidence
-              </span>
-            </div>
-            <p className="text-kitchen-text m-0 leading-relaxed">{predict.message}</p>
-            {predict.savings_hint && (
-              <p className="text-kitchen-accent mt-2 mb-0 opacity-90">{predict.savings_hint}</p>
-            )}
-          </div>
-        )}
-        {costInsights.length > 0 && (
-          <div
-            className="mt-3 p-3 rounded-card font-mono text-xs"
-            style={{
-              border: "1px solid var(--kitchen-line)",
-              background: "rgb(var(--kitchen-surface))",
-              letterSpacing: "0.03em",
-            }}
-          >
-            <div className="text-kitchen-muted mb-2">SPEND TRENDS (30D)</div>
-            <ul className="m-0 p-0 list-none space-y-1">
-              {costInsights.map((line) => (
-                <li key={line} className="text-kitchen-text leading-relaxed">{line}</li>
-              ))}
-            </ul>
-          </div>
-        )}
-        {result?.reasoning?.[0] && (
-          <p className="text-sm text-kitchen-muted mt-1">{result.reasoning[0]}</p>
-        )}
-        {result?.narrative && (
-          <p
-            className="text-sm text-kitchen-text mt-2 leading-relaxed"
-            style={{ borderLeft: "2px solid rgb(var(--kitchen-accent) / 0.4)", paddingLeft: 12 }}
-          >
-            {result.narrative}
-          </p>
+      <div className="flex items-baseline justify-between">
+        <h1
+          className="font-display font-normal"
+          style={{ fontSize: 28, letterSpacing: "-0.025em" }}
+        >
+          What&apos;s the{" "}
+          <em className="not-italic text-kitchen-accent">move</em>?
+        </h1>
+        {result && (
+          <MonoLabel className="text-kitchen-muted flex-shrink-0">
+            {new Intl.DateTimeFormat("en-IN", { timeZone: TZ, hour: "2-digit", minute: "2-digit" }).format(new Date())}
+          </MonoLabel>
         )}
       </div>
 
@@ -718,6 +658,86 @@ function DecisionPageInner() {
         </div>
       )}
 
+      {/* Rationale — collapsible, below options */}
+      {result && (predict || costInsights.length > 0 || result.narrative || result.reasoning.length > 0) && (
+        <div>
+          <button
+            type="button"
+            onClick={() => setShowRationale((v) => !v)}
+            className="w-full flex items-center justify-between px-3 py-2 text-[10px] font-mono tracking-[0.1em] text-kitchen-muted hover:text-kitchen-accent transition-colors"
+            style={{ border: "1px solid var(--kitchen-line)", borderRadius: "var(--radius-btn)", background: "rgb(var(--kitchen-surface))" }}
+          >
+            <span>RATIONALE</span>
+            <span>{showRationale ? "▲" : "▼"}</span>
+          </button>
+          {showRationale && (
+            <div className="mt-2 space-y-3">
+              {result.reasoning[0] && (
+                <p className="text-sm text-kitchen-muted px-1">{result.reasoning[0]}</p>
+              )}
+              {result.narrative && (
+                <p
+                  className="text-sm text-kitchen-text leading-relaxed px-1"
+                  style={{ borderLeft: "2px solid rgb(var(--kitchen-accent) / 0.4)", paddingLeft: 12 }}
+                >
+                  {result.narrative}
+                </p>
+              )}
+              {result.reasoning.length > 1 && (
+                <div
+                  className="p-4 space-y-2"
+                  style={{ border: "1px solid var(--kitchen-line)", borderRadius: "var(--radius-card)", background: "rgb(var(--kitchen-surface))" }}
+                >
+                  <MonoLabel className="text-kitchen-muted">WHY</MonoLabel>
+                  <ul className="space-y-1.5 mt-2">
+                    {result.reasoning.slice(1).map((r, i) => (
+                      <li key={i} className="flex gap-2 text-sm text-kitchen-text/90">
+                        <span className="text-kitchen-accent flex-shrink-0">·</span>
+                        {r}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {predict && (
+                <div
+                  className="p-3 rounded-card font-mono text-xs"
+                  style={{ border: "1px solid var(--kitchen-line)", background: "rgb(var(--kitchen-surface))", letterSpacing: "0.03em" }}
+                >
+                  <div className="flex flex-wrap items-center gap-2 mb-2">
+                    <span className="text-kitchen-muted">HISTORY SUGGESTS</span>
+                    <span
+                      className="px-2 py-0.5 rounded-btn uppercase"
+                      style={{ background: "rgb(var(--kitchen-accent) / 0.12)", color: "rgb(var(--kitchen-accent))", fontSize: 10 }}
+                    >
+                      {predict.likely_decision.replace("_", " ")}
+                    </span>
+                    <span className="text-kitchen-muted">{Math.round(predict.confidence * 100)}% confidence</span>
+                  </div>
+                  <p className="text-kitchen-text m-0 leading-relaxed">{predict.message}</p>
+                  {predict.savings_hint && (
+                    <p className="text-kitchen-accent mt-2 mb-0 opacity-90">{predict.savings_hint}</p>
+                  )}
+                </div>
+              )}
+              {costInsights.length > 0 && (
+                <div
+                  className="p-3 rounded-card font-mono text-xs"
+                  style={{ border: "1px solid var(--kitchen-line)", background: "rgb(var(--kitchen-surface))", letterSpacing: "0.03em" }}
+                >
+                  <div className="text-kitchen-muted mb-2">SPEND TRENDS (30D)</div>
+                  <ul className="m-0 p-0 list-none space-y-1">
+                    {costInsights.map((line) => (
+                      <li key={line} className="text-kitchen-text leading-relaxed">{line}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Score breakdown chart toggle */}
       {result && (
         <div>
@@ -754,28 +774,6 @@ function DecisionPageInner() {
           defaultPeople={defaultPeople}
           onClose={() => setShowContext(false)}
         />
-      )}
-
-      {/* Reasoning */}
-      {result && result.reasoning.length > 1 && (
-        <div
-          className="p-4 space-y-2"
-          style={{
-            border: "1px solid var(--kitchen-line)",
-            borderRadius: "var(--radius-card)",
-            background: "rgb(var(--kitchen-surface))",
-          }}
-        >
-          <MonoLabel className="text-kitchen-muted">WHY</MonoLabel>
-          <ul className="space-y-1.5 mt-2">
-            {result.reasoning.slice(1).map((r, i) => (
-              <li key={i} className="flex gap-2 text-sm text-kitchen-text/90">
-                <span className="text-kitchen-accent flex-shrink-0">·</span>
-                {r}
-              </li>
-            ))}
-          </ul>
-        </div>
       )}
 
       {/* People count badge */}
