@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 import os
+import time
 import uuid
 
 import httpx
@@ -12,6 +14,50 @@ import httpx
 from app.schemas import RecipeIngredient, RecipeResponse
 
 logger = logging.getLogger(__name__)
+
+_RECIPE_CACHE: dict[str, tuple[float, list[RecipeResponse]]] = {}
+_RECIPE_CACHE_TTL = 1800  # 30 minutes
+_RECIPE_CACHE_POOL = 10   # always generate at least this many; callers slice to their count
+
+
+def _recipe_cache_key(
+    query: str | None,
+    pantry_names: set[str],
+    cuisines: list[str],
+    spice_level: int,
+    dietary_restrictions: list[str],
+    vegetarian: bool,
+    meal_type: str | None,
+    recent_meals: list[str] | None,
+    fast: bool,
+) -> str:
+    parts = (
+        query or "",
+        tuple(sorted(pantry_names)),
+        tuple(sorted(cuisines)),
+        spice_level,
+        tuple(sorted(dietary_restrictions)),
+        vegetarian,
+        meal_type or "",
+        tuple((recent_meals or [])[:10]),
+        fast,
+    )
+    return hashlib.md5(str(parts).encode()).hexdigest()
+
+
+def _recipe_cache_get(key: str) -> list[RecipeResponse] | None:
+    entry = _RECIPE_CACHE.get(key)
+    if entry and time.time() - entry[0] < _RECIPE_CACHE_TTL:
+        return entry[1]
+    _RECIPE_CACHE.pop(key, None)
+    return None
+
+
+def _recipe_cache_set(key: str, results: list[RecipeResponse]) -> None:
+    if len(_RECIPE_CACHE) > 300:
+        oldest = min(_RECIPE_CACHE, key=lambda k: _RECIPE_CACHE[k][0])
+        _RECIPE_CACHE.pop(oldest, None)
+    _RECIPE_CACHE[key] = (time.time(), results)
 
 MEALDB_BASE = "https://www.themealdb.com/api/json/v1/1"
 _MEALDB_TIMEOUT = 5.0
@@ -239,6 +285,16 @@ def generate_recipes(
         if n:
             pantry_names.add(n)
 
+    ckey = _recipe_cache_key(
+        query, pantry_names, cuisines or [], spice_level,
+        dietary_restrictions or [], vegetarian, meal_type, recent_meals, fast,
+    )
+    if cached := _recipe_cache_get(ckey):
+        return cached[:count]
+
+    # Always generate a larger pool so the cache is useful for callers requesting fewer.
+    generate_count = max(count, _RECIPE_CACHE_POOL)
+
     client = _get_groq_client()
     if not client:
         logger.warning("generate_recipes: GROQ_API_KEY missing or invalid")
@@ -250,7 +306,7 @@ def generate_recipes(
             dietary_restrictions=dietary_restrictions or [],
             vegetarian=vegetarian,
             pantry_names=pantry_names,
-            count=count,
+            count=generate_count,
             meal_type=meal_type,
             recent_meals=recent_meals,
         )
@@ -275,6 +331,7 @@ def generate_recipes(
             text = (response.choices[0].message.content or "").strip()
             results = _parse_recipes(text, pantry_names)
             if results:
+                _recipe_cache_set(ckey, results)
                 return results[:count]
             logger.warning("generate_recipes: Groq returned no parseable recipes, falling back to TheMealDB")
         except Exception as e:

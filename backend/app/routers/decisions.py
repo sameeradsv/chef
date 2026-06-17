@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 
 # Simple in-process TTL cache for decision scoring (deterministic given same inputs).
 _DCACHE: dict[str, tuple[float, Any]] = {}
-_DCACHE_TTL = 120  # seconds
+_DCACHE_TTL = 1800  # seconds (30 min; cache key includes pantry IDs so invalidates on pantry changes)
 
 def _dcache_key(*parts: object) -> str:
     return hashlib.md5(json.dumps(parts, sort_keys=True, default=str).encode()).hexdigest()

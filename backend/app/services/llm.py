@@ -1,9 +1,25 @@
 from __future__ import annotations
 
+import hashlib
 import os
+import time
 from typing import Any
 
 _client = None
+
+_SUGGEST_CACHE: dict[str, tuple[float, str]] = {}
+_SUGGEST_CACHE_TTL = 3600  # 60 minutes — one-liner suggestions don't need per-visit freshness
+
+
+def _suggest_cache_key(
+    meal_type: str,
+    pantry_names: list[str],
+    energy_level: int,
+    vegetarian: bool,
+    dietary_restrictions: list[str] | None,
+) -> str:
+    parts = (meal_type, tuple(sorted(pantry_names[:8])), energy_level, vegetarian, tuple(sorted(dietary_restrictions or [])))
+    return hashlib.md5(str(parts).encode()).hexdigest()
 
 
 def _get_client():
@@ -28,6 +44,11 @@ def generate_meal_suggestion(
     dietary_restrictions: list[str] | None = None,
 ) -> str:
     """Return a one-sentence contextual suggestion for the given meal type. Returns '' if unavailable."""
+    ckey = _suggest_cache_key(meal_type, pantry_names, energy_level, vegetarian, dietary_restrictions)
+    entry = _SUGGEST_CACHE.get(ckey)
+    if entry and time.time() - entry[0] < _SUGGEST_CACHE_TTL:
+        return entry[1]
+
     client = _get_client()
     if not client:
         return ""
@@ -56,7 +77,12 @@ def generate_meal_suggestion(
                 {"role": "user", "content": prompt},
             ],
         )
-        return response.choices[0].message.content.strip()
+        text = response.choices[0].message.content.strip()
+        if len(_SUGGEST_CACHE) > 200:
+            oldest = min(_SUGGEST_CACHE, key=lambda k: _SUGGEST_CACHE[k][0])
+            _SUGGEST_CACHE.pop(oldest, None)
+        _SUGGEST_CACHE[ckey] = (time.time(), text)
+        return text
     except Exception:
         return ""
 
