@@ -23,6 +23,7 @@ Do not re-add without real notification delivery or persisted preference fields.
 | Health + stress on Decide | Session overrides sheet → `UserState` → decision engine |
 | Health + stress in Settings | Decision defaults sliders → `PUT /user/state` |
 | Grocery swipe-to-mark-bought | `SwipeGroceryRow` on `/grocery` pending items |
+| Predictive grocery suggestions | `get_grocery_suggestions` — recipe gaps + 90-day bought staples |
 | Recipe search | `GET /recipes/search?q=` debounced on `/recipe` |
 | Settings Help + Privacy | GitHub issues link + modal |
 
@@ -32,7 +33,7 @@ Do not re-add without real notification delivery or persisted preference fields.
 |------|--------|
 | Swiggy/Zomato live APIs | **Not available** — seed restaurants only ([INTEGRATIONS.md](./INTEGRATIONS.md#swiggy-and-zomato-integration)) |
 | pgvector recipe search | Keyword `q` only |
-| Predictive grocery suggestions | Phase 2 ([ROADMAP.md](./ROADMAP.md)) |
+| Phase 3 predictive engine | Out of scope unless requested |
 
 ## Terminal UI: Conduit only (2026-06-17)
 

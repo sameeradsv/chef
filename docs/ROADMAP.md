@@ -79,7 +79,7 @@ Sources: [INTEGRATIONS.md](./INTEGRATIONS.md). AI behavior: [AI.md](./AI.md).
 ### Grocery optimization
 
 - AI suggestions (`GET /grocery/suggestions`) based on pantry gaps — implemented
-- Predictive / frequency-based suggestions — not yet built
+- Predictive / frequency-based suggestions — **implemented** (90-day bought-history staples merged with recipe-gap misses)
 
 ### Pick up next (post–stub cleanup)
 
