@@ -96,6 +96,12 @@ POST /auth/webauthn/login/complete
 
 ---
 
+## Caching
+
+Authenticated mutable GETs return `Cache-Control: no-store` so pantry, history, settings, and health screens reflect recent writes immediately. Expensive AI paths are protected by backend in-process caches instead: recipe generation and decision narratives should not call Groq on every page reload.
+
+---
+
 ## Energy
 
 ```text
@@ -108,7 +114,7 @@ GET /sync/energy
 | `GET /energy/timeline` | Per-meal energy events for a calendar day (default: today in IST). Returns `events[]` with `occurred_at` (naive IST), `time` (`HH:MM` IST), `delta`, `running_energy`, `energy` (0–1 compat), `label`, `note`, `source`. Satisfaction-weighted signed deltas; skipped meal windows synthesised when a window closes with no logged entry. |
 | `GET /sync/energy` | Today's cumulative decision drain (logged-meal drain + biological skip drain for closed windows). Returns `drain_so_far`, `drain_ahead`, `energy_so_far`, `energy_ahead`, `meals_today[]` (`at` is naive IST), `as_of` (naive IST). |
 
-Both filter by `CookingHistoryModel.timestamp` (meal time), so backdated entries land on their original date.
+Both filter by `CookingHistoryModel.timestamp` (meal time), so backdated entries land on their original date. Decide uses `/sync/energy` as the local-account energy preset and `/energy/timeline` for cross-app timeline merging.
 
 ---
 

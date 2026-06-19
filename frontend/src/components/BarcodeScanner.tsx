@@ -20,6 +20,7 @@ export function BarcodeScanner({ onDetected, onClose }: Props) {
   const [storageType, setStorageType] = useState<typeof STORAGE_OPTIONS[number]>("pantry");
   const [torchOn, setTorchOn] = useState(false);
   const [torchSupported, setTorchSupported] = useState(false);
+  const [scanNonce, setScanNonce] = useState(0);
   const detectedRef = useRef(false);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const controlsRef = useRef<any>(null);
@@ -135,7 +136,7 @@ export function BarcodeScanner({ onDetected, onClose }: Props) {
       cancelled = true;
       controlsRef.current?.stop();
     };
-  }, []);
+  }, [scanNonce]);
 
   function handleConfirm() {
     const finalProduct = product
@@ -145,13 +146,16 @@ export function BarcodeScanner({ onDetected, onClose }: Props) {
   }
 
   function handleRescan() {
+    controlsRef.current?.stop();
     detectedRef.current = false;
     setDetectedBarcode("");
     setProduct(null);
+    setQty("");
+    setTorchOn(false);
+    setTorchSupported(false);
     setStatus("scanning");
-    // Restart scanner
     controlsRef.current = null;
-    window.location.reload(); // simplest rescan — remount would need state lift
+    setScanNonce((n) => n + 1);
   }
 
   const isConfirm = status === "confirm" || status === "looking-up";

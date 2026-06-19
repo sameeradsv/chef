@@ -105,7 +105,7 @@ Chef participates in the shared Cortex ecosystem energy model (same convention a
 
 ### Decide page preset
 
-`frontend/src/lib/cross-app-energy.ts` fetches **today's energy timelines** from:
+For local Chef accounts, `frontend/src/lib/cross-app-energy.ts` first falls back to Chef `GET /sync/energy` so Decide has an energy preset without Cortex. For Cortex accounts, it fetches **today's energy timelines** from:
 
 | App | Endpoint | Role |
 |-----|----------|------|
@@ -113,7 +113,7 @@ Chef participates in the shared Cortex ecosystem energy model (same convention a
 | Canopy | `GET /api/sync/energy/timeline?date=` | Interaction deltas |
 | Chef | `GET /energy/timeline?date=` | Meal deltas |
 
-It merges events by IST time and applies signed `delta` values up to the current moment — the same combined total shown on **Canopy → Energy**. The result presets the Decide page energy slider (overridable per session).
+It merges events by IST time and applies signed `delta` values up to the current moment — the same combined total shown on **Canopy → Energy**. The result presets the Decide page energy slider (overridable per session). If Cortex validation fails, Chef uses `/sync/energy` only instead of blocking the preset.
 
 ### Frontend env vars (baked at build time)
 
@@ -122,7 +122,7 @@ Use the **same names as Canopy/Circuit** (see `frontend/.env.local.example`):
 | Variable | Purpose |
 |----------|---------|
 | `NEXT_PUBLIC_API_URL` | Chef backend (this app) |
-| `NEXT_PUBLIC_CORTEX_URL` | Cortex auth — required for cross-app JWT |
+| `NEXT_PUBLIC_CORTEX_URL` | Cortex auth — required only for cross-app JWT/combined sibling timelines |
 | `NEXT_PUBLIC_CIRCUIT_API_URL` | Circuit backend timelines |
 | `NEXT_PUBLIC_CANOPY_API_URL` | Canopy backend timelines |
 

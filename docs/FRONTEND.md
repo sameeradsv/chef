@@ -49,7 +49,7 @@ With:
 - recommendation reasoning
 - **Log this decision** — `POST /history` with selected mode, recipe/restaurant, and cost (then navigates to History)
 - **Override sheet** — session-only sliders for energy, cooking mood, **health priority**, **stress**, time, budget, people, craving (not persisted to Settings except via explicit save paths)
-- **Combined energy preset** — on load, energy defaults to the same total as Canopy → Energy (Circuit `start_energy` + merged deltas from Circuit, Canopy, and Chef timelines today). Requires Cortex sign-in and sibling API URLs in env ([INTEGRATIONS.md](./INTEGRATIONS.md#cross-app-energy))
+- **Energy preset** — on load, local Chef accounts use Chef `/sync/energy`; Cortex accounts use the same total as Canopy → Energy (Circuit `start_energy` + merged deltas from Circuit, Canopy, and Chef timelines today). The value is session-overridable ([INTEGRATIONS.md](./INTEGRATIONS.md#cross-app-energy))
 - score breakdown waterfall (`DecisionScoreWaterfall`)
 
 **Example reasoning copy** (from product spec—mirror in UI):
@@ -140,7 +140,7 @@ Substitutions: [AI.md](./AI.md). Recipe model: [DATA_MODELS.md](./DATA_MODELS.md
 ## Settings screen
 
 - cuisines, spice level, dietary restrictions, vegetarian toggle, cooking skill, city, people count
-- **Decision defaults** — “Up for cooking?” (saved to `user/state.willingness_to_cook`); energy is **not** set here (comes from cross-app combined total on Decide)
+- **Decision defaults** — “Up for cooking?” (saved to `user/state.willingness_to_cook`); energy is **not** set here (comes from Chef `/sync/energy` or cross-app combined total on Decide)
 - appearance (theme picker — Hearth dark / Mise warm)
 - **Help** — GitHub issues link; **Privacy** — in-app modal (no push-notification toggles — deferred per design)
 - Security section — WebAuthn passkey registration (`POST /auth/webauthn/register/begin|complete`)
@@ -155,8 +155,8 @@ Substitutions: [AI.md](./AI.md). Recipe model: [DATA_MODELS.md](./DATA_MODELS.md
 - Show three options side-by-side with cost, time, effort, and bullet reasons from API structured fields.
 - Expiry alerts on dashboard must match backend expiry logic ([AI.md](./AI.md) prohibitions).
 - The frontend is a Next.js static export (PWA) deployed to GitHub Pages — no React Native.
-- Nav has 8 tabs: Home / Pantry / Decide / Grocery / History / Health / Chat / You (Settings).
+- Nav has 8 destinations: Home / Pantry / Decide / Grocery / History / Health / Chat / You (Settings). Mobile uses a collapsible side rail; desktop uses the full sidebar.
 - Timestamp semantics: API datetimes are naive IST strings; frontend displays/edits IST only (`lib/tz.ts`); backend converts to UTC. History filters and energy/nutrition use meal `timestamp`, so backdated entries land on the correct date.
 - Dashboard **Week glance** shows Mon–today (IST) only, fetched with `from_date`/`to_date` on `GET /history`.
 - Pantry theme (third colour scheme) and density control were deliberately dropped — do not re-add without approval.
-- Cross-app energy on Decide: `frontend/src/lib/cross-app-energy.ts` — env var names match Canopy/Circuit (`NEXT_PUBLIC_CIRCUIT_API_URL`, `NEXT_PUBLIC_CANOPY_API_URL`, `NEXT_PUBLIC_CORTEX_URL`).
+- Energy preset on Decide: `frontend/src/lib/cross-app-energy.ts` — local Chef accounts call Chef `/sync/energy`; Cortex accounts merge sibling timelines using env var names that match Canopy/Circuit (`NEXT_PUBLIC_CIRCUIT_API_URL`, `NEXT_PUBLIC_CANOPY_API_URL`, `NEXT_PUBLIC_CORTEX_URL`).

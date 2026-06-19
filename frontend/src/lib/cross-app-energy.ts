@@ -19,6 +19,11 @@ export interface EnergyTimeline {
   events: EnergyTimelineEvent[];
 }
 
+interface ChefEnergySummary {
+  energy_so_far?: number;
+  energy_ahead?: number;
+}
+
 function todayIST(): string {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata" }).format(new Date());
 }
@@ -74,6 +79,20 @@ async function isCortexAccount(token: string): Promise<boolean> {
   }
 }
 
+async function fetchChefEnergySummary(token: string): Promise<ChefEnergySummary | null> {
+  try {
+    const res = await fetch(`${CHEF_URL}/sync/energy`, {
+      headers: { Authorization: `Bearer ${token}` },
+      signal: AbortSignal.timeout(5000),
+      cache: "no-store",
+    });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Same combined running balance as Canopy → Energy page:
  * Circuit start_energy (sleep + carry-over) + all deltas from Circuit, Canopy, and Chef today.
@@ -124,7 +143,18 @@ export async function gatherCombinedEnergy(): Promise<{
   if (!token) return { energy_level: null, fromCombined: false, sources: [] };
 
   const cortex = await isCortexAccount(token);
-  if (!cortex) return { energy_level: null, fromCombined: false, sources: [] };
+  if (!cortex) {
+    const chefEnergy = await fetchChefEnergySummary(token);
+    const running = chefEnergy?.energy_so_far ?? chefEnergy?.energy_ahead;
+    if (typeof running !== "number") {
+      return { energy_level: null, fromCombined: false, sources: [] };
+    }
+    return {
+      energy_level: Math.max(1, Math.min(10, Math.round(running * 10))),
+      fromCombined: false,
+      sources: ["Chef"],
+    };
+  }
 
   const date = todayIST();
   const q = `?date=${date}`;

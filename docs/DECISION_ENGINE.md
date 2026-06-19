@@ -55,7 +55,7 @@ cooking_score = (
 - `ingredient_expiry_urgency` — higher when pantry items expire soon ([DATA_MODELS.md](./DATA_MODELS.md) `expiry_date`); +2 bonus per expiring ingredient used
 - `health_score` — from recipe `nutrition_score` and user `health_priority`
 - `cost_savings` — cook cost vs order/eat-out alternatives ([INTEGRATIONS.md](./INTEGRATIONS.md) compare logic)
-- `effort_cost` — from recipe difficulty, user `energy_level`, `willingness_to_cook`, `time_available_minutes`; energy is inferred from time-of-day (6–9→7, 9–12→8, 12–15→6, 18–21→7, else→4) and overridden by cross-app Cortex data
+- `effort_cost` — from recipe difficulty, user `energy_level`, `willingness_to_cook`, `time_available_minutes`; energy defaults from saved state, then Decide can prefill from Chef `/sync/energy` for local accounts or combined Cortex timelines for cross-app accounts
 - `cleanup_effort` — from recipe `cleanup_effort`
 - `skill_gap_penalty` — `(recipe_difficulty − user_cooking_skill) × 1.5` per gap point; zero when skill ≥ difficulty
 - `missing_ingredient_cost` — ~₹45 sourcing penalty per ingredient not in pantry

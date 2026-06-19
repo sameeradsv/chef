@@ -78,13 +78,15 @@ app.include_router(agent_router)
 @app.middleware("http")
 async def add_cache_control(request: Request, call_next):
     response = await call_next(request)
-    if (
-        request.method == "GET"
-        and response.status_code == 200
-        and not request.url.path.startswith("/api/auth")
-        and not request.url.path.startswith("/auth")
-    ):
-        response.headers["Cache-Control"] = "private, max-age=30"
+    if request.method == "GET" and response.status_code == 200:
+        if request.url.path == "/health":
+            response.headers["Cache-Control"] = "public, max-age=30"
+        elif request.url.path.startswith(("/api/auth", "/auth")):
+            response.headers["Cache-Control"] = "no-store"
+        else:
+            # Authenticated Chef data is mutable and user-specific. Keep browser caches
+            # out of the way; expensive Groq-backed work is protected by server caches.
+            response.headers["Cache-Control"] = "no-store"
     return response
 
 

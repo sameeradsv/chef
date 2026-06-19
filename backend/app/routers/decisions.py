@@ -6,6 +6,7 @@ import time
 from typing import Any
 
 from fastapi import APIRouter, Depends, Query
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 # Simple in-process TTL cache for decision scoring (deterministic given same inputs).
@@ -30,7 +31,7 @@ def _dcache_set(key: str, value: Any) -> None:
 
 from app.database import get_db
 from app.dependencies import get_current_user
-from app.models import IngredientModel, UserAccountModel, UserPreferencesModel, UserStateModel
+from app.models import CookingHistoryModel, IngredientModel, UserAccountModel, UserPreferencesModel, UserStateModel
 from app.schemas import (
     CookVsOrderRequest,
     CookVsOrderResponse,
@@ -108,6 +109,52 @@ def _restaurant_dto(raw: dict) -> RestaurantOption:
     return RestaurantOption(**raw)
 
 
+def _pantry_fingerprint(pantry: list[IngredientModel]) -> tuple:
+    return tuple(sorted(
+        (
+            p.id,
+            p.normalized_name,
+            round(float(p.quantity or 0), 3),
+            p.unit,
+            p.expiry_date.isoformat() if p.expiry_date else "",
+            p.buy_date.isoformat() if p.buy_date else "",
+            bool(p.opened),
+            p.storage_type,
+            round(float(p.cost or 0), 2),
+        )
+        for p in pantry
+    ))
+
+
+def _prefs_fingerprint(row: UserPreferencesModel | None) -> tuple:
+    if not row:
+        return (True, (), (), 5, (), 2, "", 3, "{}")
+    return (
+        row.vegetarian if row.vegetarian is not None else True,
+        tuple(sorted(s.strip().lower() for s in (row.skipped_ingredients or "").split(",") if s.strip())),
+        tuple(sorted(c.strip().lower() for c in (row.favorite_cuisines or "").split(",") if c.strip())),
+        row.spice_level or 5,
+        tuple(sorted(d.strip().lower() for d in (row.dietary_restrictions or "").split(",") if d.strip())),
+        row.people_count if row.people_count is not None else 2,
+        (row.city or "").strip().lower(),
+        row.cooking_skill if row.cooking_skill is not None else 3,
+        row.restaurant_delivery_json or "{}",
+    )
+
+
+def _history_fingerprint(db: Session, user_id: str) -> tuple:
+    count, max_timestamp, max_created_at = (
+        db.query(
+            func.count(CookingHistoryModel.id),
+            func.max(CookingHistoryModel.timestamp),
+            func.max(CookingHistoryModel.created_at),
+        )
+        .filter(CookingHistoryModel.user_id == user_id)
+        .one()
+    )
+    return (int(count or 0), max_timestamp, max_created_at)
+
+
 @router.post("/cook-vs-order", response_model=CookVsOrderResponse)
 def cook_vs_order(
     body: CookVsOrderRequest | None = None,
@@ -117,18 +164,19 @@ def cook_vs_order(
     body = body or CookVsOrderRequest()
     pantry = db.query(IngredientModel).filter(IngredientModel.user_id == current_user.id).all()
     state = _state_with_overrides(_state(db, current_user.id), body)
+    prefs_row = db.query(UserPreferencesModel).filter(UserPreferencesModel.user_id == current_user.id).first()
+    meal_type = current_meal_type()
 
     ckey = _dcache_key(
         current_user.id, body.recipe_id, body.restaurant_id, body.people_count,
-        sorted(p.id for p in pantry), state.energy_level, state.willingness_to_cook,
-        state.craving, state.budget_today, state.time_available_minutes,
+        _pantry_fingerprint(pantry), state.model_dump(), _prefs_fingerprint(prefs_row),
+        _history_fingerprint(db, current_user.id), meal_type,
     )
     if cached := _dcache_get(ckey):
         return cached
     profile = get_user_profile(current_user.id, db)
     vegetarian, skipped, fav_cuisines, spice_level, diet_restrictions, pref_people, city, cooking_skill = _diet(db, current_user.id)
     people_count = body.people_count if body.people_count is not None else pref_people
-    meal_type = current_meal_type()
 
     if body.recipe_id:
         recipe = get_recipe_by_id(body.recipe_id, pantry)
@@ -194,18 +242,19 @@ def recommend_meal_endpoint(
 ):
     pantry = db.query(IngredientModel).filter(IngredientModel.user_id == current_user.id).all()
     state = _state(db, current_user.id)
+    prefs_row = db.query(UserPreferencesModel).filter(UserPreferencesModel.user_id == current_user.id).first()
+    meal_type = current_meal_type()
 
     rkey = _dcache_key(
-        current_user.id, "recommend", sorted(p.id for p in pantry),
-        state.energy_level, state.craving, state.budget_today, state.time_available_minutes,
-        fast,
+        current_user.id, "recommend", _pantry_fingerprint(pantry),
+        state.model_dump(), _prefs_fingerprint(prefs_row), _history_fingerprint(db, current_user.id),
+        meal_type, fast,
     )
     if cached := _dcache_get(rkey):
         return cached
 
     profile = get_user_profile(current_user.id, db)
     vegetarian, skipped, fav_cuisines, spice_level, diet_restrictions, pref_people, city, cooking_skill = _diet(db, current_user.id)
-    meal_type = current_meal_type()
     recs = recommend_recipes(
         pantry, state, 1,
         vegetarian=vegetarian,

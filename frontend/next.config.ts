@@ -19,6 +19,9 @@ const withPWA = withPWAInit({
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   transpilePackages: ["@shared/cortex"],
+  env: {
+    NEXT_PUBLIC_BASE_PATH: isGithubPages ? "/chef" : "",
+  },
   ...(isGithubPages && {
     output: "export",
     basePath: "/chef",

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { LoadingCard } from "@/components/Card";
 import { api, type Recipe } from "@/lib/api";
@@ -73,6 +73,7 @@ export function RecipeClient({ id }: { id: string }) {
   const [completedSteps, setCompletedSteps] = useState<Set<number>>(new Set());
   const [stepTimers, setStepTimers]     = useState<Record<number, number | null>>({});
   const [timerIntervals, setTimerIntervals] = useState<Record<number, ReturnType<typeof setInterval>>>({});
+  const timerIntervalsRef = useRef<Record<number, ReturnType<typeof setInterval>>>({});
   // Ingredient quantity overrides (persisted to localStorage)
   const [qtyOverrides, setQtyOverrides] = useState<Record<string, number>>({});
   const [editingIng, setEditingIng] = useState<string | null>(null);
@@ -82,6 +83,9 @@ export function RecipeClient({ id }: { id: string }) {
   const [consumeResult, setConsumeResult] = useState<{ consumed: string[]; depleted: string[]; not_found: string[] } | null>(null);
 
   function startCooking() {
+    Object.values(timerIntervalsRef.current).forEach(clearInterval);
+    timerIntervalsRef.current = {};
+    setTimerIntervals({});
     setCookingMode(true);
     setActiveTab("method");
     setActiveStep(0);
@@ -94,6 +98,7 @@ export function RecipeClient({ id }: { id: string }) {
     if (timerIntervals[activeStep]) {
       clearInterval(timerIntervals[activeStep]);
       setTimerIntervals(prev => { const n = {...prev}; delete n[activeStep]; return n; });
+      delete timerIntervalsRef.current[activeStep];
     }
     setCompletedSteps((prev) => new Set([...prev, activeStep]));
     if (activeStep < recipe!.instructions.length - 1) {
@@ -107,6 +112,7 @@ export function RecipeClient({ id }: { id: string }) {
     if (timerIntervals[stepIdx]) {
       clearInterval(timerIntervals[stepIdx]);
       setTimerIntervals(prev => { const n = {...prev}; delete n[stepIdx]; return n; });
+      delete timerIntervalsRef.current[stepIdx];
     } else {
       const remaining = stepTimers[stepIdx] ?? durationSeconds;
       setStepTimers(prev => ({ ...prev, [stepIdx]: remaining }));
@@ -116,11 +122,13 @@ export function RecipeClient({ id }: { id: string }) {
           if (cur <= 0) {
             clearInterval(interval);
             setTimerIntervals(p => { const n = {...p}; delete n[stepIdx]; return n; });
+            delete timerIntervalsRef.current[stepIdx];
             return { ...prev, [stepIdx]: 0 };
           }
           return { ...prev, [stepIdx]: cur };
         });
       }, 1000);
+      timerIntervalsRef.current[stepIdx] = interval;
       setTimerIntervals(prev => ({ ...prev, [stepIdx]: interval }));
     }
   }
@@ -136,6 +144,17 @@ export function RecipeClient({ id }: { id: string }) {
       .catch(() => setError("Could not load recipe."))
       .finally(() => setLoading(false));
   }, [id]);
+
+  useEffect(() => {
+    timerIntervalsRef.current = timerIntervals;
+  }, [timerIntervals]);
+
+  useEffect(() => {
+    return () => {
+      Object.values(timerIntervalsRef.current).forEach(clearInterval);
+      timerIntervalsRef.current = {};
+    };
+  }, []);
 
   function startEdit(normalizedName: string, currentQty: number) {
     setEditingIng(normalizedName);

@@ -1,7 +1,7 @@
-/** Mobile tab bar + safe area — keep in sync with Layout.tsx and globals.css `--content-bottom-inset` */
+/** Mobile side nav + safe area: keep in sync with Layout.tsx and globals.css layout vars. */
 import type { CSSProperties } from "react";
 
-export const MOBILE_TAB_BAR_HEIGHT_PX = 57;
+export const MOBILE_SIDE_NAV_WIDTH_PX = 64;
 
 export const sheetFooterPadding = "max(16px, env(safe-area-inset-bottom, 0px))";
 

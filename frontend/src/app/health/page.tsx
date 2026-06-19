@@ -2,9 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { api, FoodSuggestion, NutrientStat, NutritionSummary } from "@/lib/api";
+import { useAuth } from "@/contexts/AuthContext";
 
 // Module-level TTL cache keyed by `days` — avoids re-fetching on navigation back.
-const _nutritionCache = new Map<number, { data: NutritionSummary; ts: number }>();
+const _nutritionCache = new Map<string, { data: NutritionSummary; ts: number }>();
 const NUTRITION_CACHE_MS = 5 * 60_000; // 5 minutes
 
 // ── Sub-components ──────────────────────────────────────────────────────────
@@ -156,6 +157,7 @@ const VITAMIN_KEYS  = ["vitamin_a", "vitamin_c", "vitamin_d", "iron", "calcium",
 // ── Page ────────────────────────────────────────────────────────────────────
 
 export default function HealthPage() {
+  const { username } = useAuth();
   const [data, setData]       = useState<NutritionSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError]     = useState<string | null>(null);
@@ -163,7 +165,8 @@ export default function HealthPage() {
   const [mealTab, setMealTab] = useState("breakfast");
 
   useEffect(() => {
-    const cached = _nutritionCache.get(days);
+    const cacheKey = `${username ?? "anonymous"}:${days}`;
+    const cached = _nutritionCache.get(cacheKey);
     if (cached && Date.now() - cached.ts < NUTRITION_CACHE_MS) {
       setData(cached.data);
       setLoading(false);
@@ -173,10 +176,10 @@ export default function HealthPage() {
     setError(null);
     api
       .getNutritionSummary(days)
-      .then((d) => { _nutritionCache.set(days, { data: d, ts: Date.now() }); setData(d); })
+      .then((d) => { _nutritionCache.set(cacheKey, { data: d, ts: Date.now() }); setData(d); })
       .catch((e: Error) => setError(e.message))
       .finally(() => setLoading(false));
-  }, [days]);
+  }, [days, username]);
 
   const byKey = (key: string): NutrientStat | undefined =>
     data?.nutrients.find((n) => n.key === key);

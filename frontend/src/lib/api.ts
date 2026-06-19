@@ -1,6 +1,7 @@
 import { getAuthToken, setAuthToken } from "@shared/cortex";
 
 const API_BASE = (process.env.NEXT_PUBLIC_API_URL ?? "").replace(/\/$/, "");
+const APP_BASE = (process.env.NEXT_PUBLIC_BASE_PATH ?? "").replace(/\/$/, "");
 const TOKEN_KEY = "chef_auth_token";
 
 // --- Token helpers (kept for backward compat within this file) ---
@@ -12,6 +13,11 @@ export function setToken(t: string): void {
 }
 export function clearToken(): void {
   setAuthToken(TOKEN_KEY, null);
+}
+
+export function appPath(path: string): string {
+  const normalized = path.startsWith("/") ? path : `/${path}`;
+  return `${APP_BASE}${normalized}`;
 }
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
@@ -27,7 +33,7 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   if (res.status === 401) {
     clearToken();
     window.dispatchEvent(new Event("chef:unauthorized"));
-    if (typeof window !== "undefined") window.location.replace("/login");
+    if (typeof window !== "undefined") window.location.replace(appPath("/login"));
   }
   if (!res.ok) {
     const err = await res.text();
@@ -322,10 +328,10 @@ export const api = {
   },
   getMealSuggestion: (meal_type: string) =>
     request<{ suggestion: string }>(`/recipes/suggest?meal_type=${meal_type}`),
-  searchRecipes: (q: string, cuisine?: string) => {
+  searchRecipes: (q: string, cuisine?: string, options?: RequestInit) => {
     const params = new URLSearchParams({ q });
     if (cuisine) params.set("cuisine", cuisine);
-    return request<Recipe[]>(`/recipes/search?${params}`);
+    return request<Recipe[]>(`/recipes/search?${params}`, options);
   },
   getRecipe: (id: string) => request<Recipe>(`/recipes/${id}`),
 

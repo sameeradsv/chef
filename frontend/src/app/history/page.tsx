@@ -320,7 +320,8 @@ export default function HistoryPage() {
   const rangeEnd = Math.min(total, (page + 1) * PAGE_SIZE);
   const feedGroups = timeFilter === "Week" ? [{ label: "", entries: visible }] : groupFeed(visible);
 
-  const inputCls = "w-full bg-kitchen-surface text-kitchen-text text-sm px-3 py-2.5 outline-none focus:ring-1 ring-kitchen-accent/50 placeholder:text-kitchen-muted";
+  const inputCls = "w-full min-w-0 bg-kitchen-surface text-kitchen-text text-sm px-3 py-2.5 outline-none focus:ring-1 ring-kitchen-accent/50 placeholder:text-kitchen-muted";
+  const datetimeInputCls = `${inputCls} history-datetime-input`;
   const inputStyle: React.CSSProperties = { border: "1px solid var(--kitchen-line2)", borderRadius: "var(--radius-btn)" };
 
   return (
@@ -413,7 +414,7 @@ export default function HistoryPage() {
               </button>
             ))}
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <MonoLabel className="text-kitchen-muted block mb-1.5">MEAL (OPTIONAL)</MonoLabel>
               <input value={logRecipe} onChange={(e) => setLogRecipe(e.target.value)} placeholder="e.g. Dal Tadka" className={inputCls} style={inputStyle} />
@@ -423,7 +424,7 @@ export default function HistoryPage() {
               <input value={logCuisine} onChange={(e) => setLogCuisine(e.target.value)} placeholder="e.g. Indian" className={inputCls} style={inputStyle} />
             </div>
             {(logDecision === "order" || logDecision === "eat_out") && (
-              <div className="col-span-2">
+              <div className="sm:col-span-2">
                 <MonoLabel className="text-kitchen-muted block mb-1.5">RESTAURANT (OPTIONAL)</MonoLabel>
                 <input value={logRestaurant} onChange={(e) => handleLogRestaurantChange(e.target.value)} placeholder="e.g. Meghana Foods" className={inputCls} style={inputStyle} />
                 {logRestaurant.trim() && (
@@ -458,7 +459,7 @@ export default function HistoryPage() {
               type="datetime-local"
               value={logTimestamp}
               onChange={(e) => setLogTimestamp(e.target.value)}
-              className={inputCls}
+              className={datetimeInputCls}
               style={inputStyle}
             />
           </div>
@@ -608,7 +609,7 @@ export default function HistoryPage() {
                         </button>
                       ))}
                     </div>
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                       <input
                         value={editRecipe}
                         onChange={(e) => setEditRecipe(e.target.value)}
@@ -624,7 +625,7 @@ export default function HistoryPage() {
                         style={inputStyle}
                       />
                       {(editDecision === "order" || editDecision === "eat_out") && (
-                        <div className="col-span-2">
+                        <div className="sm:col-span-2">
                           <input
                             value={editRestaurant}
                             onChange={(e) => handleEditRestaurantChange(e.target.value)}
@@ -665,7 +666,7 @@ export default function HistoryPage() {
                         type="datetime-local"
                         value={editTimestamp}
                         onChange={(e) => setEditTimestamp(e.target.value)}
-                        className={inputCls}
+                        className={datetimeInputCls}
                         style={inputStyle}
                       />
                     </div>

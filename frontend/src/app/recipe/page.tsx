@@ -51,26 +51,42 @@ export default function RecipeListPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    api.searchRecipes("")
+    const controller = new AbortController();
+    api.searchRecipes("", undefined, { signal: controller.signal })
       .then(setRecipes)
-      .catch(() => setError("Could not load recipes."))
-      .finally(() => setLoading(false));
+      .catch((e) => {
+        if (e instanceof DOMException && e.name === "AbortError") return;
+        setError("Could not load recipes.");
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setLoading(false);
+      });
+    return () => controller.abort();
   }, []);
 
   useEffect(() => {
     if (loading) return;
 
     const trimmed = query.trim();
+    const controller = new AbortController();
     const timer = setTimeout(() => {
       setSearchLoading(true);
       setError(null);
-      api.searchRecipes(trimmed)
+      api.searchRecipes(trimmed, undefined, { signal: controller.signal })
         .then(setRecipes)
-        .catch(() => setError(trimmed ? "Search failed." : "Could not load recipes."))
-        .finally(() => setSearchLoading(false));
+        .catch((e) => {
+          if (e instanceof DOMException && e.name === "AbortError") return;
+          setError(trimmed ? "Search failed." : "Could not load recipes.");
+        })
+        .finally(() => {
+          if (!controller.signal.aborted) setSearchLoading(false);
+        });
     }, 300);
 
-    return () => clearTimeout(timer);
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
   }, [query, loading]);
 
   return (

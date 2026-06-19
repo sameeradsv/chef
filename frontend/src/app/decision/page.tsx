@@ -362,6 +362,7 @@ function DecisionPageInner() {
   const [selected, setSelected] = useState<string | null>(null);
   const [attempt, setAttempt] = useState(0);
   const [energySources, setEnergySources] = useState<string[]>([]);
+  const energySourceLabel = energySources.length > 1 ? `Combined from ${energySources.join(" + ")}` : energySources[0];
   const [peopleCount, setPeopleCount] = useState(2);
   const [defaultPeople, setDefaultPeople] = useState(2);
   const [showContext, setShowContext] = useState(false);
@@ -441,7 +442,7 @@ function DecisionPageInner() {
       };
       setBaselineState(preset);
       setState(preset);
-      if (combinedEnergy.fromCombined) setEnergySources(combinedEnergy.sources);
+      setEnergySources(combinedEnergy.sources);
 
       let people = 2;
       try {
@@ -545,9 +546,9 @@ function DecisionPageInner() {
             }}
             title={
               state.energy_level !== baselineState.energy_level
-                ? `Session override (combined preset ${baselineState.energy_level}/10)`
+                ? `Session override (${energySourceLabel ? `${energySourceLabel} preset` : "default"} ${baselineState.energy_level}/10)`
                 : energySources.length > 0
-                ? `Combined from ${energySources.join(" + ")} · ${state.energy_level}/10`
+                ? `${energySourceLabel} · ${state.energy_level}/10`
                 : `Energy ${state.energy_level}/10`
             }
           >
