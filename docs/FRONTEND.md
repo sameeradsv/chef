@@ -155,7 +155,7 @@ Substitutions: [AI.md](./AI.md). Recipe model: [DATA_MODELS.md](./DATA_MODELS.md
 - Show three options side-by-side with cost, time, effort, and bullet reasons from API structured fields.
 - Expiry alerts on dashboard must match backend expiry logic ([AI.md](./AI.md) prohibitions).
 - The frontend is a Next.js static export (PWA) deployed to GitHub Pages — no React Native.
-- Nav has 8 destinations: Home / Pantry / Decide / Grocery / History / Health / Chat / You (Settings). Mobile uses a collapsible side rail; desktop uses the full sidebar.
+- Nav has 8 destinations: Home / Pantry / Decide / Grocery / History / Health / Chat / You (Settings). Mobile uses an off-canvas side drawer; desktop uses the full sidebar.
 - Timestamp semantics: API datetimes are naive IST strings; frontend displays/edits IST only (`lib/tz.ts`); backend converts to UTC. History filters and energy/nutrition use meal `timestamp`, so backdated entries land on the correct date.
 - Dashboard **Week glance** shows Mon–today (IST) only, fetched with `from_date`/`to_date` on `GET /history`.
 - Pantry theme (third colour scheme) and density control were deliberately dropped — do not re-add without approval.

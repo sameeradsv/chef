@@ -125,9 +125,28 @@ export function Layout({ children }: { children: React.ReactNode }) {
         />
       )}
 
+      {!navOpen && (
+        <button
+          type="button"
+          aria-label="Open navigation"
+          aria-expanded={false}
+          onClick={() => setNavOpen(true)}
+          className="fixed left-4 z-40 flex h-11 w-11 items-center justify-center rounded-btn text-kitchen-muted shadow-lg transition-colors hover:bg-kitchen-card hover:text-kitchen-text md:hidden"
+          style={{
+            top: "calc(12px + env(safe-area-inset-top, 0px))",
+            backgroundColor: "rgb(var(--kitchen-surface))",
+            border: "1px solid var(--kitchen-line2)",
+          }}
+        >
+          <span className="h-5 w-5">
+            <MenuIcon />
+          </span>
+        </button>
+      )}
+
       <aside
-        className={`fixed inset-y-0 left-0 z-40 flex flex-col transition-[width] duration-200 ease-out md:w-56 ${
-          navOpen ? "w-56" : "w-16"
+        className={`fixed inset-y-0 left-0 z-40 flex w-56 flex-col transition-transform duration-200 ease-out md:translate-x-0 ${
+          navOpen ? "translate-x-0" : "-translate-x-full"
         }`}
         style={{
           backgroundColor: "rgb(var(--kitchen-surface))",
@@ -209,12 +228,12 @@ export function Layout({ children }: { children: React.ReactNode }) {
       </aside>
 
       <main
-        className="ml-16 flex min-h-dvh flex-col md:ml-56"
+        className="flex min-h-dvh flex-col md:ml-56"
         style={{
           paddingTop: "env(safe-area-inset-top, 0px)",
         }}
       >
-        <div className="flex min-h-0 w-full max-w-2xl flex-1 flex-col px-4 py-6 mx-auto animate-fade-in sm:px-[22px]">
+        <div className="flex min-h-0 w-full max-w-2xl flex-1 flex-col px-4 pb-6 pt-16 mx-auto animate-fade-in sm:px-[22px] md:py-6">
           {children}
         </div>
       </main>

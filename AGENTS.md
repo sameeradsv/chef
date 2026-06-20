@@ -152,7 +152,7 @@ See **[DEFERRED.md](./DEFERRED.md)** — no UI-only gaps; remaining work is defe
 
 | Feature | Where |
 |---|---|
-| Collapsible side navigation | `components/Layout.tsx` — mobile icon rail expands into full side nav; desktop sidebar remains full-width |
+| Collapsible side navigation | `components/Layout.tsx` — mobile side nav hides off-canvas until opened; desktop sidebar remains full-width |
 | Week glance strip on Dashboard | `app/page.tsx` — `WeekGlance` component; fetches current IST calendar week (Mon–today) via `GET /history?from_date&to_date` |
 | ThemePicker in Dashboard header | `app/page.tsx` — `ThemeToggle` compact swatch pills (top-right of greeting) |
 | Tonight's Pick score badge | `app/page.tsx` — backdrop-blur amber pill showing mode + pantry match % |
