@@ -7,7 +7,7 @@ This file provides guidance to Codex (Codex.ai/code) when working with code in t
 Chef is a kitchen decision intelligence system that answers "What is the best food decision right now?" by comparing cooking at home vs. ordering vs. eating out using a deterministic scoring engine (not AI/LLM-driven).
 
 - **Frontend**: Next.js 15 / React 19 / TypeScript / Tailwind CSS — deployed to GitHub Pages as a static export
-- **Backend**: FastAPI + SQLAlchemy 2.0 + Pydantic 2 — deployed to Render (free tier); database is **Neon PostgreSQL** (free tier, external, set via `DATABASE_URL` in Render dashboard)
+- **Backend**: FastAPI + SQLAlchemy 2.0 + Pydantic 2 — deployed to Vercel Python Functions; database is **Neon PostgreSQL** (free tier, external, set via `DATABASE_URL` in Vercel)
 
 ## Commands
 
@@ -47,7 +47,7 @@ docker compose up -d postgres
 
 | File | Responsibility |
 |---|---|
-| `main.py` | FastAPI app init, lifespan hook, router registration, CORS; `run_pending_migrations()` + async seed on startup |
+| `main.py` | FastAPI app init, lifespan hook, router registration, CORS; `INIT_DB_ON_STARTUP` controls startup migrations/seed work |
 | `models.py` | SQLAlchemy ORM: `Ingredient`, `UserState`, `UserPreferences`, `CookingHistory`, `GroceryItem`, `DiscardedIngredient`, `AuthSession`, `WebAuthnCredential`, `WebAuthnChallenge` |
 | `schemas.py` | Pydantic request/response types |
 | `tz_utils.py` | IST wall-clock ↔ naive UTC conversion for all API datetimes |
@@ -64,7 +64,7 @@ docker compose up -d postgres
 - `/agent/chat` — native Groq chat agent (SSE); tools: meal recommendations, cook-vs-order, food log, log meal. Requires `GROQ_API_KEY`; model override via `CHEF_AGENT_MODEL`
 - `/auth/webauthn/register/begin|complete` (Bearer), `/auth/webauthn/login/begin|complete` (public, returns JWT)
 
-**Database migrations** (no Alembic): additive `ALTER TABLE` / `CREATE TABLE IF NOT EXISTS` only. On lifespan startup, `run_pending_migrations()` in `database.py` loads applied names from `schema_migrations` in one query, then runs only pending entries from `MIGRATIONS`. Warm boots skip schema inspection entirely. **Each new column or table must be registered as its own named migration** in `MIGRATIONS` — do not only append to `_migrate_sqlite` / `_migrate_postgres`, or production will skip it once the coarse `sqlite_schema` / `postgres_schema` rows exist.
+**Database migrations** (no Alembic): additive `ALTER TABLE` / `CREATE TABLE IF NOT EXISTS` only. `run_pending_migrations()` in `database.py` loads applied names from `schema_migrations` in one query, then runs only pending entries from `MIGRATIONS`. Local startup runs this by default; Vercel production should set `INIT_DB_ON_STARTUP=false` after the database has been initialized, then run production migrations explicitly with `DATABASE_URL="postgresql://..." python -m app.database`. **Each new column or table must be registered as its own named migration** in `MIGRATIONS` — do not only append to `_migrate_sqlite` / `_migrate_postgres`, or production will skip it once the coarse `sqlite_schema` / `postgres_schema` rows exist.
 
 **Services** (the core logic):
 - `decision_engine.py` — Deterministic scoring: cook score = `pantry_urgency + health + cost_savings − effort_cost − cleanup`; order score = `convenience + craving_match − delivery_delay − budget_penalty`; eat-out score similar with travel time (~25 min). When the primary venue is dine-in-only, order scoring uses a separate delivery pick (`order_restaurant` in `compare_options`). Expiring-ingredient bonus: +2 for cook. Energy-aware restaurant selection. `pantry_urgency` is computed via `recipe_pantry_expiry_urgency` — it counts only pantry items the recommended recipe actually uses (`in_pantry=True`), not every item in the pantry.
@@ -114,8 +114,8 @@ Custom Tailwind color tokens are defined as CSS variables (`--kitchen-bg`, `--ki
 ### Deployment
 
 - **Frontend**: GitHub Actions builds `next export` (static) with `basePath: "/chef"`, deploys to GitHub Pages. PWA is disabled in dev and on GitHub Pages build.
-- **Backend**: Render Blueprint (`render.yaml`) — Python 3.12, `uvicorn app.main:app --host 0.0.0.0 --port $PORT`; health check path `/health`. Database is **Neon PostgreSQL** (free tier, external) — set `DATABASE_URL` manually in Render dashboard after deploy. Set `GROQ_API_KEY` manually in Render dashboard to enable LLM narratives, vision parsing, chat agent, and Groq recipe generation.
-- **CI/CD** (`.github/workflows/deploy.yml`): `CHEF_API_URL` repo Actions variable sets the backend URL baked into the frontend build (`NEXT_PUBLIC_API_URL`). Also pass `NEXT_PUBLIC_CORTEX_URL`, `NEXT_PUBLIC_CIRCUIT_API_URL`, and `NEXT_PUBLIC_CANOPY_API_URL` for Decide combined energy. `RENDER_DEPLOY_HOOK` secret triggers backend redeploy.
+- **Backend**: Vercel Python Function rooted at `backend/` (`api/index.py` + `vercel.json`). Database is **Neon PostgreSQL** (free tier, external) — set `DATABASE_URL` in Vercel. Set `INIT_DB_ON_STARTUP=false` in Vercel after the schema exists, and set `GROQ_API_KEY` there to enable LLM narratives, vision parsing, chat agent, and Groq recipe generation.
+- **CI/CD** (`.github/workflows/deploy.yml`): Vercel deploys backend compute from Git separately. The GitHub Pages workflow verifies `CHEF_API_URL/api/health`, then bakes `CHEF_API_URL` into the frontend build (`NEXT_PUBLIC_API_URL`). Also pass `NEXT_PUBLIC_CORTEX_URL`, `NEXT_PUBLIC_CIRCUIT_API_URL`, and `NEXT_PUBLIC_CANOPY_API_URL` for Decide combined energy.
 
 ### Stubbed / Not Yet Implemented
 
@@ -124,7 +124,7 @@ These are in-scope future features still using placeholder/seed data:
 - pgvector semantic search (keyword `q` filter only; needs PostgreSQL + pgvector extension)
 
 ### Implemented but needs configuration
-- **LLM narrative explanations** — `services/llm.py` calls Groq Llama 3.1 8B; requires `GROQ_API_KEY` set in Render dashboard. Decision narratives are baked into the `_DCACHE` result (30-min TTL); meal suggestions are cached separately for 60 min
+- **LLM narrative explanations** — `services/llm.py` calls Groq Llama 3.1 8B; requires `GROQ_API_KEY` set in Vercel. Decision narratives are baked into the `_DCACHE` result (30-min TTL); meal suggestions are cached separately for 60 min
 - **Chat agent** — `routers/agent.py` + `services/chef_agent.py`; Groq Llama 3.3 70B with tool calling, 429 fallback to `llama-3.1-8b-instant`, text-format tool call recovery; requires same `GROQ_API_KEY`
 - **Vision / screenshot parsing** — `routers/vision.py` calls Groq Llama 4 Scout (`meta-llama/llama-4-scout-17b-16e-instruct`); requires same `GROQ_API_KEY`. Used by history page screenshot-to-log feature.
 - **Recipe generation** — `services/mealdb.py:generate_recipes()` uses Groq; requires `GROQ_API_KEY`. Without it, recipe suggestions return MealDB/seed results only. Results are cached in-process for 30 min; the decision-router `_DCACHE` is also 30 min. Keep these server-side caches so Groq calls do not fire on every reload; decision cache keys must include pantry contents, user state/preferences, meal type, and history freshness so edits do not serve stale recommendations.
@@ -211,4 +211,4 @@ All UI changes must work correctly across **every** combination of these views b
 - Keyboard shortcut hints are desktop-only — render them inside `hidden sm:block` or equivalent so they don't clutter mobile.
 
 ### Config & environment
-- **Never** add `localhost` or `127.0.0.1` to `CORS_ORIGINS`, `render.yaml`, or Pydantic config defaults. Dev origins belong in `.env` only.
+- **Never** add `localhost` or `127.0.0.1` to `CORS_ORIGINS`, Vercel config, or Pydantic config defaults. Dev origins belong in `.env` only.

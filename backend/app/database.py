@@ -230,9 +230,21 @@ def run_pending_migrations() -> None:
             applied.add(name)
 
 
+def init_db() -> None:
+    """Create tables and apply additive migrations for explicit deploy steps."""
+    from app import models  # noqa: F401
+
+    Base.metadata.create_all(bind=engine)
+    run_pending_migrations()
+
+
 def get_db():
     db = SessionLocal()
     try:
         yield db
     finally:
         db.close()
+
+
+if __name__ == "__main__":
+    init_db()

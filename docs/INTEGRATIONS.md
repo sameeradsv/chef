@@ -133,7 +133,7 @@ Chef does **not** use `NEXT_PUBLIC_CHEF_API_URL` for itself — that variable is
 
 ### Backend
 
-Each sibling backend needs `CORTEX_AUTH_URL` on Render so the shared Cortex JWT validates cross-origin timeline requests.
+Each sibling backend needs `CORTEX_AUTH_URL` in its Vercel environment so the shared Cortex JWT validates cross-origin timeline requests.
 
 ---
 

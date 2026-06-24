@@ -586,7 +586,7 @@ export default function DashboardPage() {
             ))}
           </div>
           <p className="text-sm text-kitchen-text font-medium">Server is waking up…</p>
-          <p className="text-xs text-kitchen-muted">Render free tier spins down after inactivity. Retrying automatically.</p>
+          <p className="text-xs text-kitchen-muted">The API is taking a moment to respond. Retrying automatically.</p>
           <button
             type="button"
             onClick={() => setAttempt((n) => n + 1)}

@@ -11,7 +11,7 @@
   - `meta-llama/llama-4-scout-17b-16e-instruct` via `routers/vision.py` — image parsing (order screenshots, ingredient photos)
 - Requires `GROQ_API_KEY` env var; features degrade gracefully if absent (no narratives, no vision parsing)
 
-Stack context: FastAPI backend on Render, Neon PostgreSQL. See CLAUDE.md for full stack detail.
+Stack context: FastAPI backend on Vercel, Neon PostgreSQL. See CLAUDE.md for full stack detail.
 
 ---
 

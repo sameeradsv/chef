@@ -4,7 +4,7 @@ A kitchen **decision intelligence** system: manage your pantry, track food waste
 
 Chef answers *"What is the best food decision right now?"* — not only *"What recipe do you want?"*
 
-**Live:** [sameeradsv.github.io/chef](https://sameeradsv.github.io/chef) · API on Render (free tier — first request may take ~30s to wake up)  
+**Live:** [sameeradsv.github.io/chef](https://sameeradsv.github.io/chef) · API on Vercel  
 **Demo account:** `demo` / `demo1234` — visible in the login UI only when `NEXT_PUBLIC_SHOW_DEMO=true` is set on the frontend.
 
 ---
@@ -229,7 +229,8 @@ All datetime fields in API responses are **naive IST** (`YYYY-MM-DDTHH:MM:SS`); 
 ### Health check
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/health` | `{"status":"ok","service":"chef-api"}` — used by Render health check and login page connectivity probe |
+| GET | `/health` | `{"status":"ok","service":"chef-api"}` — used by the login page connectivity probe |
+| GET | `/api/health` | Same health response, used by Vercel/GitHub Pages deployment smoke checks |
 
 ---
 
@@ -253,12 +254,13 @@ Key factors:
 
 ## Deploy
 
-### GitHub Pages + Render (current setup)
+### GitHub Pages + Vercel
 
-1. **Render backend:** New → Blueprint → connect repo → apply `render.yaml`. Set `DATABASE_URL` (Neon PostgreSQL) and optionally `GROQ_API_KEY` in Render dashboard.
-2. **GitHub variables:** Settings → Actions → Variables → `CHEF_API_URL` = Render URL (no trailing slash). For cross-app energy on Decide, also set `NEXT_PUBLIC_CORTEX_URL`, `NEXT_PUBLIC_CIRCUIT_API_URL`, and `NEXT_PUBLIC_CANOPY_API_URL` (same names as Canopy/Circuit repos). Without those sibling URLs, Decide still presets energy from Chef `/sync/energy` for local Chef accounts.
-3. **(Optional)** Render Deploy Hook URL → GitHub secret `RENDER_DEPLOY_HOOK`.
-4. Push to `main` — GitHub Actions builds the frontend static export and deploys to Pages.
+1. **Vercel backend:** create a Vercel project from this repo with `backend` as the root directory, Framework Preset `Other`, Install Command `pip install -r requirements.txt`, and no custom build/output command. The backend entrypoint is `backend/api/index.py`.
+2. **Vercel env vars:** set `DATABASE_URL` (Neon PostgreSQL), `CORS_ORIGINS=https://sameeradsv.github.io`, `INIT_DB_ON_STARTUP=false` after the production schema exists, and optionally `GROQ_API_KEY`, `CORTEX_AUTH_URL`, `WEBAUTHN_RP_ID`, `WEBAUTHN_ORIGIN`, and `WEBAUTHN_RP_NAME`.
+3. **Schema initialization/migrations:** local dev still initializes on startup. For production, run `DATABASE_URL="postgresql://..." python -m app.database` from `backend/` before deploying schema-dependent changes.
+4. **GitHub variables:** Settings → Actions → Variables → `CHEF_API_URL` = Vercel API URL (no trailing slash). For cross-app energy on Decide, also set `NEXT_PUBLIC_CORTEX_URL`, `NEXT_PUBLIC_CIRCUIT_API_URL`, and `NEXT_PUBLIC_CANOPY_API_URL` (same names as Canopy/Circuit repos). Without those sibling URLs, Decide still presets energy from Chef `/sync/energy` for local Chef accounts.
+5. Push to `main` — Vercel deploys the backend from Git, and GitHub Actions verifies `CHEF_API_URL/api/health`, builds the frontend static export, and deploys it to Pages.
 
 The frontend is exported as a static site with `basePath: "/chef"` and deployed to `https://sameeradsv.github.io/chef/`.
 
@@ -294,7 +296,7 @@ chef/
       lib/          # api.ts (typed fetch), tz.ts (IST), cross-app-energy.ts (energy preset), utils.ts
       contexts/     # AuthContext
   docs/             # Architecture, decision engine, API, data models, roadmap, DEFERRED.md
-  render.yaml       # Render deploy blueprint
+  backend/vercel.json  # Vercel Python Function config
   docker-compose.yml
 ```
 
@@ -309,7 +311,7 @@ Chef's backend is consumed by **Conduit** — the hub app that provides cross-ap
 
 Chef also has an embedded terminal chat at `/chat` (in the side navigation), powered by Chef's native Groq agent at `POST /agent/chat`. Requires `GROQ_API_KEY` on the Chef backend and `NEXT_PUBLIC_API_URL` on the frontend. No Conduit dependency for in-app chat.
 
-Chef login also supports **Cortex** single sign-on (shared account across Chef, Canopy, Circuit). Set `NEXT_PUBLIC_CORTEX_URL` plus `NEXT_PUBLIC_CIRCUIT_API_URL` and `NEXT_PUBLIC_CANOPY_API_URL` for combined energy on the Decide page. Local Chef accounts use Chef `/sync/energy` as the fallback preset. Each backend needs `CORTEX_AUTH_URL` on Render.
+Chef login also supports **Cortex** single sign-on (shared account across Chef, Canopy, Circuit). Set `NEXT_PUBLIC_CORTEX_URL` plus `NEXT_PUBLIC_CIRCUIT_API_URL` and `NEXT_PUBLIC_CANOPY_API_URL` for combined energy on the Decide page. Local Chef accounts use Chef `/sync/energy` as the fallback preset. Each backend needs `CORTEX_AUTH_URL` in its Vercel environment.
 
 ---
 

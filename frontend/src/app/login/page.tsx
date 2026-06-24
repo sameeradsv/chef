@@ -49,7 +49,7 @@ export default function LoginPage() {
             return;
           }
         } catch {
-          /* retry — Render free tier cold start */
+          /* retry transient serverless startup/network failure */
         }
       }
       if (!cancelled) setBackendStatus("unreachable");

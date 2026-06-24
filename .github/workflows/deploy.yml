@@ -1,3 +1,5 @@
+# Deploy UI (GitHub Pages) after verifying the configured API.
+# API compute is deployed separately by Vercel's Git integration.
 name: Deploy Chef
 
 on:
@@ -15,25 +17,9 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  deploy-backend:
-    name: Deploy API (Render)
-    runs-on: ubuntu-latest
-    steps:
-      - name: Trigger Render deploy
-        env:
-          RENDER_DEPLOY_HOOK: ${{ secrets.RENDER_DEPLOY_HOOK }}
-        run: |
-          if [ -n "$RENDER_DEPLOY_HOOK" ]; then
-            curl -fsS -X POST "$RENDER_DEPLOY_HOOK"
-          else
-            echo "RENDER_DEPLOY_HOOK not set — use Render Blueprint auto-deploy from render.yaml"
-          fi
-
   build-frontend:
     name: Build UI for GitHub Pages
     runs-on: ubuntu-latest
-    needs: deploy-backend
-    if: always() && !cancelled()
     steps:
       - uses: actions/checkout@v4
 
@@ -52,11 +38,24 @@ jobs:
         working-directory: frontend
         run: npm ci
 
+      - name: Verify API health
+        run: |
+          API="${{ vars.CHEF_API_URL }}"
+          if [ -z "$API" ]; then
+            echo "::error::Set repo variable CHEF_API_URL to the production API base URL, e.g. https://chef-api.vercel.app"
+            exit 1
+          fi
+          echo "Checking $API/api/health"
+          curl -fsS --retry 3 --retry-delay 5 "$API/api/health" || {
+            echo "::error::API health check failed for $API"
+            exit 1
+          }
+
       - name: Build static site
         working-directory: frontend
         env:
           GITHUB_PAGES: "true"
-          NEXT_PUBLIC_API_URL: ${{ vars.CHEF_API_URL || secrets.CHEF_API_URL || 'https://chef-api.onrender.com' }}
+          NEXT_PUBLIC_API_URL: ${{ vars.CHEF_API_URL }}
           NEXT_PUBLIC_CORTEX_URL: ${{ vars.NEXT_PUBLIC_CORTEX_URL }}
           NEXT_PUBLIC_CIRCUIT_API_URL: ${{ vars.NEXT_PUBLIC_CIRCUIT_API_URL }}
           NEXT_PUBLIC_CANOPY_API_URL: ${{ vars.NEXT_PUBLIC_CANOPY_API_URL }}

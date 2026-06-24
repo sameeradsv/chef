@@ -10,7 +10,7 @@ from fastapi.middleware.gzip import GZipMiddleware
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
-from app.database import Base, SessionLocal, engine, run_pending_migrations
+from app.database import SessionLocal, init_db
 from app.routers import decisions, ingredients, recipes, user
 from app.routers.auth import router as auth_router
 from app.routers.grocery import router as grocery_router
@@ -27,12 +27,12 @@ from app.limiter import limiter
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    Base.metadata.create_all(bind=engine)
-    run_pending_migrations()
-    fut = asyncio.get_running_loop().run_in_executor(None, _seed_in_thread)
-    fut.add_done_callback(
-        lambda f: logging.warning("seed_database failed: %s", f.exception()) if f.exception() else None
-    )
+    if os.getenv("INIT_DB_ON_STARTUP", "true").lower() not in {"0", "false", "no", "off"}:
+        init_db()
+        fut = asyncio.get_running_loop().run_in_executor(None, _seed_in_thread)
+        fut.add_done_callback(
+            lambda f: logging.warning("seed_database failed: %s", f.exception()) if f.exception() else None
+        )
     yield
 
 
@@ -79,7 +79,7 @@ app.include_router(agent_router)
 async def add_cache_control(request: Request, call_next):
     response = await call_next(request)
     if request.method == "GET" and response.status_code == 200:
-        if request.url.path == "/health":
+        if request.url.path in {"/health", "/api/health"}:
             response.headers["Cache-Control"] = "public, max-age=30"
         elif request.url.path.startswith(("/api/auth", "/auth")):
             response.headers["Cache-Control"] = "no-store"
@@ -101,3 +101,8 @@ def _seed_in_thread() -> None:
 @app.get("/health")
 def health():
     return {"status": "ok", "service": "chef-api"}
+
+
+@app.get("/api/health")
+def api_health():
+    return health()
