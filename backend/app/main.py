@@ -22,6 +22,7 @@ from app.routers.webauthn import router as webauthn_router
 from app.routers.agent import router as agent_router
 from app.routers.energy import router as energy_router
 from app.routers.nutrition import router as nutrition_router
+from app.routers.notifications import router as notifications_router
 from app.seed import seed_database
 from app.limiter import limiter
 
@@ -73,6 +74,7 @@ app.include_router(vision_router)
 app.include_router(energy_router)
 app.include_router(nutrition_router)
 app.include_router(agent_router)
+app.include_router(notifications_router)
 
 
 @app.middleware("http")

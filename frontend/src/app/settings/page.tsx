@@ -6,6 +6,13 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useTheme, type Theme } from "@/contexts/ThemeContext";
 import { api, type UserPreferences, type UserState } from "@/lib/api";
 import { usePasskey } from "@/hooks/usePasskey";
+import {
+  currentPushSubscription,
+  disableChefReminders,
+  enableChefReminders,
+  notificationSupport,
+  type ReminderPermissionState,
+} from "@/lib/use-notifications";
 
 function MonoLabel({ children, className = "" }: { children: React.ReactNode; className?: string }) {
   return <span className={`text-[10px] font-mono tracking-[0.12em] uppercase ${className}`}>{children}</span>;
@@ -183,6 +190,13 @@ export default function SettingsPage() {
   const [defaultStress, setDefaultStress] = useState(5);
   const [savingDecisionDefaults, setSavingDecisionDefaults] = useState(false);
   const [decisionDefaultsSaved, setDecisionDefaultsSaved] = useState(false);
+  const [notificationState, setNotificationState] = useState<ReminderPermissionState>("unsupported");
+  const [notificationBusy, setNotificationBusy] = useState(false);
+  const [notificationError, setNotificationError] = useState<string | null>(null);
+  const [remindersEnabled, setRemindersEnabled] = useState(true);
+  const [morningTime, setMorningTime] = useState("09:00");
+  const [afternoonTime, setAfternoonTime] = useState("14:00");
+  const [eveningTime, setEveningTime] = useState("20:00");
 
   async function saveDecisionDefaults(patch: Partial<Pick<UserState, "willingness_to_cook" | "health_priority" | "stress_level">>) {
     setSavingDecisionDefaults(true);
@@ -241,7 +255,28 @@ export default function SettingsPage() {
         setDefaultStress(s.stress_level);
       })
       .catch(() => { /* defaults stay at 5 */ });
+
+    api.getReminderSettings()
+      .then((settings) => {
+        setRemindersEnabled(settings.enabled);
+        setMorningTime(settings.morning_time);
+        setAfternoonTime(settings.afternoon_time);
+        setEveningTime(settings.evening_time);
+      })
+      .catch(() => { /* notifications can still be configured after enable */ });
+
+    refreshNotificationState();
   }, []);
+
+  async function refreshNotificationState() {
+    const support = notificationSupport();
+    if (support === "unsupported") {
+      setNotificationState("unsupported");
+      return;
+    }
+    const subscription = await currentPushSubscription();
+    setNotificationState(subscription ? "subscribed" : support);
+  }
 
   function toggleSkip(item: string) {
     setSkipped((prev) =>
@@ -289,6 +324,54 @@ export default function SettingsPage() {
       setPasskeyErr(e instanceof Error ? e.message : "Registration failed");
     } finally {
       setPasskeyBusy(false);
+    }
+  }
+
+  async function handleEnableNotifications() {
+    setNotificationBusy(true);
+    setNotificationError(null);
+    try {
+      await enableChefReminders();
+      await refreshNotificationState();
+    } catch (err) {
+      setNotificationError(err instanceof Error ? err.message : "Could not enable reminders.");
+    } finally {
+      setNotificationBusy(false);
+    }
+  }
+
+  async function handleDisableNotifications() {
+    setNotificationBusy(true);
+    setNotificationError(null);
+    try {
+      await disableChefReminders();
+      await refreshNotificationState();
+    } catch (err) {
+      setNotificationError(err instanceof Error ? err.message : "Could not disable reminders on this device.");
+    } finally {
+      setNotificationBusy(false);
+    }
+  }
+
+  async function saveReminderSettings(next?: Partial<{ enabled: boolean; morning_time: string; afternoon_time: string; evening_time: string }>) {
+    const payload = {
+      enabled: next?.enabled ?? remindersEnabled,
+      morning_time: next?.morning_time ?? morningTime,
+      afternoon_time: next?.afternoon_time ?? afternoonTime,
+      evening_time: next?.evening_time ?? eveningTime,
+    };
+    setNotificationBusy(true);
+    setNotificationError(null);
+    try {
+      const saved = await api.updateReminderSettings(payload);
+      setRemindersEnabled(saved.enabled);
+      setMorningTime(saved.morning_time);
+      setAfternoonTime(saved.afternoon_time);
+      setEveningTime(saved.evening_time);
+    } catch {
+      setNotificationError("Could not save reminder times.");
+    } finally {
+      setNotificationBusy(false);
     }
   }
 
@@ -655,6 +738,112 @@ export default function SettingsPage() {
           )}
         </div>
       </div>
+
+      {/* Reminders */}
+      {notificationState !== "unsupported" && (
+        <div
+          className="overflow-hidden mt-3"
+          style={{ border: "1px solid var(--kitchen-line)", borderRadius: "var(--radius-card)", background: "rgb(var(--kitchen-card))" }}
+        >
+          <SectionHeader>REMINDERS</SectionHeader>
+          <div className="px-4 py-3.5" style={{ borderBottom: "1px solid var(--kitchen-line)" }}>
+            <div className="flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-sm text-kitchen-text">This device</p>
+                <p className="text-[11px] text-kitchen-muted mt-0.5">
+                  {notificationState === "subscribed"
+                    ? "Subscribed for Chef reminders"
+                    : notificationState === "denied"
+                      ? "Notifications are blocked in browser settings"
+                      : "Receive breakfast, lunch, and dinner nudges"}
+                </p>
+              </div>
+              {notificationState === "subscribed" ? (
+                <button
+                  type="button"
+                  onClick={handleDisableNotifications}
+                  disabled={notificationBusy}
+                  className="flex-shrink-0 text-xs text-kitchen-muted disabled:opacity-50 px-3 py-2 transition-opacity hover:opacity-80"
+                  style={{ border: "1px solid var(--kitchen-line2)", borderRadius: "var(--radius-btn)" }}
+                >
+                  Off
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleEnableNotifications}
+                  disabled={notificationBusy || notificationState === "denied"}
+                  className="flex-shrink-0 text-xs text-kitchen-accent disabled:opacity-50 px-3 py-2 transition-opacity hover:opacity-80"
+                  style={{ border: "1px solid rgb(var(--kitchen-accent) / 0.3)", borderRadius: "var(--radius-btn)", background: "rgb(var(--kitchen-accent) / 0.06)" }}
+                >
+                  {notificationBusy ? "..." : "Enable"}
+                </button>
+              )}
+            </div>
+            {notificationError && <p className="text-[11px] mt-2" style={{ color: "rgb(var(--kitchen-danger))" }}>{notificationError}</p>}
+          </div>
+
+          <div className="px-4 py-4 space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-kitchen-text">Daily reminders</p>
+                <p className="text-[11px] text-kitchen-muted mt-0.5">Sent by cron when the local time matches</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setRemindersEnabled(!remindersEnabled);
+                  saveReminderSettings({ enabled: !remindersEnabled });
+                }}
+                disabled={notificationBusy}
+                className="relative flex-shrink-0 transition-colors disabled:opacity-50"
+                style={{
+                  width: 44,
+                  height: 26,
+                  borderRadius: 999,
+                  background: remindersEnabled ? "rgb(var(--kitchen-success))" : "var(--kitchen-line2)",
+                }}
+                aria-pressed={remindersEnabled}
+              >
+                <span
+                  className="absolute top-1 transition-all"
+                  style={{
+                    width: 18,
+                    height: 18,
+                    borderRadius: "50%",
+                    background: "#fff",
+                    left: remindersEnabled ? 22 : 4,
+                    boxShadow: "0 1px 3px rgba(0,0,0,0.3)",
+                  }}
+                />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-3 gap-2">
+              {[
+                ["Morning", morningTime, setMorningTime, "morning_time"],
+                ["Afternoon", afternoonTime, setAfternoonTime, "afternoon_time"],
+                ["Evening", eveningTime, setEveningTime, "evening_time"],
+              ].map(([label, value, setter, key]) => (
+                <label key={label as string} className="min-w-0">
+                  <MonoLabel className="text-kitchen-muted block mb-1">{label as string}</MonoLabel>
+                  <input
+                    type="time"
+                    value={value as string}
+                    disabled={notificationBusy}
+                    onChange={(e) => {
+                      (setter as React.Dispatch<React.SetStateAction<string>>)(e.target.value);
+                      saveReminderSettings({ [key as "morning_time" | "afternoon_time" | "evening_time"]: e.target.value });
+                    }}
+                    className="w-full bg-kitchen-surface text-kitchen-text text-sm px-2 py-2 outline-none focus:ring-1 ring-kitchen-accent/50 disabled:opacity-50"
+                    style={{ border: "1px solid var(--kitchen-line2)", borderRadius: "var(--radius-btn)" }}
+                  />
+                </label>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Security */}
       {passkeySupported && (

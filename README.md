@@ -30,6 +30,7 @@ Chef answers *"What is the best food decision right now?"* — not only *"What r
 | LLM narrative explanations | Implemented (Groq Llama 3.1; requires `GROQ_API_KEY`) |
 | Multi-user auth (JWT, PBKDF2-SHA256 100k iterations, 30-day tokens) | Implemented |
 | WebAuthn passkey / biometric sign-in | Implemented — enable from **Settings → Security** |
+| Web Push meal reminders | Implemented — 3 configurable daily reminders, cron-triggered |
 | Live Swiggy/Zomato API | Stub (seed restaurant data only) |
 | pgvector semantic search | Stub (keyword search only) |
 
@@ -80,6 +81,10 @@ Optional env vars:
 ```bash
 GROQ_API_KEY=...           # enables LLM narratives, vision parsing, and /chat agent
 DATABASE_URL=postgres://   # switches from SQLite to PostgreSQL
+VAPID_PUBLIC_KEY=...       # Web Push public key
+VAPID_PRIVATE_KEY=...      # Web Push private key
+VAPID_SUBJECT=mailto:you@example.com
+REMINDER_CRON_SECRET=...   # required by /notifications/reminders/process
 
 # WebAuthn (passkey login) — set these in production
 WEBAUTHN_RP_ID=your-domain.com
@@ -108,6 +113,7 @@ NEXT_PUBLIC_SHOW_DEMO=true                     # show "Try the demo" button on t
 ```
 
 See [docs/INTEGRATIONS.md](./docs/INTEGRATIONS.md#cross-app-energy) for how Decide presets energy: local Chef accounts use Chef `/sync/energy`; Cortex accounts can use the Canopy-style combined Circuit + Canopy + Chef total.
+See [docs/REMINDERS.md](./docs/REMINDERS.md) for Web Push setup, VAPID key generation, and cron-job.org configuration.
 
 ---
 

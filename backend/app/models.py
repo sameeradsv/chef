@@ -2,7 +2,7 @@ import uuid
 from datetime import date, datetime, timezone
 from typing import Optional
 
-from sqlalchemy import Boolean, Date, DateTime, Float, ForeignKey, Integer, String, Text
+from sqlalchemy import Boolean, Date, DateTime, Float, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database import Base
@@ -87,6 +87,64 @@ class UserPreferencesModel(Base):
     people_count: Mapped[Optional[int]] = mapped_column(Integer, default=2, nullable=True)
     cooking_skill: Mapped[Optional[int]] = mapped_column(Integer, default=3, nullable=True)
     restaurant_delivery_json: Mapped[str] = mapped_column(Text, default="{}")
+
+
+class PushSubscriptionModel(Base):
+    __tablename__ = "push_subscriptions"
+    __table_args__ = (UniqueConstraint("endpoint", name="uq_push_subscriptions_endpoint"),)
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    user_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("user_accounts.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    endpoint: Mapped[str] = mapped_column(Text, nullable=False)
+    p256dh: Mapped[str] = mapped_column(Text, nullable=False)
+    auth: Mapped[str] = mapped_column(Text, nullable=False)
+    device_name: Mapped[Optional[str]] = mapped_column(String(120), nullable=True)
+    platform: Mapped[Optional[str]] = mapped_column(String(80), nullable=True)
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        default=lambda: datetime.now(timezone.utc).replace(tzinfo=None),
+        onupdate=lambda: datetime.now(timezone.utc).replace(tzinfo=None),
+    )
+
+
+class UserReminderSettingsModel(Base):
+    __tablename__ = "user_reminder_settings"
+
+    user_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("user_accounts.id", ondelete="CASCADE"), primary_key=True
+    )
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    morning_time: Mapped[str] = mapped_column(String(5), default="09:00", nullable=False)
+    afternoon_time: Mapped[str] = mapped_column(String(5), default="14:00", nullable=False)
+    evening_time: Mapped[str] = mapped_column(String(5), default="20:00", nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        default=lambda: datetime.now(timezone.utc).replace(tzinfo=None),
+        onupdate=lambda: datetime.now(timezone.utc).replace(tzinfo=None),
+    )
+
+
+class ReminderDispatchLogModel(Base):
+    __tablename__ = "reminder_dispatch_log"
+    __table_args__ = (UniqueConstraint("dispatch_key", name="uq_reminder_dispatch_log_key"),)
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    user_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("user_accounts.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    reminder_type: Mapped[str] = mapped_column(String(20), nullable=False, index=True)
+    dispatch_key: Mapped[str] = mapped_column(String(80), nullable=False)
+    status: Mapped[str] = mapped_column(String(20), default="processing", nullable=False, index=True)
+    attempts: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    delivered_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    failed_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    last_error: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
+    sent_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
 
 
 class DiscardedIngredientModel(Base):

@@ -187,6 +187,106 @@ def _migrate_restaurant_delivery_json() -> None:
         conn.commit()
 
 
+def _migrate_push_reminders() -> None:
+    with engine.connect() as conn:
+        from sqlalchemy import inspect, text
+        inspector = inspect(engine)
+        tables = set(inspector.get_table_names())
+        if DATABASE_URL.startswith("sqlite"):
+            if "push_subscriptions" not in tables:
+                conn.execute(text(
+                    "CREATE TABLE push_subscriptions ("
+                    "id VARCHAR(36) PRIMARY KEY, "
+                    "user_id VARCHAR(36) NOT NULL REFERENCES user_accounts(id) ON DELETE CASCADE, "
+                    "endpoint TEXT NOT NULL UNIQUE, "
+                    "p256dh TEXT NOT NULL, "
+                    "auth TEXT NOT NULL, "
+                    "device_name VARCHAR(120), "
+                    "platform VARCHAR(80), "
+                    "enabled BOOLEAN NOT NULL DEFAULT 1, "
+                    "created_at DATETIME DEFAULT CURRENT_TIMESTAMP, "
+                    "updated_at DATETIME DEFAULT CURRENT_TIMESTAMP)"
+                ))
+                conn.execute(text("CREATE INDEX ix_push_subscriptions_user_id ON push_subscriptions (user_id)"))
+                conn.execute(text("CREATE INDEX ix_push_subscriptions_enabled ON push_subscriptions (enabled)"))
+            if "user_reminder_settings" not in tables:
+                conn.execute(text(
+                    "CREATE TABLE user_reminder_settings ("
+                    "user_id VARCHAR(36) PRIMARY KEY REFERENCES user_accounts(id) ON DELETE CASCADE, "
+                    "enabled BOOLEAN NOT NULL DEFAULT 1, "
+                    "morning_time VARCHAR(5) NOT NULL DEFAULT '09:00', "
+                    "afternoon_time VARCHAR(5) NOT NULL DEFAULT '14:00', "
+                    "evening_time VARCHAR(5) NOT NULL DEFAULT '20:00', "
+                    "updated_at DATETIME DEFAULT CURRENT_TIMESTAMP)"
+                ))
+            if "reminder_dispatch_log" not in tables:
+                conn.execute(text(
+                    "CREATE TABLE reminder_dispatch_log ("
+                    "id VARCHAR(36) PRIMARY KEY, "
+                    "user_id VARCHAR(36) NOT NULL REFERENCES user_accounts(id) ON DELETE CASCADE, "
+                    "reminder_type VARCHAR(20) NOT NULL, "
+                    "dispatch_key VARCHAR(80) NOT NULL UNIQUE, "
+                    "status VARCHAR(20) NOT NULL DEFAULT 'processing', "
+                    "attempts INTEGER NOT NULL DEFAULT 0, "
+                    "delivered_count INTEGER NOT NULL DEFAULT 0, "
+                    "failed_count INTEGER NOT NULL DEFAULT 0, "
+                    "last_error TEXT, "
+                    "created_at DATETIME DEFAULT CURRENT_TIMESTAMP, "
+                    "sent_at DATETIME)"
+                ))
+                conn.execute(text("CREATE INDEX ix_reminder_dispatch_log_user_id ON reminder_dispatch_log (user_id)"))
+                conn.execute(text("CREATE INDEX ix_reminder_dispatch_log_reminder_type ON reminder_dispatch_log (reminder_type)"))
+                conn.execute(text("CREATE INDEX ix_reminder_dispatch_log_status ON reminder_dispatch_log (status)"))
+            conn.commit()
+            return
+
+        if "push_subscriptions" not in tables:
+            conn.execute(text(
+                "CREATE TABLE push_subscriptions ("
+                "id VARCHAR(36) PRIMARY KEY, "
+                "user_id VARCHAR(36) NOT NULL REFERENCES user_accounts(id) ON DELETE CASCADE, "
+                "endpoint TEXT NOT NULL UNIQUE, "
+                "p256dh TEXT NOT NULL, "
+                "auth TEXT NOT NULL, "
+                "device_name VARCHAR(120), "
+                "platform VARCHAR(80), "
+                "enabled BOOLEAN NOT NULL DEFAULT TRUE, "
+                "created_at TIMESTAMP DEFAULT NOW(), "
+                "updated_at TIMESTAMP DEFAULT NOW())"
+            ))
+            conn.execute(text("CREATE INDEX ix_push_subscriptions_user_id ON push_subscriptions (user_id)"))
+            conn.execute(text("CREATE INDEX ix_push_subscriptions_enabled ON push_subscriptions (enabled)"))
+        if "user_reminder_settings" not in tables:
+            conn.execute(text(
+                "CREATE TABLE user_reminder_settings ("
+                "user_id VARCHAR(36) PRIMARY KEY REFERENCES user_accounts(id) ON DELETE CASCADE, "
+                "enabled BOOLEAN NOT NULL DEFAULT TRUE, "
+                "morning_time VARCHAR(5) NOT NULL DEFAULT '09:00', "
+                "afternoon_time VARCHAR(5) NOT NULL DEFAULT '14:00', "
+                "evening_time VARCHAR(5) NOT NULL DEFAULT '20:00', "
+                "updated_at TIMESTAMP DEFAULT NOW())"
+            ))
+        if "reminder_dispatch_log" not in tables:
+            conn.execute(text(
+                "CREATE TABLE reminder_dispatch_log ("
+                "id VARCHAR(36) PRIMARY KEY, "
+                "user_id VARCHAR(36) NOT NULL REFERENCES user_accounts(id) ON DELETE CASCADE, "
+                "reminder_type VARCHAR(20) NOT NULL, "
+                "dispatch_key VARCHAR(80) NOT NULL UNIQUE, "
+                "status VARCHAR(20) NOT NULL DEFAULT 'processing', "
+                "attempts INTEGER NOT NULL DEFAULT 0, "
+                "delivered_count INTEGER NOT NULL DEFAULT 0, "
+                "failed_count INTEGER NOT NULL DEFAULT 0, "
+                "last_error TEXT, "
+                "created_at TIMESTAMP DEFAULT NOW(), "
+                "sent_at TIMESTAMP)"
+            ))
+            conn.execute(text("CREATE INDEX ix_reminder_dispatch_log_user_id ON reminder_dispatch_log (user_id)"))
+            conn.execute(text("CREATE INDEX ix_reminder_dispatch_log_reminder_type ON reminder_dispatch_log (reminder_type)"))
+            conn.execute(text("CREATE INDEX ix_reminder_dispatch_log_status ON reminder_dispatch_log (status)"))
+        conn.commit()
+
+
 def _applied_migrations(conn) -> set[str]:
     from sqlalchemy import text
     rows = conn.execute(text("SELECT name FROM schema_migrations"))
@@ -207,6 +307,7 @@ MIGRATIONS: list[tuple[str, Callable[[], None]]] = [
     ("sqlite_schema", _migrate_sqlite),
     ("postgres_schema", _migrate_postgres),
     ("restaurant_delivery_json", _migrate_restaurant_delivery_json),
+    ("push_reminders", _migrate_push_reminders),
 ]
 
 

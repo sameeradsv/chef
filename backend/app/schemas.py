@@ -260,6 +260,65 @@ class TokenResponse(BaseModel):
     user: "UserAccountResponse"
 
 
+ReminderType = Literal["morning", "afternoon", "evening"]
+
+
+class PushKeys(BaseModel):
+    p256dh: str = Field(..., min_length=10)
+    auth: str = Field(..., min_length=10)
+
+
+class PushSubscriptionPayload(BaseModel):
+    endpoint: str = Field(..., min_length=20)
+    keys: PushKeys
+    device_name: Optional[str] = Field(None, max_length=120)
+    platform: Optional[str] = Field(None, max_length=80)
+
+
+class PushUnsubscribePayload(BaseModel):
+    endpoint: str = Field(..., min_length=20)
+
+
+class PushSubscriptionResponse(BaseModel):
+    id: str
+    endpoint: str
+    device_name: Optional[str] = None
+    platform: Optional[str] = None
+    enabled: bool
+    created_at: ISTDateTime
+    updated_at: ISTDateTime
+
+    model_config = {"from_attributes": True}
+
+
+class ReminderSettingsPayload(BaseModel):
+    enabled: bool = True
+    morning_time: str = Field("09:00", pattern=r"^\d{2}:\d{2}$")
+    afternoon_time: str = Field("14:00", pattern=r"^\d{2}:\d{2}$")
+    evening_time: str = Field("20:00", pattern=r"^\d{2}:\d{2}$")
+
+    @field_validator("morning_time", "afternoon_time", "evening_time")
+    @classmethod
+    def valid_time(cls, value: str) -> str:
+        hour, minute = [int(part) for part in value.split(":")]
+        if hour > 23 or minute > 59:
+            raise ValueError("Reminder time must be HH:MM in 24-hour local time")
+        return value
+
+
+class ReminderSettingsResponse(ReminderSettingsPayload):
+    updated_at: OptionalISTDateTime = None
+
+
+class ReminderProcessResponse(BaseModel):
+    reminder_type: ReminderType
+    due_users: int
+    claimed: int
+    sent: int
+    failed: int
+    inactive_subscriptions: int
+
+
 class UserAccountResponse(BaseModel):
     id: str
     username: str

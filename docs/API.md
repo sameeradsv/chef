@@ -102,6 +102,32 @@ Authenticated mutable GETs return `Cache-Control: no-store` so pantry, history, 
 
 ---
 
+## Notifications
+
+```text
+GET    /notifications/vapid-public-key
+GET    /notifications/subscriptions
+POST   /notifications/subscriptions
+DELETE /notifications/subscriptions
+GET    /notifications/settings
+PUT    /notifications/settings
+POST   /notifications/reminders/process?type=morning|afternoon|evening
+```
+
+| Method | Purpose |
+|--------|---------|
+| `GET /notifications/vapid-public-key` | Public VAPID key for browser PushManager subscription. |
+| `GET /notifications/subscriptions` | Enabled push subscriptions for the current user. |
+| `POST /notifications/subscriptions` | Upsert this device's `endpoint`, `p256dh`, `auth`, `device_name`, and `platform`. |
+| `DELETE /notifications/subscriptions` | Disable this device by endpoint. |
+| `GET /notifications/settings` | Three daily reminder times and enabled flag. |
+| `PUT /notifications/settings` | Update fixed daily reminder times. |
+| `POST /notifications/reminders/process` | Cron-only dispatch endpoint. Requires `X-Cron-Secret`; sends only users due at the current IST minute and uses `reminder_dispatch_log` to prevent duplicate sends. |
+
+See [REMINDERS.md](./REMINDERS.md) for VAPID, service worker, cron-job.org, and invalid subscription cleanup details.
+
+---
+
 ## Energy
 
 ```text

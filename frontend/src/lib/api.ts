@@ -276,6 +276,24 @@ export interface NutritionSummary {
   meal_suggestions: Record<string, FoodSuggestion[]>;
 }
 
+export interface PushSubscriptionInput {
+  endpoint: string;
+  keys: {
+    p256dh: string;
+    auth: string;
+  };
+  device_name?: string;
+  platform?: string;
+}
+
+export interface ReminderSettings {
+  enabled: boolean;
+  morning_time: string;
+  afternoon_time: string;
+  evening_time: string;
+  updated_at?: string | null;
+}
+
 // --- API ---
 
 export const api = {
@@ -438,4 +456,26 @@ export const api = {
   // Nutrition
   getNutritionSummary: (days = 7) =>
     request<NutritionSummary>(`/nutrition/summary?days=${days}`),
+
+  // Notifications
+  getVapidPublicKey: async () => {
+    const result = await request<{ public_key: string }>("/notifications/vapid-public-key");
+    return result.public_key;
+  },
+  subscribeDevice: (data: PushSubscriptionInput) =>
+    request<{ id: string }>("/notifications/subscriptions", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  unsubscribeDevice: (endpoint: string) =>
+    request<void>("/notifications/subscriptions", {
+      method: "DELETE",
+      body: JSON.stringify({ endpoint }),
+    }),
+  getReminderSettings: () => request<ReminderSettings>("/notifications/settings"),
+  updateReminderSettings: (data: ReminderSettings) =>
+    request<ReminderSettings>("/notifications/settings", {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }),
 };
