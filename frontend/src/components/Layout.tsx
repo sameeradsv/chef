@@ -4,6 +4,13 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
+import {
+  currentPushSubscription,
+  disableChefReminders,
+  enableChefReminders,
+  notificationSupport,
+  type ReminderPermissionState,
+} from "@/lib/use-notifications";
 
 const HomeIcon = () => (
   <svg viewBox="0 0 24 24" strokeWidth={1.7} fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round">
@@ -84,6 +91,14 @@ const ExitIcon = () => (
   </svg>
 );
 
+const BellIcon = ({ disabled = false }: { disabled?: boolean }) => (
+  <svg viewBox="0 0 24 24" strokeWidth={1.7} fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9" />
+    <path d="M10.3 21a2 2 0 0 0 3.4 0" />
+    {disabled && <line x1="4" y1="4" x2="20" y2="20" />}
+  </svg>
+);
+
 const TABS = [
   { href: "/", label: "Home", Icon: HomeIcon },
   { href: "/inventory", label: "Pantry", Icon: PantryIcon },
@@ -104,15 +119,58 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const { username, logout } = useAuth();
   const [navOpen, setNavOpen] = useState(false);
+  const [notificationState, setNotificationState] = useState<ReminderPermissionState>("unsupported");
+  const [notificationBusy, setNotificationBusy] = useState(false);
+  const [notificationError, setNotificationError] = useState<string | null>(null);
 
   useEffect(() => {
     setNavOpen(false);
   }, [pathname]);
 
+  useEffect(() => {
+    refreshNotificationState();
+  }, [username]);
+
+  async function refreshNotificationState() {
+    const support = notificationSupport();
+    if (support === "unsupported") {
+      setNotificationState("unsupported");
+      return;
+    }
+    const subscription = await currentPushSubscription();
+    setNotificationState(subscription ? "subscribed" : support);
+  }
+
   function handleLogout() {
     logout();
     router.push("/login");
   }
+
+  async function handleNotificationClick() {
+    setNotificationBusy(true);
+    setNotificationError(null);
+    try {
+      if (notificationState === "subscribed") {
+        await disableChefReminders();
+      } else {
+        await enableChefReminders();
+      }
+      await refreshNotificationState();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Could not update notification settings.";
+      setNotificationError(message);
+    } finally {
+      setNotificationBusy(false);
+    }
+  }
+
+  const notificationTitle =
+    notificationError ??
+    (notificationState === "subscribed"
+      ? "Disable notifications on this device"
+      : notificationState === "denied"
+        ? "Notifications are blocked in browser settings"
+        : "Enable notifications on this device");
 
   return (
     <div className="min-h-dvh" style={{ backgroundColor: "rgb(var(--kitchen-bg))", color: "rgb(var(--kitchen-ink))", overflowX: "hidden" }}>
@@ -174,12 +232,37 @@ export function Layout({ children }: { children: React.ReactNode }) {
             </button>
           </div>
           {username && (
-            <p
-              className={`mt-3 truncate font-mono text-xs text-kitchen-muted md:block ${navOpen ? "block" : "hidden"}`}
-              style={{ letterSpacing: "0.05em" }}
-            >
-              {username.toUpperCase()}
-            </p>
+            <div className={`mt-3 items-center gap-2 md:flex ${navOpen ? "flex" : "hidden"}`}>
+              <p
+                className="min-w-0 flex-1 truncate font-mono text-xs text-kitchen-muted"
+                style={{ letterSpacing: "0.05em" }}
+              >
+                {username.toUpperCase()}
+              </p>
+              {notificationState !== "unsupported" && (
+                <button
+                  type="button"
+                  aria-label={notificationTitle}
+                  title={notificationTitle}
+                  disabled={notificationBusy || notificationState === "denied"}
+                  onClick={handleNotificationClick}
+                  className={`flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-btn transition-colors disabled:opacity-50 ${
+                    notificationState === "subscribed"
+                      ? "bg-kitchen-accent/10 text-kitchen-accent"
+                      : "text-kitchen-muted hover:bg-kitchen-card hover:text-kitchen-text"
+                  }`}
+                  style={{
+                    border: notificationState === "subscribed"
+                      ? "1px solid rgb(var(--kitchen-accent) / 0.3)"
+                      : "1px solid var(--kitchen-line2)",
+                  }}
+                >
+                  <span className="h-[18px] w-[18px]">
+                    <BellIcon disabled={notificationState === "denied"} />
+                  </span>
+                </button>
+              )}
+            </div>
           )}
         </div>
 

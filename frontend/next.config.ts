@@ -5,7 +5,7 @@ const isGithubPages = process.env.GITHUB_PAGES === "true";
 
 const withPWA = withPWAInit({
   dest: "public",
-  disable: process.env.NODE_ENV === "development" || isGithubPages,
+  disable: process.env.NODE_ENV === "development",
   register: true,
   fallbacks: {
     document: "/offline",
