@@ -147,6 +147,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
   }
 
   async function handleNotificationClick() {
+    if (notificationState === "denied") {
+      setNotificationError("Notifications are blocked in browser settings.");
+      return;
+    }
     setNotificationBusy(true);
     setNotificationError(null);
     try {
@@ -171,6 +175,22 @@ export function Layout({ children }: { children: React.ReactNode }) {
       : notificationState === "denied"
         ? "Notifications are blocked in browser settings"
         : "Enable notifications on this device");
+
+  const notificationMessage = notificationBusy
+    ? "ENABLING"
+    : notificationError
+      ? notificationError
+      : notificationState === "subscribed"
+        ? "ENABLED"
+        : notificationState === "denied"
+          ? "BLOCKED"
+          : "";
+
+  const notificationTone = notificationError || notificationState === "denied"
+    ? "rgb(var(--kitchen-danger))"
+    : notificationState === "subscribed"
+      ? "rgb(var(--kitchen-accent))"
+      : "rgb(var(--kitchen-muted))";
 
   return (
     <div className="min-h-dvh" style={{ backgroundColor: "rgb(var(--kitchen-bg))", color: "rgb(var(--kitchen-ink))", overflowX: "hidden" }}>
@@ -232,35 +252,53 @@ export function Layout({ children }: { children: React.ReactNode }) {
             </button>
           </div>
           {username && (
-            <div className={`mt-3 items-center gap-2 md:flex ${navOpen ? "flex" : "hidden"}`}>
-              <p
-                className="min-w-0 flex-1 truncate font-mono text-xs text-kitchen-muted"
-                style={{ letterSpacing: "0.05em" }}
-              >
-                {username.toUpperCase()}
-              </p>
-              {notificationState !== "unsupported" && (
-                <button
-                  type="button"
-                  aria-label={notificationTitle}
-                  title={notificationTitle}
-                  disabled={notificationBusy || notificationState === "denied"}
-                  onClick={handleNotificationClick}
-                  className={`flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-btn transition-colors disabled:opacity-50 ${
-                    notificationState === "subscribed"
-                      ? "bg-kitchen-accent/10 text-kitchen-accent"
-                      : "text-kitchen-muted hover:bg-kitchen-card hover:text-kitchen-text"
-                  }`}
-                  style={{
-                    border: notificationState === "subscribed"
-                      ? "1px solid rgb(var(--kitchen-accent) / 0.3)"
-                      : "1px solid var(--kitchen-line2)",
-                  }}
+            <div className={`mt-3 md:block ${navOpen ? "block" : "hidden"}`}>
+              <div className="flex items-center gap-2">
+                <p
+                  className="min-w-0 flex-1 truncate font-mono text-xs text-kitchen-muted"
+                  style={{ letterSpacing: "0.05em" }}
                 >
-                  <span className="h-[18px] w-[18px]">
-                    <BellIcon disabled={notificationState === "denied"} />
-                  </span>
-                </button>
+                  {username.toUpperCase()}
+                </p>
+                {notificationState !== "unsupported" && (
+                  <button
+                    type="button"
+                    aria-label={notificationTitle}
+                    title={notificationTitle}
+                    disabled={notificationBusy}
+                    onClick={handleNotificationClick}
+                    className={`relative flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-btn transition-colors disabled:opacity-70 ${
+                      notificationState === "subscribed"
+                        ? "bg-kitchen-accent/10 text-kitchen-accent"
+                        : notificationError || notificationState === "denied"
+                          ? "text-kitchen-danger"
+                          : "text-kitchen-muted hover:bg-kitchen-card hover:text-kitchen-text"
+                    }`}
+                    style={{
+                      border: notificationState === "subscribed"
+                        ? "1px solid rgb(var(--kitchen-accent) / 0.3)"
+                        : notificationError || notificationState === "denied"
+                          ? "1px solid rgb(var(--kitchen-danger) / 0.35)"
+                          : "1px solid var(--kitchen-line2)",
+                    }}
+                  >
+                    <span className="h-[18px] w-[18px]">
+                      <BellIcon disabled={notificationState === "denied"} />
+                    </span>
+                    {notificationBusy && (
+                      <span className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-kitchen-accent" />
+                    )}
+                  </button>
+                )}
+              </div>
+              {notificationMessage && notificationState !== "unsupported" && (
+                <p
+                  className="mt-1 truncate font-mono text-[10px]"
+                  style={{ color: notificationTone, letterSpacing: "0.08em" }}
+                  title={notificationMessage}
+                >
+                  {notificationMessage}
+                </p>
               )}
             </div>
           )}
