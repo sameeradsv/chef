@@ -186,11 +186,26 @@
 
 /* Native date/time controls can keep an intrinsic width on mobile. */
 .history-datetime-input {
+  display: block;
+  width: 100%;
+  inline-size: 100%;
   max-width: 100%;
   min-width: 0;
+  min-inline-size: 0;
   box-sizing: border-box;
+  overflow: hidden;
+  -webkit-appearance: none;
+  appearance: none;
 }
+.history-datetime-input::-webkit-datetime-edit,
 .history-datetime-input::-webkit-date-and-time-value {
   min-width: 0;
+  max-width: 100%;
   text-align: left;
+  overflow: hidden;
+}
+.history-datetime-input::-webkit-calendar-picker-indicator {
+  flex-shrink: 0;
+  margin-left: 2px;
+  padding: 0;
 }
