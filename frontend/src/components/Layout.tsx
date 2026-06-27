@@ -180,17 +180,13 @@ export function Layout({ children }: { children: React.ReactNode }) {
     ? "ENABLING"
     : notificationError
       ? notificationError
-      : notificationState === "subscribed"
-        ? "ENABLED"
-        : notificationState === "denied"
+      : notificationState === "denied"
           ? "BLOCKED"
           : "";
 
   const notificationTone = notificationError || notificationState === "denied"
     ? "rgb(var(--kitchen-danger))"
-    : notificationState === "subscribed"
-      ? "rgb(var(--kitchen-accent))"
-      : "rgb(var(--kitchen-muted))";
+    : "rgb(var(--kitchen-muted))";
 
   return (
     <div className="min-h-dvh" style={{ backgroundColor: "rgb(var(--kitchen-bg))", color: "rgb(var(--kitchen-ink))", overflowX: "hidden" }}>
@@ -282,7 +278,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                           : "1px solid var(--kitchen-line2)",
                     }}
                   >
-                    <span className="h-[18px] w-[18px]">
+                    <span className="h-3.5 w-3.5">
                       <BellIcon disabled={notificationState === "denied"} />
                     </span>
                     {notificationBusy && (
