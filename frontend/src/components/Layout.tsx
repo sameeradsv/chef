@@ -121,6 +121,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const [navOpen, setNavOpen] = useState(false);
   const [notificationState, setNotificationState] = useState<ReminderPermissionState>("unsupported");
   const [notificationBusy, setNotificationBusy] = useState(false);
+  const [notificationAction, setNotificationAction] = useState<"enable" | "disable" | null>(null);
   const [notificationError, setNotificationError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -152,6 +153,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
       return;
     }
     setNotificationBusy(true);
+    setNotificationAction(notificationState === "subscribed" ? "disable" : "enable");
     setNotificationError(null);
     try {
       if (notificationState === "subscribed") {
@@ -165,6 +167,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
       setNotificationError(message);
     } finally {
       setNotificationBusy(false);
+      setNotificationAction(null);
     }
   }
 
@@ -177,7 +180,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         : "Enable notifications on this device");
 
   const notificationMessage = notificationBusy
-    ? "ENABLING"
+    ? notificationAction === "disable" ? "DISABLING" : "ENABLING"
     : notificationError
       ? notificationError
       : notificationState === "denied"
@@ -265,24 +268,32 @@ export function Layout({ children }: { children: React.ReactNode }) {
                     onClick={handleNotificationClick}
                     className={`relative flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-btn transition-colors disabled:opacity-70 ${
                       notificationState === "subscribed"
-                        ? "bg-kitchen-accent/10 text-kitchen-accent"
+                        ? "text-kitchen-accent"
                         : notificationError || notificationState === "denied"
                           ? "text-kitchen-danger"
-                          : "text-kitchen-muted hover:bg-kitchen-card hover:text-kitchen-text"
+                          : "text-kitchen-muted hover:text-kitchen-text"
                     }`}
-                    style={{
-                      border: notificationState === "subscribed"
-                        ? "1px solid rgb(var(--kitchen-accent) / 0.3)"
-                        : notificationError || notificationState === "denied"
-                          ? "1px solid rgb(var(--kitchen-danger) / 0.35)"
-                          : "1px solid var(--kitchen-line2)",
-                    }}
                   >
-                    <span className="h-3.5 w-3.5">
-                      <BellIcon disabled={notificationState === "denied"} />
+                    <span
+                      className={`flex h-8 w-8 items-center justify-center rounded-btn transition-colors ${
+                        notificationState === "subscribed"
+                          ? "bg-kitchen-accent/10"
+                          : "hover:bg-kitchen-card"
+                      }`}
+                      style={{
+                        border: notificationState === "subscribed"
+                          ? "1px solid rgb(var(--kitchen-accent) / 0.3)"
+                          : notificationError || notificationState === "denied"
+                            ? "1px solid rgb(var(--kitchen-danger) / 0.35)"
+                            : "1px solid var(--kitchen-line2)",
+                      }}
+                    >
+                      <span className="h-3.5 w-3.5">
+                        <BellIcon disabled={notificationState === "denied"} />
+                      </span>
                     </span>
                     {notificationBusy && (
-                      <span className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-kitchen-accent" />
+                      <span className="absolute right-2 top-2 h-1.5 w-1.5 rounded-full bg-kitchen-accent" />
                     )}
                   </button>
                 )}
