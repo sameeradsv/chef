@@ -100,7 +100,7 @@ Data is multi-user — all tables keyed by `user_id`. JWT auth (30-day tokens, b
 | `app/history/page.tsx` | Decision history — IST datetime picker, Week/Month/Year/All filters (server-side by meal `timestamp`), pagination (20/page), edit/delete, satisfaction ratings; screenshot-to-log via vision API |
 | `app/health/page.tsx` | Nutrition health — macro rings (SVG), per-nutrient RDA bars, meal-type-keyed food suggestions |
 | `app/chat/page.tsx` | Terminal-style chat UI — native Groq agent via `POST /agent/chat` (`<TerminalChat>`) |
-| `app/settings/page.tsx` | User preferences, theme, passkey; Help (GitHub issues) + Privacy modal in About |
+| `app/settings/page.tsx` | User preferences, theme, reminders, passkey, data export/import; Help + Privacy |
 | `app/login/page.tsx` | Login / register; pings `/health` to check backend reachability |
 | `lib/api.ts` | Typed fetch wrapper; all API types live here; reads `NEXT_PUBLIC_API_URL` |
 | `lib/cross-app-energy.ts` | Energy preset for Decide — local Chef accounts use `/sync/energy`; Cortex accounts fetch Circuit/Canopy/Chef timelines (same total as Canopy Energy page); uses `NEXT_PUBLIC_CIRCUIT_API_URL`, `NEXT_PUBLIC_CANOPY_API_URL`, `NEXT_PUBLIC_CORTEX_URL` |
@@ -140,13 +140,12 @@ The design handoff (`Codex Design/chef-designs/design_handoff_kitchen_intelligen
 | **Pantry theme** (third colour scheme) | Dropped | Only two themes (Hearth dark, Mise warm) are shipped; Pantry (cool neutral/blue) was cut as low-usage |
 | **Density control** (compact/standard/comfy) | Dropped | The spacing multiplier adds complexity with negligible perceptible benefit at this scale |
 | **Connected services** (Instacart, OpenTable, DoorDash, Apple Health) | Deferred | Re-enable once Swiggy/Zomato live API integration ships — the rows belong in Settings when real integrations exist |
-| **Push notifications** (expiring pantry, meal reminders) | **Removed from Settings UI** | Deferred — not in MVP; anti-goal is notification overload (`docs/AGENTS.md`). Do not re-add fake toggles without backend. |
 | **Kitchen preference sliders** (noise, cleanup tolerance) | **Removed from Settings UI** | No backend fields; were localStorage-only stubs. |
 | **DecisionCard** component | **Removed** | Superseded by full Decide page layout + `DecisionScoreWaterfall`. |
 
 ### Open Design Gaps (tracked, not yet built)
 
-See **[DEFERRED.md](./DEFERRED.md)** — no UI-only gaps; remaining work is deferred phases (delivery APIs, pgvector, meal planning).
+See **[docs/DECISIONS.md](./docs/DECISIONS.md)** — no UI-only gaps; remaining work is deferred phases (delivery APIs, pgvector, meal planning).
 
 ### Closed Design Gaps (implemented)
 

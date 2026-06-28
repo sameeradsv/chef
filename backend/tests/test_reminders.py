@@ -1,9 +1,13 @@
 import unittest
 from datetime import datetime
+from unittest.mock import patch
+
+from fastapi import HTTPException
 
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import sessionmaker
 
+from app.routers.notifications import _require_reminder_cron_secret
 from app.database import Base
 from app.models import (
     PushSubscriptionModel,
@@ -83,6 +87,22 @@ class ReminderServiceTest(unittest.TestCase):
 
         self.assertEqual(result.inactive_subscriptions, 1)
         self.assertFalse(subscription.enabled)
+
+
+class ReminderCronAuthTest(unittest.TestCase):
+    def test_accepts_canopy_style_bearer_secret(self):
+        with patch.dict("os.environ", {"REMINDER_CRON_SECRET": "cron-secret"}):
+            _require_reminder_cron_secret(authorization="Bearer cron-secret")
+
+    def test_accepts_legacy_x_cron_secret(self):
+        with patch.dict("os.environ", {"REMINDER_CRON_SECRET": "cron-secret"}):
+            _require_reminder_cron_secret(x_cron_secret="cron-secret")
+
+    def test_rejects_invalid_bearer_secret(self):
+        with patch.dict("os.environ", {"REMINDER_CRON_SECRET": "cron-secret"}):
+            with self.assertRaises(HTTPException) as raised:
+                _require_reminder_cron_secret(authorization="Bearer wrong")
+        self.assertEqual(raised.exception.status_code, 401)
 
 
 if __name__ == "__main__":

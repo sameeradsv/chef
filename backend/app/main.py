@@ -75,6 +75,7 @@ app.include_router(energy_router)
 app.include_router(nutrition_router)
 app.include_router(agent_router)
 app.include_router(notifications_router)
+app.include_router(notifications_router, prefix="/api")
 
 
 @app.middleware("http")

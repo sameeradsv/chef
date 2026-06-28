@@ -1,51 +1,82 @@
-# Chef — UI & architecture decisions (2026 stub cleanup)
+# Decisions And Deferred Work
 
-## Removed Settings UI (intentional)
+This file keeps product and architecture decisions that still matter. Historical implementation detail belongs in git history, not separate docs.
 
-| Removed | Reason |
-|---------|--------|
-| Push notification toggles | No backend; anti-goal is notification spam (`docs/AGENTS.md`) |
-| Kitchen preference sliders (noise, cleanup tolerance) | localStorage-only; no engine wiring |
+## Product Identity
 
-Do not re-add without real notification delivery or persisted preference fields.
+Chef is not a recipe feed. It is a kitchen decision intelligence system that compares cooking, ordering, and eating out using deterministic facts from pantry, preferences, history, cost, effort, energy, and time.
 
-## Removed components (superseded)
+Priorities:
 
-| Removed | Superseded by |
-|---------|----------------|
-| `DecisionCard.tsx` | Decide page layout + `DecisionScoreWaterfall` |
+1. Correct inventory and expiry signals.
+2. Strong deterministic decision scoring.
+3. Low-friction capture for pantry, grocery, history, and state.
+4. Transparent recommendations.
+5. AI augmentation only where it improves parsing, explanation, recipe generation, or chat.
 
-## Restored / wired (2026-06)
+## AI Boundary
 
-| Feature | Where |
-|---------|--------|
-| `savings_vs_order` on Home | `TonightCard` — `% cheaper` when cook wins |
-| Health + stress on Decide | Session overrides sheet → `UserState` → decision engine |
-| Health + stress in Settings | Decision defaults sliders → `PUT /user/state` |
-| Grocery swipe-to-mark-bought | `SwipeGroceryRow` on `/grocery` pending items |
-| Predictive grocery suggestions | `get_grocery_suggestions` — recipe gaps + 90-day bought staples |
-| Recipe search | `GET /recipes/search?q=` debounced on `/recipe` |
-| Settings Help + Privacy | GitHub issues link + modal |
+LLMs may:
 
-## Deferred (not blocked on product — infra or external APIs)
+- explain tradeoffs and scores;
+- generate recipe candidates;
+- parse screenshots and ingredient photos;
+- normalize names and suggest substitutions;
+- power the native chat agent.
 
-Full list: **[DEFERRED.md](./DEFERRED.md)**.
+LLMs must not:
 
-| Item | Notes |
-|------|--------|
-| Swiggy/Zomato live APIs | **Not available** — [INTEGRATIONS.md](./INTEGRATIONS.md#swiggy-and-zomato-integration) |
-| Spoonacular, Edamam | Not integrated |
-| Native pgvector recipe search | Groq rerank substitute shipped |
-| Phase 3 (remainder) | `predict` partial; meal planning + dynamic pricing open |
+- compute inventory counts;
+- compute expiry/freshness;
+- schedule reminders;
+- replace the decision score;
+- invent live delivery pricing.
 
-## Terminal UX: Conduit only (2026-06-17)
+## Intentional Removals
 
-**Decision:** Chef `/chat` is app-native Groq agent (personal kitchen Q&A). Terminal hub + diary routing → **Conduit only**. Do not add Conduit-style terminal shell to Chef.
+| Removed/deferred | Decision |
+| --- | --- |
+| Pantry theme | Dropped; only Hearth and Mise ship |
+| Density control | Dropped; spacing multiplier was not worth maintaining |
+| Connected-service rows | Deferred until real integrations exist |
+| Kitchen noise/cleanup sliders | Removed; no backend fields |
+| `DecisionCard` component | Superseded by the full Decide layout and `DecisionScoreWaterfall` |
+| Conduit-style terminal hub inside Chef | Do not add; Chef `/chat` is app-native kitchen chat only |
 
-## Decide predict UI (2026-06-17)
+Push reminders are no longer in this removed list. They are implemented with Web Push, VAPID keys, user reminder settings, and cron dispatch.
 
-**Decision:** `/decision` shows a **history card** from `GET /decision/predict` (mode badge, confidence %, message, optional `savings_hint`). Predict loads in parallel with decide init; failures are silent so Decide never blocks.
+## Implemented Beyond The Original Handoff
 
-## Groq-only AI (2026-06-17)
+| Feature | Location |
+| --- | --- |
+| Score waterfall | `frontend/src/components/DecisionScoreWaterfall.tsx` |
+| Recipe coverage scatter | `frontend/src/components/RecipeCoverageScatter.tsx` |
+| Energy timeline and sync preset | `backend/app/routers/energy.py`, `backend/app/routers/sync.py` |
+| Cross-app energy merge | `frontend/src/lib/cross-app-energy.ts` |
+| Nutrition health page | `backend/app/routers/nutrition.py`, `backend/app/services/health.py`, `frontend/src/app/health/page.tsx` |
+| Vision parse for pantry/history | `backend/app/routers/vision.py` |
+| Personalization profile | `backend/app/services/personalization.py` |
+| Native Groq chat | `backend/app/services/chef_agent.py`, `frontend/src/components/TerminalChat.tsx` |
+| Pantry FAB mobile/tablet layout | `frontend/src/app/inventory/page.tsx` |
+| Grocery restock from use/discard | `ConsumeSheet` and `DiscardSheet` in inventory |
+| WebAuthn passkeys | `backend/app/routers/webauthn.py`, `frontend/src/hooks/usePasskey.ts` |
+| Web Push reminders | `backend/app/routers/notifications.py`, `frontend/src/lib/use-notifications.ts` |
+| Data export/import | `backend/app/routers/sync.py`, Settings data section |
 
-All LLM features (narrative, vision, chat agent, recipe generation, semantic rerank) require `GROQ_API_KEY` only. No Anthropic/OpenAI backends.
+## Deferred
+
+| Item | Why |
+| --- | --- |
+| Swiggy/Zomato live APIs | No approved API/scraping path; keep seed/history restaurant pool |
+| Spoonacular/Edamam | Not provisioned |
+| Native pgvector | Not wired; keyword and Groq-backed recipe generation cover current needs |
+| Platform live pricing | Not available; use logged-meal trends and seed estimates |
+| Full meal planning engine | Current `/plan/week` is lightweight |
+| Connected services | Wait for real integrations |
+
+## Maintenance Notes
+
+- New schema changes require a named additive migration in `backend/app/database.py`.
+- Route-level docs live in [API.md](./API.md).
+- Deployment, reminders, and env setup live in [OPERATIONS.md](./OPERATIONS.md).
+- Architecture and data semantics live in [ARCHITECTURE.md](./ARCHITECTURE.md).
