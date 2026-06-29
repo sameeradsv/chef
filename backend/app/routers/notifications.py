@@ -5,7 +5,7 @@ import secrets
 from datetime import datetime, timezone
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Body, Depends, Header, HTTPException, Query, status
+from fastapi import APIRouter, Body, Depends, Header, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -41,19 +41,13 @@ def _cron_secret_from_authorization(authorization: str | None) -> str | None:
     return token
 
 
-def _require_reminder_cron_secret(
-    authorization: str | None = None,
-    x_cron_secret: str | None = None,
-) -> None:
+def _require_reminder_cron_secret(authorization: str | None = None) -> None:
     expected = os.getenv("REMINDER_CRON_SECRET", "")
     if not expected:
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Reminder cron is not configured")
 
-    candidates = [
-        _cron_secret_from_authorization(authorization),
-        x_cron_secret,
-    ]
-    if not any(candidate and secrets.compare_digest(candidate, expected) for candidate in candidates):
+    token = _cron_secret_from_authorization(authorization)
+    if not token or not secrets.compare_digest(token, expected):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid reminder processor token")
 
 
@@ -243,25 +237,13 @@ def update_canopy_style_reminder_settings(
     return _canopy_settings_response(row)
 
 
-@router.post("/reminders/process", response_model=ReminderProcessResponse)
-def process_reminders(
-    reminder_type: Annotated[ReminderType, Query(alias="type")],
-    authorization: Annotated[str | None, Header(alias="Authorization")] = None,
-    x_cron_secret: Annotated[str | None, Header(alias="X-Cron-Secret")] = None,
-    db: Session = Depends(get_db),
-):
-    _require_reminder_cron_secret(authorization=authorization, x_cron_secret=x_cron_secret)
-    return _reminder_response(db, reminder_type)
-
-
 @router.post("/reminder/{reminder_type}", response_model=ReminderProcessResponse)
 def process_canopy_style_reminder(
     reminder_type: str,
     authorization: Annotated[str | None, Header(alias="Authorization")] = None,
-    x_cron_secret: Annotated[str | None, Header(alias="X-Cron-Secret")] = None,
     db: Session = Depends(get_db),
 ):
     if reminder_type not in REMINDER_TYPES:
         raise HTTPException(status_code=404, detail="Unknown reminder type")
-    _require_reminder_cron_secret(authorization=authorization, x_cron_secret=x_cron_secret)
+    _require_reminder_cron_secret(authorization=authorization)
     return _reminder_response(db, reminder_type)  # type: ignore[arg-type]

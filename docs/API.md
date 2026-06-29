@@ -1,6 +1,6 @@
 # API
 
-Base app: FastAPI. Most endpoints require `Authorization: Bearer <token>` except registration/login, public passkey login begin/complete, health checks, and cron endpoints protected by `REMINDER_CRON_SECRET`.
+Base app: FastAPI. Most endpoints require `Authorization: Bearer <token>` except registration/login, public passkey login begin/complete, health checks, and reminder cron endpoints, which use `Authorization: Bearer <REMINDER_CRON_SECRET>`.
 
 All API datetimes exposed to the frontend are naive IST strings (`YYYY-MM-DDTHH:MM:SS`).
 
@@ -120,7 +120,6 @@ The notifications router is mounted at both `/notifications` and `/api/notificat
 | `GET` | `/api/notifications/reminder-settings` | Alias for reminder settings |
 | `PUT` | `/api/notifications/reminder-settings` | Alias for updating reminder settings |
 | `POST` | `/api/notifications/reminder/{morning\|afternoon\|evening}` | Cron endpoint; requires `Authorization: Bearer <REMINDER_CRON_SECRET>` |
-| `POST` | `/notifications/reminders/process?type=` | Legacy cron endpoint; accepts bearer or `X-Cron-Secret` |
 
 ## Health
 

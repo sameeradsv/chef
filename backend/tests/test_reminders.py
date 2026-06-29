@@ -94,10 +94,6 @@ class ReminderCronAuthTest(unittest.TestCase):
         with patch.dict("os.environ", {"REMINDER_CRON_SECRET": "cron-secret"}):
             _require_reminder_cron_secret(authorization="Bearer cron-secret")
 
-    def test_accepts_legacy_x_cron_secret(self):
-        with patch.dict("os.environ", {"REMINDER_CRON_SECRET": "cron-secret"}):
-            _require_reminder_cron_secret(x_cron_secret="cron-secret")
-
     def test_rejects_invalid_bearer_secret(self):
         with patch.dict("os.environ", {"REMINDER_CRON_SECRET": "cron-secret"}):
             with self.assertRaises(HTTPException) as raised:
