@@ -198,7 +198,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
           type="button"
           aria-label="Close navigation"
           onClick={() => setNavOpen(false)}
-          className="fixed inset-0 z-30 bg-black/35 md:hidden"
+          className="fixed inset-0 z-30 bg-black/35 lg:hidden"
         />
       )}
 
@@ -208,7 +208,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
           aria-label="Open navigation"
           aria-expanded={false}
           onClick={() => setNavOpen(true)}
-          className="fixed left-4 z-40 flex h-11 w-11 items-center justify-center rounded-btn text-kitchen-muted shadow-lg transition-colors hover:bg-kitchen-card hover:text-kitchen-text md:hidden"
+          className="fixed left-4 z-40 flex h-11 w-11 items-center justify-center rounded-btn text-kitchen-muted shadow-lg transition-colors hover:bg-kitchen-card hover:text-kitchen-text lg:hidden"
           style={{
             top: "calc(12px + env(safe-area-inset-top, 0px))",
             backgroundColor: "rgb(var(--kitchen-surface))",
@@ -222,7 +222,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
       )}
 
       <aside
-        className={`fixed inset-y-0 left-0 z-40 flex w-56 flex-col transition-transform duration-200 ease-out md:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-40 flex w-56 flex-col transition-transform duration-200 ease-out lg:translate-x-0 ${
           navOpen ? "translate-x-0" : "-translate-x-full"
         }`}
         style={{
@@ -231,9 +231,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
           paddingTop: "env(safe-area-inset-top, 0px)",
         }}
       >
-        <div className="px-2 py-4 md:px-6 md:py-7" style={{ borderBottom: "1px solid var(--kitchen-line)" }}>
-          <div className={`flex items-center gap-3 ${navOpen ? "justify-between" : "justify-center"} md:justify-start`}>
-            <div className={`min-w-0 items-center gap-3 md:flex ${navOpen ? "flex" : "hidden"}`}>
+        <div className="px-2 py-4 lg:px-6 lg:py-7" style={{ borderBottom: "1px solid var(--kitchen-line)" }}>
+          <div className={`flex items-center gap-3 ${navOpen ? "justify-between" : "justify-center"} lg:justify-start`}>
+            <div className={`min-w-0 items-center gap-3 lg:flex ${navOpen ? "flex" : "hidden"}`}>
               <div
                 className="h-2 w-2 flex-shrink-0 rounded-full bg-kitchen-accent"
                 style={{ boxShadow: "0 0 10px rgb(var(--kitchen-accent))" }}
@@ -245,13 +245,13 @@ export function Layout({ children }: { children: React.ReactNode }) {
               aria-label={navOpen ? "Collapse navigation" : "Expand navigation"}
               aria-expanded={navOpen}
               onClick={() => setNavOpen((open) => !open)}
-              className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-btn text-kitchen-muted transition-colors hover:bg-kitchen-card hover:text-kitchen-text md:hidden"
+              className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-btn text-kitchen-muted transition-colors hover:bg-kitchen-card hover:text-kitchen-text lg:hidden"
             >
               <span className="h-5 w-5">{navOpen ? <CloseIcon /> : <MenuIcon />}</span>
             </button>
           </div>
           {username && (
-            <div className={`mt-3 md:block ${navOpen ? "block" : "hidden"}`}>
+            <div className={`mt-3 lg:block ${navOpen ? "block" : "hidden"}`}>
               <div className="flex items-center gap-2">
                 <p
                   className="min-w-0 flex-1 truncate font-mono text-xs text-kitchen-muted"
@@ -311,7 +311,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
           )}
         </div>
 
-        <nav className="flex-1 space-y-1 overflow-y-auto px-2 py-4 md:space-y-0.5 md:px-3">
+        <nav className="flex-1 space-y-1 overflow-y-auto px-2 py-4 lg:space-y-0.5 lg:px-3">
           {TABS.map(({ href, label, Icon }) => {
             const active = isActive(href, pathname);
             return (
@@ -320,7 +320,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 href={href}
                 title={label}
                 aria-label={label}
-                className={`flex min-h-11 items-center rounded-xl transition-colors duration-150 md:justify-start md:gap-3 md:px-3 md:py-2.5 ${
+                className={`flex min-h-11 items-center rounded-xl transition-colors duration-150 lg:justify-start lg:gap-3 lg:px-3 lg:py-2.5 ${
                   navOpen ? "justify-start gap-3 px-3" : "justify-center px-0"
                 } ${
                   active
@@ -331,37 +331,37 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 <div className="h-[18px] w-[18px] flex-shrink-0">
                   <Icon />
                 </div>
-                <span className={`font-sans text-sm font-medium md:inline ${navOpen ? "inline" : "hidden"}`}>{label}</span>
+                <span className={`font-sans text-sm font-medium lg:inline ${navOpen ? "inline" : "hidden"}`}>{label}</span>
               </Link>
             );
           })}
         </nav>
 
-        <div className="px-2 py-4 md:px-6 md:py-5" style={{ borderTop: "1px solid var(--kitchen-line)" }}>
+        <div className="px-2 py-4 lg:px-6 lg:py-5" style={{ borderTop: "1px solid var(--kitchen-line)" }}>
           <button
             onClick={handleLogout}
-            className={`flex min-h-11 items-center rounded-xl font-mono text-xs text-kitchen-muted transition-colors hover:bg-kitchen-card hover:text-kitchen-danger md:justify-start md:px-0 ${
+            className={`flex min-h-11 items-center rounded-xl font-mono text-xs text-kitchen-muted transition-colors hover:bg-kitchen-card hover:text-kitchen-danger lg:justify-start lg:px-0 ${
               navOpen ? "w-full justify-start gap-3 px-3" : "w-full justify-center px-0"
             }`}
             style={{ letterSpacing: "0.05em" }}
             title={username === "demo" ? "Exit demo" : "Sign out"}
             aria-label={username === "demo" ? "Exit demo" : "Sign out"}
           >
-            <span className="h-5 w-5 md:hidden">
+            <span className="h-5 w-5 lg:hidden">
               <ExitIcon />
             </span>
-            <span className={`md:inline ${navOpen ? "inline" : "hidden"}`}>{username === "demo" ? "EXIT DEMO" : "SIGN OUT"}</span>
+            <span className={`lg:inline ${navOpen ? "inline" : "hidden"}`}>{username === "demo" ? "EXIT DEMO" : "SIGN OUT"}</span>
           </button>
         </div>
       </aside>
 
       <main
-        className="flex min-h-dvh flex-col md:ml-56"
+        className="flex min-h-dvh flex-col lg:ml-56"
         style={{
           paddingTop: "env(safe-area-inset-top, 0px)",
         }}
       >
-        <div className="flex min-h-0 w-full max-w-2xl flex-1 flex-col px-4 pb-6 pt-16 mx-auto animate-fade-in sm:px-[22px] md:py-6">
+        <div className="flex min-h-0 w-full max-w-2xl flex-1 flex-col px-4 pb-6 pt-16 mx-auto animate-fade-in sm:px-[22px] lg:py-6">
           {children}
         </div>
       </main>

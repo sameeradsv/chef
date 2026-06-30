@@ -459,22 +459,22 @@ export const api = {
 
   // Notifications
   getVapidPublicKey: async () => {
-    const result = await request<{ public_key: string }>("/notifications/vapid-public-key");
+    const result = await request<{ public_key: string }>("/api/notifications/vapid-public-key");
     return result.public_key;
   },
   subscribeDevice: (data: PushSubscriptionInput) =>
-    request<{ id: string }>("/notifications/subscriptions", {
+    request<{ id: string }>("/api/notifications/subscriptions", {
       method: "POST",
       body: JSON.stringify(data),
     }),
   unsubscribeDevice: (endpoint: string) =>
-    request<void>("/notifications/subscriptions", {
+    request<void>("/api/notifications/subscriptions", {
       method: "DELETE",
       body: JSON.stringify({ endpoint }),
     }),
-  getReminderSettings: () => request<ReminderSettings>("/notifications/settings"),
+  getReminderSettings: () => request<ReminderSettings>("/api/notifications/settings"),
   updateReminderSettings: (data: ReminderSettings) =>
-    request<ReminderSettings>("/notifications/settings", {
+    request<ReminderSettings>("/api/notifications/settings", {
       method: "PUT",
       body: JSON.stringify(data),
     }),

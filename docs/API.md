@@ -107,18 +107,18 @@ All API datetimes exposed to the frontend are naive IST strings (`YYYY-MM-DDTHH:
 
 ## Notifications
 
-The notifications router is mounted at both `/notifications` and `/api/notifications` for Canopy-compatible paths.
+The canonical notifications API is `/api/notifications`. Legacy unprefixed `/notifications` aliases remain mounted so older installed PWAs can keep working, but new frontend code and cron jobs should use `/api/notifications`.
 
 | Method | Path | Purpose |
 | --- | --- | --- |
-| `GET` | `/notifications/vapid-public-key` | Public VAPID key |
-| `GET` | `/notifications/subscriptions` | Enabled subscriptions for current user |
-| `POST` | `/notifications/subscriptions` | Upsert current device push subscription |
-| `DELETE` | `/notifications/subscriptions` | Disable current device by endpoint |
-| `GET` | `/notifications/settings` | Reminder settings |
-| `PUT` | `/notifications/settings` | Update reminder settings |
-| `GET` | `/api/notifications/reminder-settings` | Alias for reminder settings |
-| `PUT` | `/api/notifications/reminder-settings` | Alias for updating reminder settings |
+| `GET` | `/api/notifications/vapid-public-key` | Public VAPID key |
+| `GET` | `/api/notifications/subscriptions` | Enabled subscriptions for current user |
+| `POST` | `/api/notifications/subscriptions` | Upsert current device push subscription |
+| `DELETE` | `/api/notifications/subscriptions` | Disable current device by endpoint |
+| `GET` | `/api/notifications/settings` | Reminder settings |
+| `PUT` | `/api/notifications/settings` | Update reminder settings |
+| `GET` | `/api/notifications/reminder-settings` | Canopy-compatible alias for reminder settings |
+| `PUT` | `/api/notifications/reminder-settings` | Canopy-compatible alias for updating reminder settings |
 | `POST` | `/api/notifications/reminder/{morning\|afternoon\|evening}` | Cron endpoint; requires `Authorization: Bearer <REMINDER_CRON_SECRET>` |
 
 ## Health
