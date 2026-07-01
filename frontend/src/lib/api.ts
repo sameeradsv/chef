@@ -116,6 +116,13 @@ export interface DecisionOption {
   details: Record<string, string>;
 }
 
+export interface OrderItemSuggestion {
+  name: string;
+  source: "history" | "groq" | "mealdb" | "seed";
+  cuisine?: string;
+  restaurant_name?: string;
+}
+
 export interface CookVsOrderResult {
   recommendation: "cook" | "order" | "eat_out";
   options: DecisionOption[];
@@ -129,6 +136,7 @@ export interface CookVsOrderResult {
     total_cost: number;
     cuisine: string;
   };
+  recommended_order_item?: OrderItemSuggestion;
   narrative?: string;
 }
 
@@ -137,6 +145,7 @@ export interface RecommendMealResult {
   mode: "cook" | "order" | "eat_out";
   recipe?: Recipe;
   restaurant?: CookVsOrderResult["recommended_restaurant"];
+  order_item?: OrderItemSuggestion;
   reasoning: string[];
   savings_vs_order: number;
   narrative?: string;
@@ -459,22 +468,22 @@ export const api = {
 
   // Notifications
   getVapidPublicKey: async () => {
-    const result = await request<{ public_key: string }>("/notifications/vapid-public-key");
+    const result = await request<{ public_key: string }>("/api/notifications/vapid-public-key");
     return result.public_key;
   },
   subscribeDevice: (data: PushSubscriptionInput) =>
-    request<{ id: string }>("/notifications/subscriptions", {
+    request<{ id: string }>("/api/notifications/subscriptions", {
       method: "POST",
       body: JSON.stringify(data),
     }),
   unsubscribeDevice: (endpoint: string) =>
-    request<void>("/notifications/subscriptions", {
+    request<void>("/api/notifications/subscriptions", {
       method: "DELETE",
       body: JSON.stringify({ endpoint }),
     }),
-  getReminderSettings: () => request<ReminderSettings>("/notifications/settings"),
+  getReminderSettings: () => request<ReminderSettings>("/api/notifications/settings"),
   updateReminderSettings: (data: ReminderSettings) =>
-    request<ReminderSettings>("/notifications/settings", {
+    request<ReminderSettings>("/api/notifications/settings", {
       method: "PUT",
       body: JSON.stringify(data),
     }),

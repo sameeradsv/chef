@@ -74,8 +74,9 @@ app.include_router(vision_router)
 app.include_router(energy_router)
 app.include_router(nutrition_router)
 app.include_router(agent_router)
-app.include_router(notifications_router)
 app.include_router(notifications_router, prefix="/api")
+# Legacy unprefixed notification routes remain for older installed PWAs.
+app.include_router(notifications_router)
 
 
 @app.middleware("http")

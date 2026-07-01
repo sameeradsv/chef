@@ -202,6 +202,13 @@ class DecisionOption(BaseModel):
     details: Dict[str, Any] = Field(default_factory=dict)
 
 
+class OrderItemSuggestion(BaseModel):
+    name: str
+    source: Literal["history", "groq", "mealdb", "seed"]
+    cuisine: Optional[str] = None
+    restaurant_name: Optional[str] = None
+
+
 class CookVsOrderRequest(BaseModel):
     recipe_id: Optional[str] = None
     restaurant_id: Optional[str] = None
@@ -222,6 +229,7 @@ class CookVsOrderResponse(BaseModel):
     reasoning: List[str]
     recommended_recipe: Optional[RecipeResponse] = None
     recommended_restaurant: Optional[RestaurantOption] = None
+    recommended_order_item: Optional[OrderItemSuggestion] = None
     narrative: str = ""
 
 
@@ -230,6 +238,7 @@ class RecommendMealResponse(BaseModel):
     mode: Literal["cook", "order", "eat_out"]
     recipe: Optional[RecipeResponse] = None
     restaurant: Optional[RestaurantOption] = None
+    order_item: Optional[OrderItemSuggestion] = None
     reasoning: List[str]
     savings_vs_order: float = 0
     narrative: str = ""

@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import time
 import uuid
 from collections import Counter
+from datetime import date
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -26,6 +28,13 @@ _DINE_IN_ONLY_KEYWORDS = (
     "works canteen",
     "company kitchen",
 )
+
+
+def _daily_rotation_score(user_id: str, name: str) -> float:
+    """Stable per day, enough to break close restaurant ties without ignoring fit."""
+    seed = f"{user_id}|{date.today().isoformat()}|{name.strip().lower()}"
+    digest = hashlib.md5(seed.encode()).hexdigest()
+    return int(digest[:8], 16) / 0xFFFFFFFF
 
 
 def _looks_dine_in_only(name: str) -> bool:
@@ -202,6 +211,7 @@ def generate_history_restaurant_suggestions(
     ranked: list[tuple[float, str]] = []
     for key, bucket in buckets.items():
         score = min(bucket["count"], 5) * 2.0
+        score += _daily_rotation_score(user_id, bucket["name"]) * 3.0
         if bucket["sats"]:
             avg_sat = sum(bucket["sats"]) / len(bucket["sats"])
             if avg_sat >= 4.0:
@@ -392,6 +402,7 @@ def best_ai_restaurant(
     budget: float,
     energy_level: int = 5,
     satisfaction_by_name: dict[str, float] | None = None,
+    user_id: str = "",
 ) -> dict | None:
     """Pick the best restaurant from suggestions based on craving, budget, energy, and history."""
     if not suggestions:
@@ -417,6 +428,8 @@ def best_ai_restaurant(
                 score += 10
             elif past_sat <= 2.0:
                 score -= 15
+        if user_id:
+            score += _daily_rotation_score(user_id, name_lower) * 4.0
         delivery_mins = r.get("estimated_delivery_minutes", 40)
         score -= delivery_mins / 20
         if low_energy:
@@ -509,6 +522,7 @@ def pick_restaurants_for_decision(
                 state.budget_today,
                 energy_level=state.energy_level,
                 satisfaction_by_name=sat_map or None,
+                user_id=user_id,
             )
             if not order:
                 fallback = best_restaurant_for_state(state, vegetarian=vegetarian)
@@ -526,6 +540,7 @@ def pick_restaurants_for_decision(
         state.budget_today,
         energy_level=state.energy_level,
         satisfaction_by_name=sat_map or None,
+        user_id=user_id,
     )
     primary = primary or best_restaurant_for_state(state, vegetarian=vegetarian)
 
@@ -545,6 +560,7 @@ def pick_restaurants_for_decision(
         state.budget_today,
         energy_level=state.energy_level,
         satisfaction_by_name=sat_map or None,
+        user_id=user_id,
     )
     return primary, order or delivery_pool[0]
 

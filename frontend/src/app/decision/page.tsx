@@ -44,6 +44,13 @@ function restaurantFromOption(opt: DecisionOption): string {
   return opt.label;
 }
 
+function orderItemSourceLabel(source: NonNullable<CookVsOrderResult["recommended_order_item"]>["source"]): string {
+  if (source === "history") return "from your history";
+  if (source === "groq") return "suggested";
+  if (source === "mealdb") return "MealDB";
+  return "seed pick";
+}
+
 function MonoLabel({ children, className = "" }: { children: React.ReactNode; className?: string }) {
   return (
     <span className={`text-[10px] font-mono tracking-[0.12em] uppercase ${className}`}>
@@ -413,6 +420,9 @@ function DecisionPageInner() {
         payload.recipe_name = result.recommended_recipe?.name ?? opt?.label;
       } else if (opt) {
         payload.restaurant_name = restaurantFromOption(opt);
+        if (selected === "order" && result.recommended_order_item) {
+          payload.recipe_name = result.recommended_order_item.name;
+        }
         payload.cuisine = result.recommended_restaurant?.cuisine;
         payload.delivery_available = selected === "order";
       }
@@ -592,6 +602,29 @@ function DecisionPageInner() {
               orderCost={opt.mode === "cook" ? result.options.find(o => o.mode === "order")?.cost : undefined}
             />
           ))}
+        </div>
+      )}
+
+      {/* Order item strip — shown when Order is selected and an item is known */}
+      {result && selected === "order" && result.recommended_order_item && (
+        <div
+          className="flex items-center justify-between gap-3 px-4 py-3"
+          style={{ border: "1px solid rgb(var(--kitchen-accent) / 0.25)", borderRadius: "var(--radius-card)", background: "rgb(var(--kitchen-accent) / 0.05)" }}
+        >
+          <div className="min-w-0 flex-1">
+            <MonoLabel className="text-kitchen-accent block break-words">ORDER {result.recommended_order_item.name}</MonoLabel>
+            <p className="text-xs text-kitchen-muted mt-0.5 truncate">
+              {result.recommended_restaurant?.restaurant_name ?? restaurantFromOption(result.options.find((o) => o.mode === "order")!)}
+              {" · "}
+              {orderItemSourceLabel(result.recommended_order_item.source)}
+            </p>
+          </div>
+          <div
+            className="flex-shrink-0 px-2.5 py-1.5 text-[10px] font-mono text-kitchen-muted"
+            style={{ border: "1px solid var(--kitchen-line2)", borderRadius: "var(--radius-btn)" }}
+          >
+            {result.recommended_order_item.cuisine ?? result.recommended_restaurant?.cuisine ?? "Meal"}
+          </div>
         </div>
       )}
 
