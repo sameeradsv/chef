@@ -3,7 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import time
-from typing import Any
+from typing import Any, Literal
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy import func
@@ -35,6 +35,7 @@ from app.models import CookingHistoryModel, IngredientModel, UserAccountModel, U
 from app.schemas import (
     CookVsOrderRequest,
     CookVsOrderResponse,
+    OrderItemSuggestion,
     RecommendMealResponse,
     RestaurantOption,
     UserStatePayload,
@@ -155,6 +156,155 @@ def _history_fingerprint(db: Session, user_id: str) -> tuple:
     return (int(count or 0), max_timestamp, max_created_at)
 
 
+def _stable_daily_index(user_id: str, key: str, size: int) -> int:
+    if size <= 1:
+        return 0
+    seed = f"{user_id}|{meal_type_key()}|{key.strip().lower()}"
+    digest = hashlib.md5(seed.encode()).hexdigest()
+    return int(digest[:8], 16) % size
+
+
+def meal_type_key() -> str:
+    from datetime import date
+
+    return date.today().isoformat()
+
+
+def _history_order_item(
+    db: Session,
+    user_id: str,
+    *,
+    restaurant_name: str,
+    cuisine: str,
+) -> OrderItemSuggestion | None:
+    rows = (
+        db.query(CookingHistoryModel)
+        .filter(
+            CookingHistoryModel.user_id == user_id,
+            CookingHistoryModel.decision.in_(("order", "eat_out")),
+            CookingHistoryModel.recipe_name.isnot(None),
+            CookingHistoryModel.recipe_name != "",
+        )
+        .order_by(CookingHistoryModel.timestamp.desc())
+        .limit(100)
+        .all()
+    )
+    if not rows:
+        return None
+
+    target_restaurant = restaurant_name.strip().lower()
+    target_cuisine = cuisine.strip().lower()
+    buckets: dict[str, dict[str, Any]] = {}
+    for row in rows:
+        name = (row.recipe_name or "").strip()
+        if not name:
+            continue
+        restaurant_match = bool(target_restaurant and (row.restaurant_name or "").strip().lower() == target_restaurant)
+        cuisine_match = bool(target_cuisine and (row.cuisine or "").strip().lower() == target_cuisine)
+        if not restaurant_match and not cuisine_match:
+            continue
+        key = name.lower()
+        bucket = buckets.setdefault(
+            key,
+            {
+                "name": name,
+                "restaurant_name": row.restaurant_name,
+                "cuisine": row.cuisine,
+                "count": 0,
+                "satisfaction": [],
+                "restaurant_match": False,
+            },
+        )
+        bucket["count"] += 1
+        bucket["restaurant_match"] = bucket["restaurant_match"] or restaurant_match
+        if row.satisfaction is not None:
+            bucket["satisfaction"].append(row.satisfaction)
+
+    if not buckets:
+        return None
+
+    ranked: list[tuple[float, str]] = []
+    for key, bucket in buckets.items():
+        score = min(bucket["count"], 5) * 2.0
+        if bucket["restaurant_match"]:
+            score += 8.0
+        if bucket["satisfaction"]:
+            score += (sum(bucket["satisfaction"]) / len(bucket["satisfaction"])) * 2.0
+        ranked.append((score, key))
+    ranked.sort(key=lambda item: item[0], reverse=True)
+    top_score = ranked[0][0]
+    close = [key for score, key in ranked if top_score - score <= 4.0][:6]
+    selected = close[_stable_daily_index(user_id, restaurant_name or cuisine, len(close))]
+    bucket = buckets[selected]
+    return OrderItemSuggestion(
+        name=bucket["name"],
+        source="history",
+        cuisine=bucket["cuisine"] or cuisine or None,
+        restaurant_name=bucket["restaurant_name"] or restaurant_name or None,
+    )
+
+
+def _recipe_source(recipe_id: str) -> Literal["groq", "mealdb", "seed"]:
+    if recipe_id.startswith("groq-"):
+        return "groq"
+    if recipe_id.startswith("mealdb-"):
+        return "mealdb"
+    return "seed"
+
+
+def _suggest_order_item(
+    db: Session,
+    user_id: str,
+    *,
+    pantry: list[IngredientModel],
+    state: UserStatePayload,
+    restaurant: RestaurantOption | None,
+    vegetarian: bool,
+    skipped: list[str],
+    fav_cuisines: list[str],
+    spice_level: int,
+    diet_restrictions: list[str],
+    meal_type: str,
+    fast: bool = False,
+) -> OrderItemSuggestion | None:
+    if not restaurant:
+        return None
+    history_pick = _history_order_item(
+        db,
+        user_id,
+        restaurant_name=restaurant.restaurant_name,
+        cuisine=restaurant.cuisine,
+    )
+    if history_pick:
+        return history_pick
+
+    recs = recommend_recipes(
+        pantry,
+        state,
+        4,
+        vegetarian=vegetarian,
+        skipped_ingredients=skipped,
+        favorite_cuisines=fav_cuisines or [restaurant.cuisine],
+        spice_level=spice_level,
+        dietary_restrictions=diet_restrictions,
+        meal_type=meal_type,
+        prefer_groq=not fast,
+        fast=fast,
+    )
+    if not recs:
+        return None
+    cuisine_lower = restaurant.cuisine.lower()
+    matching = [r for r in recs if cuisine_lower and cuisine_lower in r.cuisine.lower()]
+    pool = matching or recs
+    recipe = pool[_stable_daily_index(user_id, restaurant.restaurant_name, len(pool))]
+    return OrderItemSuggestion(
+        name=recipe.name,
+        source=_recipe_source(recipe.id),
+        cuisine=recipe.cuisine,
+        restaurant_name=restaurant.restaurant_name,
+    )
+
+
 @router.post("/cook-vs-order", response_model=CookVsOrderResponse)
 def cook_vs_order(
     body: CookVsOrderRequest | None = None,
@@ -229,6 +379,20 @@ def cook_vs_order(
         cooking_skill,
         order_restaurant=order_restaurant,
     )
+    if result.recommendation == "order":
+        result.recommended_order_item = _suggest_order_item(
+            db,
+            current_user.id,
+            pantry=pantry,
+            state=state,
+            restaurant=result.recommended_restaurant,
+            vegetarian=vegetarian,
+            skipped=skipped,
+            fav_cuisines=fav_cuisines,
+            spice_level=spice_level,
+            diet_restrictions=diet_restrictions,
+            meal_type=meal_type,
+        )
     result.narrative = generate_decision_narrative(result)
     _dcache_set(ckey, result)
     return result
@@ -289,6 +453,21 @@ def recommend_meal_endpoint(
         cooking_skill,
         order_restaurant=order_restaurant,
     )
+    if result.mode == "order":
+        result.order_item = _suggest_order_item(
+            db,
+            current_user.id,
+            pantry=pantry,
+            state=state,
+            restaurant=result.restaurant,
+            vegetarian=vegetarian,
+            skipped=skipped,
+            fav_cuisines=fav_cuisines,
+            spice_level=spice_level,
+            diet_restrictions=diet_restrictions,
+            meal_type=meal_type,
+            fast=fast,
+        )
     if not fast:
         result.narrative = generate_decision_narrative(result)
     _dcache_set(rkey, result)

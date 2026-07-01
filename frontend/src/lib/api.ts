@@ -116,6 +116,13 @@ export interface DecisionOption {
   details: Record<string, string>;
 }
 
+export interface OrderItemSuggestion {
+  name: string;
+  source: "history" | "groq" | "mealdb" | "seed";
+  cuisine?: string;
+  restaurant_name?: string;
+}
+
 export interface CookVsOrderResult {
   recommendation: "cook" | "order" | "eat_out";
   options: DecisionOption[];
@@ -129,6 +136,7 @@ export interface CookVsOrderResult {
     total_cost: number;
     cuisine: string;
   };
+  recommended_order_item?: OrderItemSuggestion;
   narrative?: string;
 }
 
@@ -137,6 +145,7 @@ export interface RecommendMealResult {
   mode: "cook" | "order" | "eat_out";
   recipe?: Recipe;
   restaurant?: CookVsOrderResult["recommended_restaurant"];
+  order_item?: OrderItemSuggestion;
   reasoning: string[];
   savings_vs_order: number;
   narrative?: string;
