@@ -6,7 +6,6 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useTheme, type Theme } from "@/contexts/ThemeContext";
 import { api, type HistoryEntry, type Ingredient, type Recipe, type RecommendMealResult } from "@/lib/api";
 import { TZ, istHour, startOfISTWeek, addDaysIST, mealLogDateKey, currentMealDayKey, istWeekdayShort } from "@/lib/tz";
-import { expiryBadge } from "@/lib/utils";
 
 /* ─── Helpers ──────────────────────────────────────────────────────────── */
 

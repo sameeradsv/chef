@@ -5,7 +5,6 @@ import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { LoadingCard } from "@/components/Card";
 import { api, type Recipe } from "@/lib/api";
-import { formatCurrency } from "@/lib/utils";
 
 function IngredientCheckbox({ checked }: { checked: boolean }) {
   return (
