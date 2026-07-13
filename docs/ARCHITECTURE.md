@@ -79,7 +79,7 @@ Important behavior:
 
 ## Recipe And Restaurant Sources
 
-Recipes come from seed data, TheMealDB live search, and optional Groq generation. `services/mealdb.py` keeps a short in-process cache and falls back gracefully when Groq or TheMealDB are unavailable. Groq recipe generation asks for JSON in text and repairs common model issues locally, instead of provider-enforced JSON mode, so malformed fractions or truncation do not surface as hard 400s.
+Recipes come from seed data, TheMealDB live search, and optional Groq generation. `services/mealdb.py` keeps a short in-process cache and falls back gracefully when Groq or TheMealDB are unavailable. Groq recipe generation asks for JSON in text and repairs common model issues locally, instead of provider-enforced JSON mode, so malformed fractions or truncation do not surface as hard 400s. Fast mode uses a smaller cache pool/prompt and dynamic completion cap to stay under Groq on-demand TPM limits.
 
 Restaurants are seed/history/AI-derived comparison records, not live Swiggy/Zomato quotes. Delivery availability is inferred from history and user overrides stored in `restaurant_delivery_json`. History-derived venue suggestions are location-scoped: home entries are local to the saved city/area, and travel entries are excluded unless their label matches the current city/area.
 

@@ -19,6 +19,7 @@ logger = logging.getLogger(__name__)
 _RECIPE_CACHE: dict[str, tuple[float, list[RecipeResponse]]] = {}
 _RECIPE_CACHE_TTL = 1800  # 30 minutes
 _RECIPE_CACHE_POOL = 10   # always generate at least this many; callers slice to their count
+_FAST_RECIPE_CACHE_POOL = 4
 
 
 def _recipe_cache_key(
@@ -64,7 +65,9 @@ MEALDB_BASE = "https://www.themealdb.com/api/json/v1/1"
 _MEALDB_TIMEOUT = 5.0
 _DEFAULT_MODEL = "llama-3.3-70b-versatile"
 _FAST_MODEL = "llama-3.1-8b-instant"
-_MAX_RECIPE_TOKENS = 6000
+_MAX_RECIPE_TOKENS = 4200
+_FAST_MAX_RECIPE_TOKENS = 2600
+_FAST_TOTAL_TOKEN_BUDGET = 5600
 
 _groq_client = None
 
@@ -155,6 +158,7 @@ def _build_prompt(
     count: int,
     meal_type: str | None = None,
     recent_meals: list[str] | None = None,
+    fast: bool = False,
 ) -> str:
     lines = [f"Generate {count} recipe suggestions."]
     if query:
@@ -184,25 +188,34 @@ def _build_prompt(
     if dietary_restrictions:
         lines.append(f"Dietary restrictions: {', '.join(dietary_restrictions)}")
     if pantry_names:
-        sample = sorted(pantry_names)[:20]
+        sample = sorted(pantry_names)[:10 if fast else 20]
         lines.append(f"Pantry items available (prioritise using these): {', '.join(sample)}")
     if recent_meals:
         lines.append(
-            f"Recently eaten (must NOT repeat these): {', '.join(recent_meals[:10])}. "
+            f"Recently eaten (must NOT repeat these): {', '.join(recent_meals[:5 if fast else 10])}. "
             "Suggest different dishes."
         )
 
-    lines.append(
-        '\nReturn ONLY a JSON object with a single key "recipes" whose value is an array. '
-        "Each recipe element must have exactly these keys:\n"
-        "  name, cuisine, ingredients (array of {normalized_name, quantity, unit}),\n"
-        "  prep_time_minutes, cook_time_minutes, difficulty (1-5), cleanup_effort (1-5),\n"
-        "  nutrition_score (1.0-10.0), comfort_score (1.0-10.0),\n"
-        "  estimated_cost (INR), requires_attention (bool),\n"
-        "  instructions (array of step strings, max 8).\n"
-        "All numeric values must be JSON numbers, never fractions like 1/2; use decimals like 0.5. "
-        "No prose, no markdown, no extra keys."
-    )
+    if fast:
+        lines.append(
+            '\nReturn ONLY JSON: {"recipes":[...]}. Each recipe must include '
+            "name, cuisine, ingredients [{normalized_name, quantity, unit}], prep_time_minutes, "
+            "cook_time_minutes, difficulty, cleanup_effort, nutrition_score, comfort_score, "
+            "estimated_cost, requires_attention, instructions (max 5). "
+            "Numbers must be decimals, never fractions like 1/2. No prose."
+        )
+    else:
+        lines.append(
+            '\nReturn ONLY a JSON object with a single key "recipes" whose value is an array. '
+            "Each recipe element must have exactly these keys:\n"
+            "  name, cuisine, ingredients (array of {normalized_name, quantity, unit}),\n"
+            "  prep_time_minutes, cook_time_minutes, difficulty (1-5), cleanup_effort (1-5),\n"
+            "  nutrition_score (1.0-10.0), comfort_score (1.0-10.0),\n"
+            "  estimated_cost (INR), requires_attention (bool),\n"
+            "  instructions (array of step strings, max 8).\n"
+            "All numeric values must be JSON numbers, never fractions like 1/2; use decimals like 0.5. "
+            "No prose, no markdown, no extra keys."
+        )
     return "\n".join(lines)
 
 
@@ -234,6 +247,17 @@ def _repair_common_json_issues(text: str) -> str:
         return f"{match.group(1)}{value:g}{match.group(4)}"
 
     return fraction_re.sub(repl, text)
+
+
+def _rough_token_count(text: str) -> int:
+    return max(1, len(text) // 4)
+
+
+def _completion_token_budget(prompt: str, fast: bool) -> int:
+    if not fast:
+        return _MAX_RECIPE_TOKENS
+    prompt_tokens = _rough_token_count(prompt)
+    return max(1200, min(_FAST_MAX_RECIPE_TOKENS, _FAST_TOTAL_TOKEN_BUDGET - prompt_tokens))
 
 
 def _parse_recipes(text: str, pantry_names: set[str]) -> list[RecipeResponse]:
@@ -325,8 +349,9 @@ def generate_recipes(
     if cached := _recipe_cache_get(ckey):
         return cached[:count]
 
-    # Always generate a larger pool so the cache is useful for callers requesting fewer.
-    generate_count = max(count, _RECIPE_CACHE_POOL)
+    # Generate a larger pool for normal mode; keep fast mode under Groq on-demand TPM limits.
+    cache_pool = _FAST_RECIPE_CACHE_POOL if fast else _RECIPE_CACHE_POOL
+    generate_count = max(count, cache_pool)
 
     client = _get_groq_client()
     if not client:
@@ -342,12 +367,13 @@ def generate_recipes(
             count=generate_count,
             meal_type=meal_type,
             recent_meals=recent_meals,
+            fast=fast,
         )
         model = _recipe_model(fast)
         try:
             response = client.chat.completions.create(
                 model=model,
-                max_tokens=_MAX_RECIPE_TOKENS,
+                max_tokens=_completion_token_budget(prompt, fast),
                 temperature=0.4,
                 messages=[
                     {
