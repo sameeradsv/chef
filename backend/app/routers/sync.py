@@ -154,6 +154,8 @@ def _collect_chef_export(db: Session, user_id: str) -> dict:
                 "decision": h.decision,
                 "recipe_name": h.recipe_name,
                 "restaurant_name": h.restaurant_name,
+                "location_context": h.location_context or "home",
+                "location_label": h.location_label,
                 "cost": h.cost,
                 "satisfaction": h.satisfaction,
                 "timestamp": utc_naive_to_ist_str(h.timestamp),

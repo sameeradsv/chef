@@ -198,6 +198,8 @@ export interface HistoryEntry {
   recipe_name?: string;
   restaurant_name?: string;
   cuisine?: string;
+  location_context?: "home" | "travel";
+  location_label?: string;
   timestamp: string;    // naive IST — meal date/time
   created_at?: string;  // naive IST — when the entry was logged
   satisfaction?: number;
@@ -448,9 +450,9 @@ export const api = {
     if (query.date) params.set("date", query.date);
     return request<HistoryPage>(`/history?${params.toString()}`);
   },
-  logHistory: (data: { decision: string; recipe_name?: string; restaurant_name?: string; cuisine?: string; satisfaction?: number; timestamp?: string; cost?: number; delivery_available?: boolean }) =>
+  logHistory: (data: { decision: string; recipe_name?: string; restaurant_name?: string; cuisine?: string; location_context?: "home" | "travel"; location_label?: string; satisfaction?: number; timestamp?: string; cost?: number; delivery_available?: boolean }) =>
     request<HistoryEntry>("/history", { method: "POST", body: JSON.stringify(data) }),
-  updateHistory: (id: string, data: { decision?: string; recipe_name?: string; restaurant_name?: string; cuisine?: string; satisfaction?: number; timestamp?: string; cost?: number; delivery_available?: boolean }) =>
+  updateHistory: (id: string, data: { decision?: string; recipe_name?: string; restaurant_name?: string; cuisine?: string; location_context?: "home" | "travel"; location_label?: string; satisfaction?: number; timestamp?: string; cost?: number; delivery_available?: boolean }) =>
     request<HistoryEntry>(`/history/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
   deleteHistory: (id: string) =>
     request<void>(`/history/${id}`, { method: "DELETE" }),

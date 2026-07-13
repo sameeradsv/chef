@@ -575,7 +575,7 @@ export default function SettingsPage() {
 
             {/* Location */}
             <div>
-              <MonoLabel className="text-kitchen-muted block mb-1.5">YOUR LOCATION</MonoLabel>
+              <MonoLabel className="text-kitchen-muted block mb-1.5">HOME / CURRENT AREA</MonoLabel>
               <input
                 value={city}
                 onChange={(e) => setCity(e.target.value)}
@@ -584,7 +584,7 @@ export default function SettingsPage() {
                 style={inputStyle}
               />
               <p className="text-[11px] text-kitchen-muted mt-1">
-                City or landmark — used for restaurant &amp; delivery suggestions
+                Used for local restaurant suggestions. Mark meals as Travel in History when they should not follow you home.
               </p>
             </div>
 

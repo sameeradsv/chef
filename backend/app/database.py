@@ -187,6 +187,25 @@ def _migrate_restaurant_delivery_json() -> None:
         conn.commit()
 
 
+def _migrate_history_location_context() -> None:
+    """Add per-entry location scope so travel restaurants do not leak into home picks."""
+    with engine.connect() as conn:
+        from sqlalchemy import inspect, text
+        inspector = inspect(engine)
+        if "cooking_history" not in inspector.get_table_names():
+            return
+        existing = {c["name"] for c in inspector.get_columns("cooking_history")}
+        if "location_context" not in existing:
+            conn.execute(text(
+                "ALTER TABLE cooking_history ADD COLUMN location_context VARCHAR(20) DEFAULT 'home'"
+            ))
+        if "location_label" not in existing:
+            conn.execute(text(
+                "ALTER TABLE cooking_history ADD COLUMN location_label VARCHAR(120)"
+            ))
+        conn.commit()
+
+
 def _migrate_push_reminders() -> None:
     with engine.connect() as conn:
         from sqlalchemy import inspect, text
@@ -307,6 +326,7 @@ MIGRATIONS: list[tuple[str, Callable[[], None]]] = [
     ("sqlite_schema", _migrate_sqlite),
     ("postgres_schema", _migrate_postgres),
     ("restaurant_delivery_json", _migrate_restaurant_delivery_json),
+    ("history_location_context", _migrate_history_location_context),
     ("push_reminders", _migrate_push_reminders),
 ]
 

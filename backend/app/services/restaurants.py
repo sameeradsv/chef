@@ -152,11 +152,33 @@ def _satisfaction_by_restaurant(db: Session, user_id: str) -> dict[str, float]:
     return {name: sum(vals) / len(vals) for name, vals in buckets.items()}
 
 
+def _norm_location(value: str | None) -> str:
+    return (value or "").strip().lower()
+
+
+def _same_location(a: str, b: str) -> bool:
+    if not a or not b:
+        return False
+    return a == b or a in b or b in a
+
+
+def _entry_matches_current_location(entry, current_city: str = "") -> bool:
+    context = (getattr(entry, "location_context", None) or "home").strip().lower()
+    label = _norm_location(getattr(entry, "location_label", None))
+    city = _norm_location(current_city)
+    if context == "travel":
+        return bool(city and label and _same_location(label, city))
+    if city and label:
+        return _same_location(label, city)
+    return True
+
+
 def generate_history_restaurant_suggestions(
     db: Session,
     user_id: str,
     *,
     vegetarian: bool = False,
+    current_city: str = "",
     limit: int = 5,
 ) -> list[dict]:
     """Build restaurant options from logged order/eat-out history."""
@@ -181,6 +203,8 @@ def generate_history_restaurant_suggestions(
 
     buckets: dict[str, dict] = {}
     for entry in entries:
+        if not _entry_matches_current_location(entry, current_city):
+            continue
         name = entry.restaurant_name.strip()
         key = name.lower()
         bucket = buckets.setdefault(
@@ -456,7 +480,12 @@ def _merged_restaurant_pool(
     skip_ai: bool = False,
 ) -> list[dict]:
     fav_cuisines = cuisines or []
-    history = generate_history_restaurant_suggestions(db, user_id, vegetarian=vegetarian)
+    history = generate_history_restaurant_suggestions(
+        db,
+        user_id,
+        vegetarian=vegetarian,
+        current_city=city,
+    )
     known_names = [
         r["restaurant_name"]
         for r in history

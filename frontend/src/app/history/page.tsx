@@ -77,6 +77,7 @@ function localDatetimeValue(iso?: string) {
 
 const TIME_FILTERS = ["Week", "Month", "Year", "All"] as const;
 const PAGE_SIZE = 20;
+type LocationContext = "home" | "travel";
 
 function groupFeed(items: HistoryEntry[]) {
   const thisWeekStart = startOfISTWeek(currentMealDayKey());
@@ -113,6 +114,9 @@ export default function HistoryPage() {
   const [logSatisfaction, setLogSatisfaction] = useState<number | undefined>();
   const [logTimestamp, setLogTimestamp] = useState(() => toDatetimeLocalInput());
   const [logDeliveryAvailable, setLogDeliveryAvailable] = useState(true);
+  const [logLocationContext, setLogLocationContext] = useState<LocationContext>("home");
+  const [logLocationLabel, setLogLocationLabel] = useState("");
+  const [defaultLocationLabel, setDefaultLocationLabel] = useState("");
   const [submitting, setSubmitting]   = useState(false);
   const [parsing, setParsing]         = useState(false);
   const [parseError, setParseError]   = useState<string | null>(null);
@@ -128,6 +132,8 @@ export default function HistoryPage() {
   const [editSatisfaction, setEditSatisfaction] = useState<number | undefined>();
   const [editTimestamp, setEditTimestamp] = useState("");
   const [editDeliveryAvailable, setEditDeliveryAvailable] = useState(false);
+  const [editLocationContext, setEditLocationContext] = useState<LocationContext>("home");
+  const [editLocationLabel, setEditLocationLabel] = useState("");
   const [editSaving, setEditSaving]       = useState(false);
   const [deliveryOverrides, setDeliveryOverrides] = useState<Record<string, boolean>>({});
 
@@ -159,7 +165,12 @@ export default function HistoryPage() {
 
   useEffect(() => {
     api.getPreferences()
-      .then((prefs) => setDeliveryOverrides(prefs.restaurant_delivery ?? {}))
+      .then((prefs) => {
+        const city = prefs.city ?? "";
+        setDeliveryOverrides(prefs.restaurant_delivery ?? {});
+        setDefaultLocationLabel(city);
+        setLogLocationLabel((current) => current || city);
+      })
       .catch(() => {});
   }, []);
 
@@ -224,6 +235,8 @@ export default function HistoryPage() {
         recipe_name: logRecipe.trim() || undefined,
         restaurant_name: logRestaurant.trim() || undefined,
         cuisine: logCuisine.trim() || undefined,
+        location_context: logLocationContext,
+        location_label: logLocationLabel.trim() || undefined,
         satisfaction: logSatisfaction,
         timestamp: datetimeLocalToIST(logTimestamp),
         cost: logCost ? parseFloat(logCost) : undefined,
@@ -238,7 +251,7 @@ export default function HistoryPage() {
       }
       setEntries((prev) => [entry, ...prev]);
       setShowLog(false);
-      setLogRecipe(""); setLogRestaurant(""); setLogCuisine(""); setLogCost(""); setLogSatisfaction(undefined); setLogTimestamp(localDatetimeValue()); setLogDeliveryAvailable(true);
+      setLogRecipe(""); setLogRestaurant(""); setLogCuisine(""); setLogCost(""); setLogSatisfaction(undefined); setLogTimestamp(localDatetimeValue()); setLogDeliveryAvailable(true); setLogLocationContext("home"); setLogLocationLabel(defaultLocationLabel);
       loadPage(0, timeFilter);
     } catch {
       setError("Failed to save. Please try again.");
@@ -257,6 +270,8 @@ export default function HistoryPage() {
     setEditSatisfaction(entry.satisfaction ?? undefined);
     setEditTimestamp(localDatetimeValue(entry.timestamp));
     setEditDeliveryAvailable(resolveDeliveryFlag(entry.restaurant_name ?? "", entry.decision));
+    setEditLocationContext((entry.location_context ?? "home") as LocationContext);
+    setEditLocationLabel(entry.location_label ?? defaultLocationLabel);
   }
 
   async function handleEditSave(id: string) {
@@ -267,6 +282,8 @@ export default function HistoryPage() {
         recipe_name: editRecipe.trim() || undefined,
         restaurant_name: editRestaurant.trim() || undefined,
         cuisine: editCuisine.trim() || undefined,
+        location_context: editLocationContext,
+        location_label: editLocationLabel.trim() || undefined,
         satisfaction: editSatisfaction,
         timestamp: editTimestamp ? datetimeLocalToIST(editTimestamp) : undefined,
         cost: editCost ? parseFloat(editCost) : undefined,
@@ -444,6 +461,41 @@ export default function HistoryPage() {
                 )}
               </div>
             )}
+            <div className="sm:col-span-2">
+              <MonoLabel className="text-kitchen-muted block mb-1.5">LOCATION SCOPE</MonoLabel>
+              <div className="grid grid-cols-2 gap-2">
+                {(["home", "travel"] as const).map((scope) => (
+                  <button
+                    key={scope}
+                    type="button"
+                    onClick={() => {
+                      setLogLocationContext(scope);
+                      if (scope === "home" && !logLocationLabel.trim()) setLogLocationLabel(defaultLocationLabel);
+                    }}
+                    className="py-2.5 text-xs font-mono transition-all"
+                    style={{
+                      borderRadius: "var(--radius-btn)",
+                      border: logLocationContext === scope ? "1px solid rgb(var(--kitchen-accent) / 0.5)" : "1px solid var(--kitchen-line2)",
+                      background: logLocationContext === scope ? "rgb(var(--kitchen-accent) / 0.1)" : "transparent",
+                      color: logLocationContext === scope ? "rgb(var(--kitchen-accent))" : "rgb(var(--kitchen-ink3))",
+                      letterSpacing: "0.08em",
+                    }}
+                  >
+                    {scope.toUpperCase()}
+                  </button>
+                ))}
+              </div>
+              <input
+                value={logLocationLabel}
+                onChange={(e) => setLogLocationLabel(e.target.value)}
+                placeholder={logLocationContext === "travel" ? "Travel city or area" : "Home city or area"}
+                className={`${inputCls} mt-2`}
+                style={inputStyle}
+              />
+              <p className="text-xs text-kitchen-muted mt-1.5">
+                Travel restaurants stay out of home recommendations unless this place matches your current city.
+              </p>
+            </div>
             <div>
               <MonoLabel className="text-kitchen-muted block mb-1.5">COST ₹ (OPTIONAL)</MonoLabel>
               <input type="number" min="0" step="0.01" value={logCost} onChange={(e) => setLogCost(e.target.value)} placeholder="e.g. 350" className={inputCls} style={inputStyle} />
@@ -650,6 +702,38 @@ export default function HistoryPage() {
                           )}
                         </div>
                       )}
+                      <div className="sm:col-span-2">
+                        <MonoLabel className="text-kitchen-muted block mb-1.5">LOCATION SCOPE</MonoLabel>
+                        <div className="grid grid-cols-2 gap-2">
+                          {(["home", "travel"] as const).map((scope) => (
+                            <button
+                              key={scope}
+                              type="button"
+                              onClick={() => {
+                                setEditLocationContext(scope);
+                                if (scope === "home" && !editLocationLabel.trim()) setEditLocationLabel(defaultLocationLabel);
+                              }}
+                              className="py-2.5 text-xs font-mono transition-all"
+                              style={{
+                                borderRadius: "var(--radius-btn)",
+                                border: editLocationContext === scope ? "1px solid rgb(var(--kitchen-accent) / 0.5)" : "1px solid var(--kitchen-line2)",
+                                background: editLocationContext === scope ? "rgb(var(--kitchen-accent) / 0.1)" : "transparent",
+                                color: editLocationContext === scope ? "rgb(var(--kitchen-accent))" : "rgb(var(--kitchen-ink3))",
+                                letterSpacing: "0.08em",
+                              }}
+                            >
+                              {scope.toUpperCase()}
+                            </button>
+                          ))}
+                        </div>
+                        <input
+                          value={editLocationLabel}
+                          onChange={(e) => setEditLocationLabel(e.target.value)}
+                          placeholder={editLocationContext === "travel" ? "Travel city or area" : "Home city or area"}
+                          className={`${inputCls} mt-2`}
+                          style={inputStyle}
+                        />
+                      </div>
                       <input
                         type="number" min="0" step="0.01"
                         value={editCost}
@@ -737,6 +821,11 @@ export default function HistoryPage() {
                       )}
                       {entry.cuisine && (
                         <MonoLabel className="text-kitchen-muted">{entry.cuisine}</MonoLabel>
+                      )}
+                      {entry.location_label && (
+                        <MonoLabel className="text-kitchen-muted block mt-0.5">
+                          {(entry.location_context ?? "home").toUpperCase()} / {entry.location_label}
+                        </MonoLabel>
                       )}
                       <div className="mt-1.5 flex items-center justify-between">
                         <StarRating

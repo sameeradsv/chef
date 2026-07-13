@@ -176,7 +176,10 @@ def _history_order_item(
     *,
     restaurant_name: str,
     cuisine: str,
+    city: str = "",
 ) -> OrderItemSuggestion | None:
+    from app.services.restaurants import _entry_matches_current_location
+
     rows = (
         db.query(CookingHistoryModel)
         .filter(
@@ -196,6 +199,8 @@ def _history_order_item(
     target_cuisine = cuisine.strip().lower()
     buckets: dict[str, dict[str, Any]] = {}
     for row in rows:
+        if not _entry_matches_current_location(row, city):
+            continue
         name = (row.recipe_name or "").strip()
         if not name:
             continue
@@ -265,6 +270,7 @@ def _suggest_order_item(
     spice_level: int,
     diet_restrictions: list[str],
     meal_type: str,
+    city: str = "",
     fast: bool = False,
 ) -> OrderItemSuggestion | None:
     if not restaurant:
@@ -274,6 +280,7 @@ def _suggest_order_item(
         user_id,
         restaurant_name=restaurant.restaurant_name,
         cuisine=restaurant.cuisine,
+        city=city,
     )
     if history_pick:
         return history_pick
@@ -392,6 +399,7 @@ def cook_vs_order(
             spice_level=spice_level,
             diet_restrictions=diet_restrictions,
             meal_type=meal_type,
+            city=city,
         )
     result.narrative = generate_decision_narrative(result)
     _dcache_set(ckey, result)
@@ -466,6 +474,7 @@ def recommend_meal_endpoint(
             spice_level=spice_level,
             diet_restrictions=diet_restrictions,
             meal_type=meal_type,
+            city=city,
             fast=fast,
         )
     if not fast:

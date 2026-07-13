@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.dependencies import get_current_user
-from app.models import CookingHistoryModel, UserAccountModel
+from app.models import CookingHistoryModel, UserAccountModel, UserPreferencesModel
 from app.schemas import (
     CookingHistoryCreate,
     CookingHistoryResponse,
@@ -37,6 +37,19 @@ def _persist_delivery_override(
 
 def _to_response(entry: CookingHistoryModel) -> CookingHistoryResponse:
     return CookingHistoryResponse.model_validate(entry)
+
+
+def _clean_location_label(value: str | None) -> str | None:
+    label = (value or "").strip()
+    return label or None
+
+
+def _default_location_label(db: Session, user_id: str, payload_label: str | None) -> str | None:
+    label = _clean_location_label(payload_label)
+    if label:
+        return label
+    prefs = db.query(UserPreferencesModel).filter(UserPreferencesModel.user_id == user_id).first()
+    return _clean_location_label(prefs.city if prefs else None)
 
 
 def _apply_date_filters(q, date: Optional[str], from_date: Optional[str], to_date: Optional[str]):
@@ -88,6 +101,8 @@ def log_decision(
         recipe_name=payload.recipe_name,
         restaurant_name=payload.restaurant_name,
         cuisine=payload.cuisine,
+        location_context=payload.location_context,
+        location_label=_default_location_label(db, current_user.id, payload.location_label),
         satisfaction=payload.satisfaction,
         cost=payload.cost,
         **({"timestamp": payload.timestamp} if payload.timestamp else {}),
@@ -121,6 +136,8 @@ def update_entry(
         raise HTTPException(status_code=404, detail="Entry not found")
     data = payload.model_dump(exclude_unset=True)
     delivery_available = data.pop("delivery_available", None)
+    if "location_label" in data:
+        data["location_label"] = _clean_location_label(data["location_label"])
     for k, v in data.items():
         setattr(entry, k, v)
     decision = entry.decision

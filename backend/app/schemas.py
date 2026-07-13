@@ -343,6 +343,8 @@ class CookingHistoryCreate(BaseModel):
     recipe_name: Optional[str] = None
     restaurant_name: Optional[str] = None
     cuisine: Optional[str] = None
+    location_context: Literal["home", "travel"] = "home"
+    location_label: Optional[str] = None
     satisfaction: Optional[int] = Field(None, ge=1, le=5)
     timestamp: ISTDateTimeInput = None
     cost: Optional[float] = None
@@ -354,6 +356,8 @@ class CookingHistoryUpdate(BaseModel):
     recipe_name: Optional[str] = None
     restaurant_name: Optional[str] = None
     cuisine: Optional[str] = None
+    location_context: Optional[Literal["home", "travel"]] = None
+    location_label: Optional[str] = None
     satisfaction: Optional[int] = Field(None, ge=1, le=5)
     timestamp: ISTDateTimeInput = None
     cost: Optional[float] = None
@@ -366,6 +370,8 @@ class CookingHistoryResponse(BaseModel):
     recipe_name: Optional[str]
     restaurant_name: Optional[str] = None
     cuisine: Optional[str]
+    location_context: str = "home"
+    location_label: Optional[str] = None
     timestamp: ISTDateTime
     satisfaction: Optional[int]
     cost: Optional[float] = None
