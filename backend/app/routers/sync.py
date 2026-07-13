@@ -25,6 +25,13 @@ router = APIRouter(prefix="/sync", tags=["sync"])
 # are kept below the minimum skip drain (0.15) — having any meal always leaves
 # you better off than skipping it.  cook=0.12, eat_out=0.07, order=0.03.
 _MEAL_DRAIN = {"cook": 0.12, "eat_out": 0.07, "order": 0.03}
+_OTHER_HOME_COOKED_DRAIN = 0.02
+
+
+def _meal_drain(entry: CookingHistoryModel) -> float:
+    if entry.decision == "cook" and (entry.prepared_by or "self") == "other":
+        return _OTHER_HOME_COOKED_DRAIN
+    return _MEAL_DRAIN.get(entry.decision, 0.10)
 
 _IST = timedelta(hours=5, minutes=30)
 
@@ -46,7 +53,7 @@ def energy_summary(
     - drain_so_far: accumulated drain from logged meals + skipped meal windows
     - drain_ahead:  0 (cooking decisions are reactive, not pre-scheduled)
 
-    Logged meal drain: cook=0.12, eat_out=0.07, order=0.03
+    Logged meal drain: cook=0.12, home-cooked by someone else=0.02, eat_out=0.07, order=0.03
     Skipped window drain: breakfast=0.20, lunch=0.25, dinner=0.15
     Having any meal always drains less than skipping it.
     Day boundary is meal-log day (06:00 IST → next 06:00), consistent with energy.py.
@@ -66,7 +73,7 @@ def energy_summary(
         .all()
     )
 
-    past_drain = sum(_MEAL_DRAIN.get(m.decision, 0.10) for m in meals_today if m.timestamp <= now)
+    past_drain = sum(_meal_drain(m) for m in meals_today if m.timestamp <= now)
 
     # Add biological drain for meal windows that closed without any logged entry
     skipped_meals = []
@@ -97,7 +104,7 @@ def energy_summary(
         {
             "decision": m.decision,
             "at": utc_naive_to_ist_str(m.timestamp),
-            "drain": _MEAL_DRAIN.get(m.decision, 0.10),
+            "drain": _meal_drain(m),
         }
         for m in meals_today
     ]
@@ -154,6 +161,7 @@ def _collect_chef_export(db: Session, user_id: str) -> dict:
                 "decision": h.decision,
                 "recipe_name": h.recipe_name,
                 "restaurant_name": h.restaurant_name,
+                "prepared_by": h.prepared_by or "self",
                 "location_context": h.location_context or "home",
                 "location_label": h.location_label,
                 "cost": h.cost,

@@ -198,6 +198,7 @@ export interface HistoryEntry {
   recipe_name?: string;
   restaurant_name?: string;
   cuisine?: string;
+  prepared_by?: "self" | "other";
   location_context?: "home" | "travel";
   location_label?: string;
   timestamp: string;    // naive IST — meal date/time
@@ -210,6 +211,8 @@ export interface HistorySummary {
   total: number;
   total_spent: number;
   cook: number;
+  self_cook?: number;
+  other_home_cooked?: number;
   order: number;
   eat_out: number;
 }
@@ -450,9 +453,9 @@ export const api = {
     if (query.date) params.set("date", query.date);
     return request<HistoryPage>(`/history?${params.toString()}`);
   },
-  logHistory: (data: { decision: string; recipe_name?: string; restaurant_name?: string; cuisine?: string; location_context?: "home" | "travel"; location_label?: string; satisfaction?: number; timestamp?: string; cost?: number; delivery_available?: boolean }) =>
+  logHistory: (data: { decision: string; recipe_name?: string; restaurant_name?: string; cuisine?: string; prepared_by?: "self" | "other"; location_context?: "home" | "travel"; location_label?: string; satisfaction?: number; timestamp?: string; cost?: number; delivery_available?: boolean }) =>
     request<HistoryEntry>("/history", { method: "POST", body: JSON.stringify(data) }),
-  updateHistory: (id: string, data: { decision?: string; recipe_name?: string; restaurant_name?: string; cuisine?: string; location_context?: "home" | "travel"; location_label?: string; satisfaction?: number; timestamp?: string; cost?: number; delivery_available?: boolean }) =>
+  updateHistory: (id: string, data: { decision?: string; recipe_name?: string; restaurant_name?: string; cuisine?: string; prepared_by?: "self" | "other"; location_context?: "home" | "travel"; location_label?: string; satisfaction?: number; timestamp?: string; cost?: number; delivery_available?: boolean }) =>
     request<HistoryEntry>(`/history/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
   deleteHistory: (id: string) =>
     request<void>(`/history/${id}`, { method: "DELETE" }),

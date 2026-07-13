@@ -78,6 +78,7 @@ function localDatetimeValue(iso?: string) {
 const TIME_FILTERS = ["Week", "Month", "Year", "All"] as const;
 const PAGE_SIZE = 20;
 type LocationContext = "home" | "travel";
+type PreparedBy = "self" | "other";
 
 function groupFeed(items: HistoryEntry[]) {
   const thisWeekStart = startOfISTWeek(currentMealDayKey());
@@ -114,6 +115,7 @@ export default function HistoryPage() {
   const [logSatisfaction, setLogSatisfaction] = useState<number | undefined>();
   const [logTimestamp, setLogTimestamp] = useState(() => toDatetimeLocalInput());
   const [logDeliveryAvailable, setLogDeliveryAvailable] = useState(true);
+  const [logPreparedBy, setLogPreparedBy] = useState<PreparedBy>("self");
   const [logLocationContext, setLogLocationContext] = useState<LocationContext>("home");
   const [logLocationLabel, setLogLocationLabel] = useState("");
   const [defaultLocationLabel, setDefaultLocationLabel] = useState("");
@@ -132,6 +134,7 @@ export default function HistoryPage() {
   const [editSatisfaction, setEditSatisfaction] = useState<number | undefined>();
   const [editTimestamp, setEditTimestamp] = useState("");
   const [editDeliveryAvailable, setEditDeliveryAvailable] = useState(false);
+  const [editPreparedBy, setEditPreparedBy] = useState<PreparedBy>("self");
   const [editLocationContext, setEditLocationContext] = useState<LocationContext>("home");
   const [editLocationLabel, setEditLocationLabel] = useState("");
   const [editSaving, setEditSaving]       = useState(false);
@@ -235,6 +238,7 @@ export default function HistoryPage() {
         recipe_name: logRecipe.trim() || undefined,
         restaurant_name: logRestaurant.trim() || undefined,
         cuisine: logCuisine.trim() || undefined,
+        prepared_by: logDecision === "cook" ? logPreparedBy : "self",
         location_context: logLocationContext,
         location_label: logLocationLabel.trim() || undefined,
         satisfaction: logSatisfaction,
@@ -251,7 +255,7 @@ export default function HistoryPage() {
       }
       setEntries((prev) => [entry, ...prev]);
       setShowLog(false);
-      setLogRecipe(""); setLogRestaurant(""); setLogCuisine(""); setLogCost(""); setLogSatisfaction(undefined); setLogTimestamp(localDatetimeValue()); setLogDeliveryAvailable(true); setLogLocationContext("home"); setLogLocationLabel(defaultLocationLabel);
+      setLogRecipe(""); setLogRestaurant(""); setLogCuisine(""); setLogCost(""); setLogSatisfaction(undefined); setLogTimestamp(localDatetimeValue()); setLogDeliveryAvailable(true); setLogPreparedBy("self"); setLogLocationContext("home"); setLogLocationLabel(defaultLocationLabel);
       loadPage(0, timeFilter);
     } catch {
       setError("Failed to save. Please try again.");
@@ -270,6 +274,7 @@ export default function HistoryPage() {
     setEditSatisfaction(entry.satisfaction ?? undefined);
     setEditTimestamp(localDatetimeValue(entry.timestamp));
     setEditDeliveryAvailable(resolveDeliveryFlag(entry.restaurant_name ?? "", entry.decision));
+    setEditPreparedBy((entry.prepared_by ?? "self") as PreparedBy);
     setEditLocationContext((entry.location_context ?? "home") as LocationContext);
     setEditLocationLabel(entry.location_label ?? defaultLocationLabel);
   }
@@ -282,6 +287,7 @@ export default function HistoryPage() {
         recipe_name: editRecipe.trim() || undefined,
         restaurant_name: editRestaurant.trim() || undefined,
         cuisine: editCuisine.trim() || undefined,
+        prepared_by: editDecision === "cook" ? editPreparedBy : "self",
         location_context: editLocationContext,
         location_label: editLocationLabel.trim() || undefined,
         satisfaction: editSatisfaction,
@@ -328,6 +334,8 @@ export default function HistoryPage() {
 
   const visible = entries;
   const cookCount  = summary?.cook ?? 0;
+  const selfCookCount = summary?.self_cook ?? cookCount;
+  const otherHomeCookedCount = summary?.other_home_cooked ?? 0;
   const orderCount = summary?.order ?? 0;
   const outCount   = summary?.eat_out ?? 0;
   const totalMeals = summary?.total ?? 0;
@@ -415,6 +423,7 @@ export default function HistoryPage() {
                 type="button"
                 onClick={() => {
                   setLogDecision(m);
+                  if (m !== "cook") setLogPreparedBy("self");
                   if (m === "order") setLogDeliveryAvailable(true);
                   else if (m === "eat_out") setLogDeliveryAvailable(resolveDeliveryFlag(logRestaurant, "eat_out"));
                 }}
@@ -431,6 +440,33 @@ export default function HistoryPage() {
               </button>
             ))}
           </div>
+          {logDecision === "cook" && (
+            <div>
+              <MonoLabel className="text-kitchen-muted block mb-1.5">WHO COOKED?</MonoLabel>
+              <div className="grid grid-cols-2 gap-2">
+                {([
+                  { value: "self", label: "I cooked" },
+                  { value: "other", label: "Someone else" },
+                ] as const).map(({ value, label }) => (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => setLogPreparedBy(value)}
+                    className="py-2.5 text-xs font-mono transition-all"
+                    style={{
+                      borderRadius: "var(--radius-btn)",
+                      border: logPreparedBy === value ? "1px solid rgb(var(--kitchen-accent) / 0.5)" : "1px solid var(--kitchen-line2)",
+                      background: logPreparedBy === value ? "rgb(var(--kitchen-accent) / 0.1)" : "transparent",
+                      color: logPreparedBy === value ? "rgb(var(--kitchen-accent))" : "rgb(var(--kitchen-ink3))",
+                      letterSpacing: "0.08em",
+                    }}
+                  >
+                    {label.toUpperCase()}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <MonoLabel className="text-kitchen-muted block mb-1.5">MEAL (OPTIONAL)</MonoLabel>
@@ -559,7 +595,7 @@ export default function HistoryPage() {
 
       {/* Stats row */}
       {totalMeals > 0 && (
-        <div className="grid grid-cols-4 gap-2">
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
           <div
             className="p-3 text-center col-span-1"
             style={{ border: "1px solid var(--kitchen-line)", borderRadius: "var(--radius-card)", background: "rgb(var(--kitchen-card))" }}
@@ -570,7 +606,8 @@ export default function HistoryPage() {
             <MonoLabel className="text-kitchen-muted mt-0.5 block">{totalSpent > 0 ? "SPENT" : "MEALS"}</MonoLabel>
           </div>
           {[
-            { label: "COOK",  value: cookCount,  color: "text-kitchen-success" },
+            { label: "YOU",   value: selfCookCount, color: "text-kitchen-success" },
+            { label: "HOME",  value: otherHomeCookedCount, color: "text-kitchen-success" },
             { label: "ORDER", value: orderCount, color: "text-kitchen-accent"  },
             { label: "OUT",   value: outCount,   color: "text-kitchen-warn"    },
           ].map(({ label, value, color }) => (
@@ -595,7 +632,7 @@ export default function HistoryPage() {
             {outCount   > 0 && <div style={{ flex: outCount,   background: "rgb(var(--kitchen-warn))",    borderRadius: 999 }} />}
           </div>
           <div className="flex gap-4 mt-1.5">
-            <MonoLabel className="text-kitchen-muted">{Math.round(cookCount / totalMeals * 100)}% COOKED</MonoLabel>
+            <MonoLabel className="text-kitchen-muted">{Math.round(selfCookCount / totalMeals * 100)}% COOKED BY YOU</MonoLabel>
             <MonoLabel className="text-kitchen-muted">{totalMeals} MEALS</MonoLabel>
           </div>
         </div>
@@ -628,6 +665,7 @@ export default function HistoryPage() {
               <ul className="space-y-2">
           {groupEntries.map((entry) => {
             const meta = MODE_META[entry.decision] ?? { label: entry.decision.toUpperCase(), color: "rgb(var(--kitchen-ink3))" };
+            const modeLabel = entry.decision === "cook" && entry.prepared_by === "other" ? "HOME COOKED" : meta.label;
             const isEditing = editingId === entry.id;
             return (
               <li
@@ -645,6 +683,7 @@ export default function HistoryPage() {
                           type="button"
                           onClick={() => {
                             setEditDecision(m);
+                            if (m !== "cook") setEditPreparedBy("self");
                             if (m === "order") setEditDeliveryAvailable(true);
                             else if (m === "eat_out") setEditDeliveryAvailable(resolveDeliveryFlag(editRestaurant, "eat_out"));
                           }}
@@ -661,6 +700,33 @@ export default function HistoryPage() {
                         </button>
                       ))}
                     </div>
+                    {editDecision === "cook" && (
+                      <div>
+                        <MonoLabel className="text-kitchen-muted block mb-1.5">WHO COOKED?</MonoLabel>
+                        <div className="grid grid-cols-2 gap-2">
+                          {([
+                            { value: "self", label: "I cooked" },
+                            { value: "other", label: "Someone else" },
+                          ] as const).map(({ value, label }) => (
+                            <button
+                              key={value}
+                              type="button"
+                              onClick={() => setEditPreparedBy(value)}
+                              className="py-2.5 text-xs font-mono transition-all"
+                              style={{
+                                borderRadius: "var(--radius-btn)",
+                                border: editPreparedBy === value ? "1px solid rgb(var(--kitchen-accent) / 0.5)" : "1px solid var(--kitchen-line2)",
+                                background: editPreparedBy === value ? "rgb(var(--kitchen-accent) / 0.1)" : "transparent",
+                                color: editPreparedBy === value ? "rgb(var(--kitchen-accent))" : "rgb(var(--kitchen-ink3))",
+                                letterSpacing: "0.08em",
+                              }}
+                            >
+                              {label.toUpperCase()}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                       <input
                         value={editRecipe}
@@ -807,7 +873,7 @@ export default function HistoryPage() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-[10px] font-mono tracking-[0.12em] uppercase" style={{ color: meta.color }}>{meta.label}</span>
+                        <span className="text-[10px] font-mono tracking-[0.12em] uppercase" style={{ color: meta.color }}>{modeLabel}</span>
                         <MonoLabel className="text-kitchen-muted">· {formatRelativeIST(entry.timestamp)}</MonoLabel>
                         {entry.created_at && istMinutesApart(entry.created_at, entry.timestamp) > 60 && (
                           <MonoLabel className="text-kitchen-muted opacity-60">(logged {formatRelativeIST(entry.created_at)})</MonoLabel>

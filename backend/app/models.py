@@ -174,6 +174,7 @@ class CookingHistoryModel(Base):
     recipe_name: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
     restaurant_name: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
     cuisine: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    prepared_by: Mapped[str] = mapped_column(String(20), default="self")
     location_context: Mapped[str] = mapped_column(String(20), default="home")
     location_label: Mapped[Optional[str]] = mapped_column(String(120), nullable=True)
     timestamp: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))

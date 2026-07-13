@@ -54,7 +54,7 @@ def get_user_profile(user_id: str, db: Session) -> UserProfileResponse:
         )
 
     # Cook rate
-    cook_count = sum(1 for h in history if h.decision == "cook")
+    cook_count = sum(1 for h in history if h.decision == "cook" and (h.prepared_by or "self") != "other")
     cook_rate = cook_count / len(history)
 
     # Average satisfaction
@@ -68,7 +68,13 @@ def get_user_profile(user_id: str, db: Session) -> UserProfileResponse:
         top_cuisines = fav_cuisines
 
     # Weekday tendency
-    weekday_cook = sum(1 for h in history if h.timestamp.weekday() < _WEEKDAY and h.decision == "cook")
+    weekday_cook = sum(
+        1
+        for h in history
+        if h.timestamp.weekday() < _WEEKDAY
+        and h.decision == "cook"
+        and (h.prepared_by or "self") != "other"
+    )
     weekday_total = sum(1 for h in history if h.timestamp.weekday() < _WEEKDAY)
     if weekday_total >= 3:
         wr = weekday_cook / weekday_total

@@ -314,6 +314,7 @@ def _tool_food_log(db: Session, user_id: str, inputs: dict[str, Any]) -> Any:
             "recipe_name": e.recipe_name,
             "restaurant_name": e.restaurant_name,
             "cuisine": e.cuisine,
+            "prepared_by": e.prepared_by or "self",
             "satisfaction": e.satisfaction,
             "timestamp": e.timestamp.isoformat() if e.timestamp else None,
         }
@@ -335,6 +336,7 @@ def _tool_log_meal(db: Session, user_id: str, inputs: dict[str, Any]) -> Any:
         recipe_name=payload.recipe_name,
         restaurant_name=payload.restaurant_name,
         cuisine=payload.cuisine,
+        prepared_by=payload.prepared_by if payload.decision == "cook" else "self",
         satisfaction=payload.satisfaction,
         cost=payload.cost,
         **({"timestamp": payload.timestamp} if payload.timestamp else {}),

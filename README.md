@@ -14,7 +14,7 @@ Chef is a kitchen decision intelligence system. It helps answer "What is the bes
 | Cook vs order vs eat-out scoring | Implemented, deterministic core |
 | Recipe recommendations and search | Implemented with seed data, TheMealDB, and optional Groq generation |
 | Grocery list and suggestions | Implemented, including restock from use/discard and swipe-to-buy |
-| History, satisfaction, spend stats, nutrition summary | Implemented, with travel-scoped restaurant memory |
+| History, satisfaction, spend stats, nutrition summary | Implemented, with prepared-by and travel-scoped memory |
 | Cross-app energy preset with Cortex/Circuit/Canopy | Implemented |
 | Native Chef chat agent | Implemented, requires `GROQ_API_KEY` |
 | JWT auth, Cortex SSO, WebAuthn passkeys | Implemented |

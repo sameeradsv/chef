@@ -73,10 +73,24 @@ def _apply_date_filters(q, date: Optional[str], from_date: Optional[str], to_dat
 
 
 def _compute_summary(q) -> HistorySummary:
-    total, total_spent, cook, order, eat_out = q.with_entities(
+    total, total_spent, cook, self_cook, other_home_cooked, order, eat_out = q.with_entities(
         func.count(CookingHistoryModel.id),
         func.coalesce(func.sum(CookingHistoryModel.cost), 0.0),
         func.sum(case((CookingHistoryModel.decision == "cook", 1), else_=0)),
+        func.sum(case(
+            (
+                (CookingHistoryModel.decision == "cook") & (func.coalesce(CookingHistoryModel.prepared_by, "self") != "other"),
+                1,
+            ),
+            else_=0,
+        )),
+        func.sum(case(
+            (
+                (CookingHistoryModel.decision == "cook") & (CookingHistoryModel.prepared_by == "other"),
+                1,
+            ),
+            else_=0,
+        )),
         func.sum(case((CookingHistoryModel.decision == "order", 1), else_=0)),
         func.sum(case((CookingHistoryModel.decision == "eat_out", 1), else_=0)),
     ).one()
@@ -84,6 +98,8 @@ def _compute_summary(q) -> HistorySummary:
         total=int(total or 0),
         total_spent=float(total_spent or 0),
         cook=int(cook or 0),
+        self_cook=int(self_cook or 0),
+        other_home_cooked=int(other_home_cooked or 0),
         order=int(order or 0),
         eat_out=int(eat_out or 0),
     )
@@ -101,6 +117,7 @@ def log_decision(
         recipe_name=payload.recipe_name,
         restaurant_name=payload.restaurant_name,
         cuisine=payload.cuisine,
+        prepared_by=payload.prepared_by if payload.decision == "cook" else "self",
         location_context=payload.location_context,
         location_label=_default_location_label(db, current_user.id, payload.location_label),
         satisfaction=payload.satisfaction,
@@ -138,6 +155,9 @@ def update_entry(
     delivery_available = data.pop("delivery_available", None)
     if "location_label" in data:
         data["location_label"] = _clean_location_label(data["location_label"])
+    next_decision = data.get("decision", entry.decision)
+    if next_decision != "cook":
+        data["prepared_by"] = "self"
     for k, v in data.items():
         setattr(entry, k, v)
     decision = entry.decision

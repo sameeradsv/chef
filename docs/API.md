@@ -87,7 +87,7 @@ All API datetimes exposed to the frontend are naive IST strings (`YYYY-MM-DDTHH:
 
 `timestamp` is the meal time and drives history filters, energy, and nutrition. `created_at` is insert time.
 
-History create/update accepts `location_context` (`home` or `travel`) and `location_label`. Travel entries remain in the log and analytics, but history-derived restaurant and order-item recommendations only reuse them when `location_label` matches the current preference city/area.
+History create/update accepts `prepared_by` (`self` or `other`) for cooked meals, plus `location_context` (`home` or `travel`) and `location_label`. `prepared_by="other"` keeps the meal in nutrition/history analytics but does not count as the user's personal cooking effort. Travel entries remain in the log and analytics, but history-derived restaurant and order-item recommendations only reuse them when `location_label` matches the current preference city/area.
 
 ## Energy, Nutrition, Plan, Sync
 

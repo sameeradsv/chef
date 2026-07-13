@@ -206,6 +206,21 @@ def _migrate_history_location_context() -> None:
         conn.commit()
 
 
+def _migrate_history_prepared_by() -> None:
+    """Track whether a cooked-at-home meal was prepared by the user or someone else."""
+    with engine.connect() as conn:
+        from sqlalchemy import inspect, text
+        inspector = inspect(engine)
+        if "cooking_history" not in inspector.get_table_names():
+            return
+        existing = {c["name"] for c in inspector.get_columns("cooking_history")}
+        if "prepared_by" not in existing:
+            conn.execute(text(
+                "ALTER TABLE cooking_history ADD COLUMN prepared_by VARCHAR(20) DEFAULT 'self'"
+            ))
+            conn.commit()
+
+
 def _migrate_push_reminders() -> None:
     with engine.connect() as conn:
         from sqlalchemy import inspect, text
@@ -327,6 +342,7 @@ MIGRATIONS: list[tuple[str, Callable[[], None]]] = [
     ("postgres_schema", _migrate_postgres),
     ("restaurant_delivery_json", _migrate_restaurant_delivery_json),
     ("history_location_context", _migrate_history_location_context),
+    ("history_prepared_by", _migrate_history_prepared_by),
     ("push_reminders", _migrate_push_reminders),
 ]
 

@@ -50,6 +50,8 @@ def _meal_delta(entry: CookingHistoryModel) -> float:
             return 0.02
         else:               # 1–2 / 5: bad experience costs energy
             return round((sat - 0.80) * 0.15, 3)   # −0.03 to −0.12
+    if entry.decision == "cook" and (entry.prepared_by or "self") == "other":
+        return 0.02
     # No satisfaction logged: decision type default
     return {"cook": -0.04, "order": 0.0, "eat_out": 0.03}.get(entry.decision, -0.02)
 
@@ -141,7 +143,7 @@ def energy_timeline(
     for entry in entries:
         delta = _meal_delta(entry)
         label = "draining" if delta < -0.05 else "energising" if delta > 0.03 else "neutral"
-        note = entry.recipe_name or entry.decision
+        note = entry.recipe_name or ("home cooked" if entry.decision == "cook" and (entry.prepared_by or "self") == "other" else entry.decision)
         if entry.satisfaction is not None:
             note += f" · {entry.satisfaction}/5"
         local_time = entry.timestamp.replace(tzinfo=timezone.utc).astimezone(_IST)

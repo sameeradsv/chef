@@ -33,12 +33,17 @@ def predict_meal_tendency(db: Session, user_id: str) -> dict:
             "weekday_counts": {},
         }
 
-    all_counts = Counter(r.decision for r in rows)
+    def personal_decision(row: CookingHistoryModel) -> str:
+        if row.decision == "cook" and (row.prepared_by or "self") == "other":
+            return "home_cooked"
+        return row.decision
+
+    all_counts = Counter(personal_decision(r) for r in rows)
     same_dow = [
         r for r in rows
         if logical_meal_date_from_utc_naive(r.timestamp).weekday() == weekday
     ]
-    dow_counts = Counter(r.decision for r in same_dow) if same_dow else all_counts
+    dow_counts = Counter(personal_decision(r) for r in same_dow) if same_dow else all_counts
     likely = dow_counts.most_common(1)[0][0]
     total = sum(dow_counts.values())
     confidence = round(dow_counts[likely] / total, 2) if total else 0.3
@@ -61,7 +66,7 @@ def predict_meal_tendency(db: Session, user_id: str) -> dict:
         .all()
     )
     urgent = [i for i in expiring if i.expiry_date and days_until_expiry(i.expiry_date) <= 2]
-    if urgent and likely != "cook":
+    if urgent and likely not in ("cook", "home_cooked"):
         waste_hint = f"{len(urgent)} pantry item(s) expire within 2 days — cooking saves waste."
         messages.append(waste_hint)
 

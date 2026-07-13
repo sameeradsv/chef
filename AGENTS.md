@@ -59,6 +59,7 @@ docker compose up -d postgres
 - `/history` list — `limit`, `offset`, `from_date`/`to_date` (IST meal-time range), `date` (`today` or `YYYY-MM-DD`); `include_summary=true` → `{ items, total, offset, limit, summary }`; omit for plain array (Conduit-compatible)
 - `/energy/timeline` — cumulative meal-energy timeline per day. Each event has `delta` (signed: good meals restore, skipped/bad drain), `running_energy`, `start_energy` (0.70), `end_energy`. Satisfaction-weighted delta: 4–5/5 → +0.08 to +0.10 (genuine restore); 3/5 → +0.02; 1–2/5 → negative; skipped window → breakfast −0.15, lunch −0.20, dinner −0.12. Decision-type fallback (no satisfaction): eat_out +0.03, order 0.0, cook −0.04. `energy` compat field (0–1) preserved for chart dot colour.
 - `/sync/energy` — today's cumulative drain: logged-meal drain (cook 0.12, eat_out 0.07, order 0.03) + biological skip drain for closed windows with no entry (breakfast 0.20, lunch 0.25, dinner 0.15). Having any meal always drains less than skipping it. Consumed by the decision page for all accounts (not just Cortex) to pre-fill `energy_level`.
+- Home-cooked meals prepared by someone else stay as `decision="cook"` with `prepared_by="other"`; they count for meal/nutrition history, but not for personal cook rate or cook prediction. `/sync/energy` treats them as low-effort drain (0.02), and `/energy/timeline` uses a neutral/restorative no-satisfaction fallback (+0.02).
 - `/nutrition/summary` — keyword-based macro/micronutrient averages + RDA gap analysis + food suggestions
 - `/vision/parse` — image-to-meal/ingredient parsing via Groq Llama 4 Scout
 - `/agent/chat` — native Groq chat agent (SSE); tools: meal recommendations, cook-vs-order, food log, log meal. Requires `GROQ_API_KEY`; model override via `CHEF_AGENT_MODEL`
@@ -81,6 +82,8 @@ docker compose up -d postgres
 - `mealdb.py` — Groq recipe generation (70b for full, 8b for fast) with 30-min in-process cache keyed on pantry contents + meal type + preferences; falls back to TheMealDB live search then seed data. Cache pool is always ≥10 results; callers slice to their requested count. Wired into `/recipes/search` via TheMealDB
 
 **`CookingHistoryModel` field semantics**: `timestamp` = the meal's actual date/time (user-specified, defaults to insert time if omitted); `created_at` = DB insert time (always entry time). Both are stored as naive UTC in the DB; API responses serialize them as **naive IST strings** (`YYYY-MM-DDTHH:MM:SS`). Energy and nutrition endpoints filter by `timestamp` so backdated entries land on their original date, not today.
+
+`prepared_by` distinguishes meals cooked by the user (`self`) from home-cooked meals prepared by someone else (`other`). Both remain `decision="cook"` for nutrition/history, but only `self` counts toward personal cook rate and cook prediction. `location_context`/`location_label` scope restaurant memory so travel venues do not follow the user home.
 
 **Timezone contract**: All user-facing API datetimes are naive IST on the wire. The frontend displays and collects IST only (`frontend/src/lib/tz.ts`); `tz_utils.py` converts to/from naive UTC at the backend boundary.
 

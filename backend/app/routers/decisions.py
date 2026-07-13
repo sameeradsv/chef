@@ -6,7 +6,7 @@ import time
 from typing import Any, Literal
 
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy import func
+from sqlalchemy import case, func
 from sqlalchemy.orm import Session
 
 # Simple in-process TTL cache for decision scoring (deterministic given same inputs).
@@ -144,16 +144,23 @@ def _prefs_fingerprint(row: UserPreferencesModel | None) -> tuple:
 
 
 def _history_fingerprint(db: Session, user_id: str) -> tuple:
-    count, max_timestamp, max_created_at = (
+    count, max_timestamp, max_created_at, other_home_cooked = (
         db.query(
             func.count(CookingHistoryModel.id),
             func.max(CookingHistoryModel.timestamp),
             func.max(CookingHistoryModel.created_at),
+            func.sum(case(
+                (
+                    (CookingHistoryModel.decision == "cook") & (CookingHistoryModel.prepared_by == "other"),
+                    1,
+                ),
+                else_=0,
+            )),
         )
         .filter(CookingHistoryModel.user_id == user_id)
         .one()
     )
-    return (int(count or 0), max_timestamp, max_created_at)
+    return (int(count or 0), max_timestamp, max_created_at, int(other_home_cooked or 0))
 
 
 def _stable_daily_index(user_id: str, key: str, size: int) -> int:

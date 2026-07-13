@@ -41,7 +41,7 @@ All persisted user data is multi-user via `user_id`. Main tables:
 | `DiscardedIngredientModel` | Waste log for discarded pantry items |
 | `UserStateModel` | Decision defaults: energy, time, budget, health, craving, willingness, stress |
 | `UserPreferencesModel` | Cuisine/diet, vegetarian, city, people count, cooking skill, restaurant delivery overrides |
-| `CookingHistoryModel` | Meal/decision history, including home/travel location scope |
+| `CookingHistoryModel` | Meal/decision history, including prepared-by and home/travel location scope |
 | `GroceryItemModel` | Grocery list items |
 | `PushSubscriptionModel` | Browser push endpoints |
 | `UserReminderSettingsModel` | Three daily reminder times and enabled flag |
@@ -53,6 +53,7 @@ All persisted user data is multi-user via `user_id`. Main tables:
 - Database `DateTime` columns store naive UTC.
 - `CookingHistoryModel.timestamp` is the actual meal time; it drives history filtering, energy, and nutrition.
 - `CookingHistoryModel.created_at` is DB insert time.
+- `CookingHistoryModel.prepared_by` distinguishes meals cooked by the user (`self`) from home-cooked meals prepared by someone else (`other`). Both remain `decision="cook"` for meal analytics, nutrition, and history display, but only `self` increases personal cook rate/prediction; `other` uses a low/no-effort energy baseline.
 - `CookingHistoryModel.location_context` scopes venue memory. `travel` entries still count for nutrition, energy, cost, and cuisine habits, but restaurant and order-item reuse only includes them when the current preference city matches `location_label`.
 - Frontend helpers in `frontend/src/lib/tz.ts` must display and submit IST values only.
 
