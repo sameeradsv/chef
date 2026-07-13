@@ -42,7 +42,7 @@ All API datetimes exposed to the frontend are naive IST strings (`YYYY-MM-DDTHH:
 | `GET` | `/recipes/search?q=&cuisine=` | Keyword search across seed, TheMealDB, and generated pool |
 | `GET` | `/recipes/{id}` | Recipe detail |
 
-`services/mealdb.py` uses Groq recipe generation when `GROQ_API_KEY` is set, then falls back to TheMealDB and seed recipes.
+`services/mealdb.py` uses Groq recipe generation when `GROQ_API_KEY` is set, then falls back to TheMealDB and seed recipes. Groq output is parsed locally with small repairs for common JSON mistakes such as fraction quantities.
 
 ## Decision
 

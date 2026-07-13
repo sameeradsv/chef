@@ -6,6 +6,7 @@ import hashlib
 import json
 import logging
 import os
+import re
 import time
 import uuid
 
@@ -63,6 +64,7 @@ MEALDB_BASE = "https://www.themealdb.com/api/json/v1/1"
 _MEALDB_TIMEOUT = 5.0
 _DEFAULT_MODEL = "llama-3.3-70b-versatile"
 _FAST_MODEL = "llama-3.1-8b-instant"
+_MAX_RECIPE_TOKENS = 6000
 
 _groq_client = None
 
@@ -198,19 +200,44 @@ def _build_prompt(
         "  nutrition_score (1.0-10.0), comfort_score (1.0-10.0),\n"
         "  estimated_cost (INR), requires_attention (bool),\n"
         "  instructions (array of step strings, max 8).\n"
+        "All numeric values must be JSON numbers, never fractions like 1/2; use decimals like 0.5. "
         "No prose, no markdown, no extra keys."
     )
     return "\n".join(lines)
 
 
-def _parse_recipes(text: str, pantry_names: set[str]) -> list[RecipeResponse]:
+def _strip_code_fence(text: str) -> str:
     text = text.strip()
-    if text.startswith("```"):
-        lines = text.splitlines()
-        inner = lines[1:] if len(lines) > 1 else lines
-        if inner and inner[-1].strip() == "```":
-            inner = inner[:-1]
-        text = "\n".join(inner)
+    if not text.startswith("```"):
+        return text
+    lines = text.splitlines()
+    inner = lines[1:] if len(lines) > 1 else lines
+    if inner and inner[-1].strip() == "```":
+        inner = inner[:-1]
+    if inner and inner[0].strip().lower() == "json":
+        inner = inner[1:]
+    return "\n".join(inner).strip()
+
+
+def _repair_common_json_issues(text: str) -> str:
+    text = _strip_code_fence(text)
+    start = text.find("{")
+    end = text.rfind("}")
+    if start >= 0 and end > start:
+        text = text[start:end + 1]
+
+    fraction_re = re.compile(r'(:\s*)(-?\d+)\s*/\s*(\d+)(\s*[,}\]])')
+
+    def repl(match: re.Match[str]) -> str:
+        denominator = float(match.group(3))
+        value = float(match.group(2)) / denominator if denominator else float(match.group(2))
+        return f"{match.group(1)}{value:g}{match.group(4)}"
+
+    return fraction_re.sub(repl, text)
+
+
+def _parse_recipes(text: str, pantry_names: set[str]) -> list[RecipeResponse]:
+    text = _repair_common_json_issues(text)
 
     try:
         parsed = json.loads(text)
@@ -230,13 +257,19 @@ def _parse_recipes(text: str, pantry_names: set[str]) -> list[RecipeResponse]:
     results: list[RecipeResponse] = []
     for raw in raw_list:
         try:
+            raw_ingredients = raw.get("ingredients", [])
+            if not isinstance(raw_ingredients, list):
+                raw_ingredients = []
+            raw_instructions = raw.get("instructions", [])
+            if not isinstance(raw_instructions, list):
+                raw_instructions = []
             ingredients = [
                 RecipeIngredient(
                     normalized_name=str(i.get("normalized_name", "")).lower().strip(),
                     quantity=float(i.get("quantity", 1)),
                     unit=str(i.get("unit", "as needed")),
                 )
-                for i in raw.get("ingredients", [])
+                for i in raw_ingredients
                 if str(i.get("normalized_name", "")).strip()
             ]
             matched = sum(1 for ing in ingredients if ing.normalized_name in pantry_names)
@@ -257,7 +290,7 @@ def _parse_recipes(text: str, pantry_names: set[str]) -> list[RecipeResponse]:
                 cuisine=str(raw.get("cuisine", "International")),
                 pantry_match_pct=round(pct, 0),
                 uses_expiring=[],
-                instructions=[str(s) for s in raw.get("instructions", [])[:8]],
+                instructions=[str(s) for s in raw_instructions[:8]],
                 substitutions=[],
             ))
         except Exception:
@@ -314,15 +347,16 @@ def generate_recipes(
         try:
             response = client.chat.completions.create(
                 model=model,
-                max_tokens=2500,
-                response_format={"type": "json_object"},
+                max_tokens=_MAX_RECIPE_TOKENS,
+                temperature=0.4,
                 messages=[
                     {
                         "role": "system",
                         "content": (
                             "You are a recipe generation assistant. "
                             'Output valid JSON only — a single object with a "recipes" array. '
-                            "All recipes must be practical, real dishes with accurate time and difficulty estimates."
+                            "All recipes must be practical, real dishes with accurate time and difficulty estimates. "
+                            "Use decimal JSON numbers for quantities; never write fractions such as 1/2."
                         ),
                     },
                     {"role": "user", "content": prompt},
