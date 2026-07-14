@@ -194,9 +194,6 @@ export default function SettingsPage() {
   const [notificationBusy, setNotificationBusy] = useState(false);
   const [notificationError, setNotificationError] = useState<string | null>(null);
   const [remindersEnabled, setRemindersEnabled] = useState(true);
-  const [morningTime, setMorningTime] = useState("11:00");
-  const [afternoonTime, setAfternoonTime] = useState("15:00");
-  const [eveningTime, setEveningTime] = useState("22:00");
 
   async function saveDecisionDefaults(patch: Partial<Pick<UserState, "willingness_to_cook" | "health_priority" | "stress_level">>) {
     setSavingDecisionDefaults(true);
@@ -259,9 +256,6 @@ export default function SettingsPage() {
     api.getReminderSettings()
       .then((settings) => {
         setRemindersEnabled(settings.enabled);
-        setMorningTime(settings.morning_time);
-        setAfternoonTime(settings.afternoon_time);
-        setEveningTime(settings.evening_time);
       })
       .catch(() => { /* notifications can still be configured after enable */ });
 
@@ -353,23 +347,20 @@ export default function SettingsPage() {
     }
   }
 
-  async function saveReminderSettings(next?: Partial<{ enabled: boolean; morning_time: string; afternoon_time: string; evening_time: string }>) {
+  async function saveReminderSettings(next?: Partial<{ enabled: boolean }>) {
     const payload = {
       enabled: next?.enabled ?? remindersEnabled,
-      morning_time: next?.morning_time ?? morningTime,
-      afternoon_time: next?.afternoon_time ?? afternoonTime,
-      evening_time: next?.evening_time ?? eveningTime,
+      morning_time: "11:00",
+      afternoon_time: "15:00",
+      evening_time: "22:00",
     };
     setNotificationBusy(true);
     setNotificationError(null);
     try {
       const saved = await api.updateReminderSettings(payload);
       setRemindersEnabled(saved.enabled);
-      setMorningTime(saved.morning_time);
-      setAfternoonTime(saved.afternoon_time);
-      setEveningTime(saved.evening_time);
     } catch {
-      setNotificationError("Could not save reminder times.");
+      setNotificationError("Could not save reminder preference.");
     } finally {
       setNotificationBusy(false);
     }
@@ -787,7 +778,7 @@ export default function SettingsPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-kitchen-text">Daily reminders</p>
-                <p className="text-[11px] text-kitchen-muted mt-0.5">Sent by cron when the local time matches</p>
+                <p className="text-[11px] text-kitchen-muted mt-0.5">Cron-backed schedule</p>
               </div>
               <button
                 type="button"
@@ -821,25 +812,19 @@ export default function SettingsPage() {
 
             <div className="grid grid-cols-3 gap-2">
               {[
-                ["Morning", morningTime, setMorningTime, "morning_time"],
-                ["Afternoon", afternoonTime, setAfternoonTime, "afternoon_time"],
-                ["Evening", eveningTime, setEveningTime, "evening_time"],
-              ].map(([label, value, setter, key]) => (
-                <label key={label as string} className="min-w-0">
-                  <MonoLabel className="text-kitchen-muted block mb-1">{label as string}</MonoLabel>
-                  <input
-                    type="time"
-                    step={1800}
-                    value={value as string}
-                    disabled={notificationBusy}
-                    onChange={(e) => {
-                      (setter as React.Dispatch<React.SetStateAction<string>>)(e.target.value);
-                      saveReminderSettings({ [key as "morning_time" | "afternoon_time" | "evening_time"]: e.target.value });
-                    }}
-                    className="w-full bg-kitchen-surface text-kitchen-text text-sm px-2 py-2 outline-none focus:ring-1 ring-kitchen-accent/50 disabled:opacity-50"
+                ["Breakfast", "11:00"],
+                ["Lunch", "15:00"],
+                ["Dinner", "22:00"],
+              ].map(([label, value]) => (
+                <div key={label} className="min-w-0">
+                  <MonoLabel className="text-kitchen-muted block mb-1">{label}</MonoLabel>
+                  <div
+                    className="min-h-[44px] bg-kitchen-surface text-kitchen-text text-sm px-2 py-2 flex items-center"
                     style={{ border: "1px solid var(--kitchen-line2)", borderRadius: "var(--radius-btn)" }}
-                  />
-                </label>
+                  >
+                    {value}
+                  </div>
+                </div>
               ))}
             </div>
           </div>

@@ -173,3 +173,33 @@ def test_migration_updates_only_old_default_reminder_times(monkeypatch):
 
     assert rows["old-defaults"] == ("11:00", "15:00", "22:00")
     assert rows["custom"] == ("10:00", "14:00", "20:00")
+
+
+def test_migration_normalizes_all_reminder_times_to_fixed_schedule(monkeypatch):
+    engine = create_engine("sqlite:///:memory:", connect_args={"check_same_thread": False})
+    monkeypatch.setattr(database_module, "engine", engine)
+    monkeypatch.setattr(database_module, "DATABASE_URL", "sqlite:///:memory:")
+
+    with engine.connect() as conn:
+        conn.execute(text(
+            "CREATE TABLE user_reminder_settings ("
+            "user_id VARCHAR(36) PRIMARY KEY, "
+            "enabled BOOLEAN NOT NULL DEFAULT 1, "
+            "morning_time VARCHAR(5) NOT NULL, "
+            "afternoon_time VARCHAR(5) NOT NULL, "
+            "evening_time VARCHAR(5) NOT NULL, "
+            "updated_at DATETIME DEFAULT CURRENT_TIMESTAMP)"
+        ))
+        conn.execute(text(
+            "INSERT INTO user_reminder_settings "
+            "(user_id, morning_time, afternoon_time, evening_time) VALUES "
+            "('custom', '10:00', '14:30', '20:30')"
+        ))
+        conn.commit()
+
+    database_module._migrate_fixed_meal_log_reminder_times()
+
+    with engine.connect() as conn:
+        row = conn.execute(text("SELECT * FROM user_reminder_settings WHERE user_id = 'custom'")).mappings().one()
+
+    assert (row["morning_time"], row["afternoon_time"], row["evening_time"]) == ("11:00", "15:00", "22:00")

@@ -249,9 +249,9 @@ def update_settings(
         row = UserReminderSettingsModel(user_id=current_user.id)
         db.add(row)
     row.enabled = payload.enabled
-    row.morning_time = payload.morning_time
-    row.afternoon_time = payload.afternoon_time
-    row.evening_time = payload.evening_time
+    row.morning_time = "11:00"
+    row.afternoon_time = "15:00"
+    row.evening_time = "22:00"
     row.updated_at = _now_naive()
     db.commit()
     db.refresh(row)
@@ -275,11 +275,10 @@ def update_canopy_style_reminder_settings(
         row = UserReminderSettingsModel(user_id=current_user.id)
         db.add(row)
 
-    times = payload.get("times") if isinstance(payload.get("times"), dict) else {}
     row.enabled = bool(payload.get("enabled", row.enabled))
-    row.morning_time = _validate_reminder_time(times.get("morning", row.morning_time))
-    row.afternoon_time = _validate_reminder_time(times.get("afternoon", row.afternoon_time))
-    row.evening_time = _validate_reminder_time(times.get("evening", row.evening_time))
+    row.morning_time = "11:00"
+    row.afternoon_time = "15:00"
+    row.evening_time = "22:00"
     row.updated_at = _now_naive()
     db.commit()
     db.refresh(row)
