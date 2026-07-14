@@ -96,7 +96,7 @@ Frontend:
 
 ## Web Push Reminders
 
-Chef supports three configurable daily reminders: morning, afternoon, and evening.
+Chef supports three configurable daily meal-log reminders: morning, afternoon, and evening. Defaults are `11:00`, `15:00`, and `22:00` IST, and reminder settings accept only 30-minute boundaries.
 
 Flow:
 
@@ -118,7 +118,7 @@ Generate VAPID keys:
 python -m pywebpush --vapid
 ```
 
-Create three cron-job.org jobs, usually once per minute:
+Create three cron-job.org jobs, usually once every 30 minutes, aligned to `:00` and `:30`:
 
 ```text
 POST https://your-chef-api.vercel.app/api/notifications/reminder/morning
@@ -127,7 +127,7 @@ POST https://your-chef-api.vercel.app/api/notifications/reminder/evening
 Authorization: Bearer <REMINDER_CRON_SECRET>
 ```
 
-The backend only sends when the current IST minute matches a user's configured time, and `reminder_dispatch_log` prevents duplicate sends. Invalid push subscriptions are disabled on `404` or `410`.
+The backend only sends when the current IST minute matches a user's configured time, and `reminder_dispatch_log` prevents duplicate sends. Notification times do not change skipped-meal drain windows; entries are still evaluated by their logged meal timestamp. Invalid push subscriptions are disabled on `404` or `410`.
 
 ## Cross-App Energy
 

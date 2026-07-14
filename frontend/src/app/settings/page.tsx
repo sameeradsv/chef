@@ -194,9 +194,9 @@ export default function SettingsPage() {
   const [notificationBusy, setNotificationBusy] = useState(false);
   const [notificationError, setNotificationError] = useState<string | null>(null);
   const [remindersEnabled, setRemindersEnabled] = useState(true);
-  const [morningTime, setMorningTime] = useState("09:00");
-  const [afternoonTime, setAfternoonTime] = useState("14:00");
-  const [eveningTime, setEveningTime] = useState("20:00");
+  const [morningTime, setMorningTime] = useState("11:00");
+  const [afternoonTime, setAfternoonTime] = useState("15:00");
+  const [eveningTime, setEveningTime] = useState("22:00");
 
   async function saveDecisionDefaults(patch: Partial<Pick<UserState, "willingness_to_cook" | "health_priority" | "stress_level">>) {
     setSavingDecisionDefaults(true);
@@ -752,10 +752,10 @@ export default function SettingsPage() {
                 <p className="text-sm text-kitchen-text">This device</p>
                 <p className="text-[11px] text-kitchen-muted mt-0.5">
                   {notificationState === "subscribed"
-                    ? "Subscribed for Chef reminders"
+                    ? "Subscribed for Chef meal logs"
                     : notificationState === "denied"
                       ? "Notifications are blocked in browser settings"
-                      : "Receive breakfast, lunch, and dinner nudges"}
+                      : "Receive breakfast, lunch, and dinner log reminders"}
                 </p>
               </div>
               {notificationState === "subscribed" ? (
@@ -829,6 +829,7 @@ export default function SettingsPage() {
                   <MonoLabel className="text-kitchen-muted block mb-1">{label as string}</MonoLabel>
                   <input
                     type="time"
+                    step={1800}
                     value={value as string}
                     disabled={notificationBusy}
                     onChange={(e) => {

@@ -118,9 +118,9 @@ class UserReminderSettingsModel(Base):
         String(36), ForeignKey("user_accounts.id", ondelete="CASCADE"), primary_key=True
     )
     enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
-    morning_time: Mapped[str] = mapped_column(String(5), default="09:00", nullable=False)
-    afternoon_time: Mapped[str] = mapped_column(String(5), default="14:00", nullable=False)
-    evening_time: Mapped[str] = mapped_column(String(5), default="20:00", nullable=False)
+    morning_time: Mapped[str] = mapped_column(String(5), default="11:00", nullable=False)
+    afternoon_time: Mapped[str] = mapped_column(String(5), default="15:00", nullable=False)
+    evening_time: Mapped[str] = mapped_column(String(5), default="22:00", nullable=False)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime,
         default=lambda: datetime.now(timezone.utc).replace(tzinfo=None),

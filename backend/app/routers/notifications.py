@@ -87,8 +87,8 @@ def _validate_reminder_time(value: str) -> str:
         raise HTTPException(status_code=422, detail="Reminder time must be HH:MM in 24-hour local time")
     hour = int(hour_text)
     minute = int(minute_text)
-    if hour > 23 or minute > 59:
-        raise HTTPException(status_code=422, detail="Reminder time must be HH:MM in 24-hour local time")
+    if hour > 23 or minute not in (0, 30):
+        raise HTTPException(status_code=422, detail="Reminder time must be HH:MM in 24-hour local time, on a 30-minute boundary")
     return value
 
 

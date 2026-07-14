@@ -27,7 +27,7 @@ class ReminderServiceTest(unittest.TestCase):
     def _user(self, db, user_id="u1"):
         user = UserAccountModel(id=user_id, username=user_id, hashed_passcode="x")
         db.add(user)
-        db.add(UserReminderSettingsModel(user_id=user_id, morning_time="09:00", afternoon_time="14:00", evening_time="20:00"))
+        db.add(UserReminderSettingsModel(user_id=user_id, morning_time="11:00", afternoon_time="15:00", evening_time="22:00"))
         db.add(
             PushSubscriptionModel(
                 user_id=user_id,
@@ -49,7 +49,7 @@ class ReminderServiceTest(unittest.TestCase):
         def sender(**kwargs):
             sends.append(kwargs["data"])
 
-        result = process_due_reminders(db, "morning", at_ist=datetime(2026, 6, 25, 9, 0), sender=sender)
+        result = process_due_reminders(db, "morning", at_ist=datetime(2026, 6, 25, 11, 0), sender=sender)
 
         self.assertEqual(result.due_users, 1)
         self.assertEqual(result.claimed, 1)
@@ -64,8 +64,8 @@ class ReminderServiceTest(unittest.TestCase):
         def sender(**kwargs):
             sends.append(kwargs["data"])
 
-        process_due_reminders(db, "morning", at_ist=datetime(2026, 6, 25, 9, 0), sender=sender)
-        second = process_due_reminders(db, "morning", at_ist=datetime(2026, 6, 25, 9, 0), sender=sender)
+        process_due_reminders(db, "morning", at_ist=datetime(2026, 6, 25, 11, 0), sender=sender)
+        second = process_due_reminders(db, "morning", at_ist=datetime(2026, 6, 25, 11, 0), sender=sender)
 
         self.assertEqual(second.due_users, 1)
         self.assertEqual(second.claimed, 0)
@@ -82,7 +82,7 @@ class ReminderServiceTest(unittest.TestCase):
         def sender(**kwargs):
             raise Gone("gone")
 
-        result = process_due_reminders(db, "evening", at_ist=datetime(2026, 6, 25, 20, 0), sender=sender)
+        result = process_due_reminders(db, "evening", at_ist=datetime(2026, 6, 25, 22, 0), sender=sender)
         subscription = db.scalar(select(PushSubscriptionModel))
 
         self.assertEqual(result.inactive_subscriptions, 1)

@@ -304,16 +304,16 @@ class PushSubscriptionResponse(BaseModel):
 
 class ReminderSettingsPayload(BaseModel):
     enabled: bool = True
-    morning_time: str = Field("09:00", pattern=r"^\d{2}:\d{2}$")
-    afternoon_time: str = Field("14:00", pattern=r"^\d{2}:\d{2}$")
-    evening_time: str = Field("20:00", pattern=r"^\d{2}:\d{2}$")
+    morning_time: str = Field("11:00", pattern=r"^\d{2}:\d{2}$")
+    afternoon_time: str = Field("15:00", pattern=r"^\d{2}:\d{2}$")
+    evening_time: str = Field("22:00", pattern=r"^\d{2}:\d{2}$")
 
     @field_validator("morning_time", "afternoon_time", "evening_time")
     @classmethod
     def valid_time(cls, value: str) -> str:
         hour, minute = [int(part) for part in value.split(":")]
-        if hour > 23 or minute > 59:
-            raise ValueError("Reminder time must be HH:MM in 24-hour local time")
+        if hour > 23 or minute not in (0, 30):
+            raise ValueError("Reminder time must be HH:MM in 24-hour local time, on a 30-minute boundary")
         return value
 
 

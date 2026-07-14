@@ -248,9 +248,9 @@ def _migrate_push_reminders() -> None:
                     "CREATE TABLE user_reminder_settings ("
                     "user_id VARCHAR(36) PRIMARY KEY REFERENCES user_accounts(id) ON DELETE CASCADE, "
                     "enabled BOOLEAN NOT NULL DEFAULT 1, "
-                    "morning_time VARCHAR(5) NOT NULL DEFAULT '09:00', "
-                    "afternoon_time VARCHAR(5) NOT NULL DEFAULT '14:00', "
-                    "evening_time VARCHAR(5) NOT NULL DEFAULT '20:00', "
+                    "morning_time VARCHAR(5) NOT NULL DEFAULT '11:00', "
+                    "afternoon_time VARCHAR(5) NOT NULL DEFAULT '15:00', "
+                    "evening_time VARCHAR(5) NOT NULL DEFAULT '22:00', "
                     "updated_at DATETIME DEFAULT CURRENT_TIMESTAMP)"
                 ))
             if "reminder_dispatch_log" not in tables:
@@ -295,9 +295,9 @@ def _migrate_push_reminders() -> None:
                 "CREATE TABLE user_reminder_settings ("
                 "user_id VARCHAR(36) PRIMARY KEY REFERENCES user_accounts(id) ON DELETE CASCADE, "
                 "enabled BOOLEAN NOT NULL DEFAULT TRUE, "
-                "morning_time VARCHAR(5) NOT NULL DEFAULT '09:00', "
-                "afternoon_time VARCHAR(5) NOT NULL DEFAULT '14:00', "
-                "evening_time VARCHAR(5) NOT NULL DEFAULT '20:00', "
+                "morning_time VARCHAR(5) NOT NULL DEFAULT '11:00', "
+                "afternoon_time VARCHAR(5) NOT NULL DEFAULT '15:00', "
+                "evening_time VARCHAR(5) NOT NULL DEFAULT '22:00', "
                 "updated_at TIMESTAMP DEFAULT NOW())"
             ))
         if "reminder_dispatch_log" not in tables:

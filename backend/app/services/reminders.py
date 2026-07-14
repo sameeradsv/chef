@@ -23,9 +23,9 @@ from app.tz_utils import IST_TD
 ReminderType = Literal["morning", "afternoon", "evening"]
 
 REMINDER_COPY: dict[ReminderType, tuple[str, str]] = {
-    "morning": ("Plan breakfast", "Take one minute to decide what your kitchen can do for you."),
-    "afternoon": ("Lunch check-in", "Log lunch or pick a practical option before energy dips."),
-    "evening": ("Dinner decision", "Use what is fresh, or make an honest call to order."),
+    "morning": ("Log breakfast", "Add what you ate so Chef can keep today's food picture honest."),
+    "afternoon": ("Log lunch", "Capture lunch while the details are still fresh."),
+    "evening": ("Log dinner", "Close the food loop for today with a quick dinner entry."),
 }
 
 log = logging.getLogger(__name__)
