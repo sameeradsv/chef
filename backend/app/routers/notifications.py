@@ -92,6 +92,39 @@ def _validate_reminder_time(value: str) -> str:
     return value
 
 
+def _matching_device_query(
+    user_id: str,
+    device_name: str | None,
+    platform: str | None,
+):
+    if not device_name or not platform:
+        return None
+    return (
+        select(PushSubscriptionModel)
+        .where(PushSubscriptionModel.user_id == user_id)
+        .where(PushSubscriptionModel.device_name == device_name)
+        .where(PushSubscriptionModel.platform == platform)
+        .where(PushSubscriptionModel.enabled.is_(True))
+    )
+
+
+def _disable_matching_device_subscriptions(
+    db: Session,
+    *,
+    user_id: str,
+    current_endpoint: str,
+    device_name: str | None,
+    platform: str | None,
+    now: datetime,
+) -> None:
+    query = _matching_device_query(user_id, device_name, platform)
+    if query is None:
+        return
+    for subscription in db.scalars(query.where(PushSubscriptionModel.endpoint != current_endpoint)):
+        subscription.enabled = False
+        subscription.updated_at = now
+
+
 @router.get("/vapid-public-key")
 def vapid_public_key():
     key = os.getenv("VAPID_PUBLIC_KEY", "")
@@ -142,6 +175,14 @@ def subscribe_device(
             enabled=True,
         )
         db.add(row)
+    _disable_matching_device_subscriptions(
+        db,
+        user_id=current_user.id,
+        current_endpoint=payload.endpoint,
+        device_name=payload.device_name,
+        platform=payload.platform,
+        now=now,
+    )
     get_or_create_settings(db, current_user.id)
     db.commit()
     db.refresh(row)
@@ -162,6 +203,14 @@ def unsubscribe_device(
     if row:
         row.enabled = False
         row.updated_at = _now_naive()
+        _disable_matching_device_subscriptions(
+            db,
+            user_id=current_user.id,
+            current_endpoint=payload.endpoint,
+            device_name=payload.device_name,
+            platform=payload.platform,
+            now=row.updated_at,
+        )
         db.commit()
 
 

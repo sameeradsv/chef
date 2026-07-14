@@ -82,6 +82,10 @@ export async function enableChefReminders(): Promise<void> {
 export async function disableChefReminders(): Promise<void> {
   const subscription = await currentPushSubscription();
   if (!subscription) return;
-  await api.unsubscribeDevice(subscription.endpoint);
+  await api.unsubscribeDevice({
+    endpoint: subscription.endpoint,
+    device_name: deviceName(),
+    platform: platformName(),
+  });
   await subscription.unsubscribe();
 }

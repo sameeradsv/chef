@@ -481,10 +481,10 @@ export const api = {
       method: "POST",
       body: JSON.stringify(data),
     }),
-  unsubscribeDevice: (endpoint: string) =>
+  unsubscribeDevice: (data: { endpoint: string; device_name?: string; platform?: string }) =>
     request<void>("/api/notifications/subscriptions", {
       method: "DELETE",
-      body: JSON.stringify({ endpoint }),
+      body: JSON.stringify(data),
     }),
   getReminderSettings: () => request<ReminderSettings>("/api/notifications/settings"),
   updateReminderSettings: (data: ReminderSettings) =>

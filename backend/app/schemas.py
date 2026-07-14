@@ -286,6 +286,8 @@ class PushSubscriptionPayload(BaseModel):
 
 class PushUnsubscribePayload(BaseModel):
     endpoint: str = Field(..., min_length=20)
+    device_name: Optional[str] = Field(None, max_length=120)
+    platform: Optional[str] = Field(None, max_length=80)
 
 
 class PushSubscriptionResponse(BaseModel):

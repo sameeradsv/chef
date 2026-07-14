@@ -7,7 +7,7 @@ from fastapi import HTTPException
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import sessionmaker
 
-from app.routers.notifications import _require_reminder_cron_secret
+from app.routers.notifications import _disable_matching_device_subscriptions, _require_reminder_cron_secret
 from app.database import Base
 from app.models import (
     PushSubscriptionModel,
@@ -87,6 +87,39 @@ class ReminderServiceTest(unittest.TestCase):
 
         self.assertEqual(result.inactive_subscriptions, 1)
         self.assertFalse(subscription.enabled)
+
+    def test_new_device_subscription_disables_stale_matching_endpoint(self):
+        db = self.Session()
+        self._user(db)
+        db.add(
+            PushSubscriptionModel(
+                user_id="u1",
+                endpoint="https://push.example/u1-new",
+                p256dh="p256dh-key-new",
+                auth="auth-key-new",
+                device_name="test",
+                platform="unit",
+            )
+        )
+        db.commit()
+
+        _disable_matching_device_subscriptions(
+            db,
+            user_id="u1",
+            current_endpoint="https://push.example/u1-new",
+            device_name="test",
+            platform="unit",
+            now=datetime(2026, 6, 25, 9, 0),
+        )
+        db.commit()
+
+        subscriptions = {
+            row.endpoint: row.enabled
+            for row in db.scalars(select(PushSubscriptionModel).order_by(PushSubscriptionModel.endpoint))
+        }
+
+        self.assertFalse(subscriptions["https://push.example/u1"])
+        self.assertTrue(subscriptions["https://push.example/u1-new"])
 
 
 class ReminderCronAuthTest(unittest.TestCase):
