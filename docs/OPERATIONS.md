@@ -96,7 +96,7 @@ Frontend:
 
 ## Web Push Reminders
 
-Chef supports three configurable daily meal-log reminders: morning, afternoon, and evening. Defaults are `11:00`, `15:00`, and `22:00` IST, and reminder settings accept only 30-minute boundaries.
+Chef supports three configurable daily meal-log reminders: morning, afternoon, and evening. Defaults are `11:00`, `15:00`, and `22:00` IST, and reminder settings accept only 30-minute boundaries. The `default_meal_log_reminder_times` migration updates existing rows that still match the previous defaults (`09:00`, `14:00`, `20:00`) without touching customized schedules.
 
 Flow:
 

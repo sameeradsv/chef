@@ -5,9 +5,11 @@ from unittest.mock import patch
 from fastapi import HTTPException
 
 from sqlalchemy import create_engine, select
+from sqlalchemy import text
 from sqlalchemy.orm import sessionmaker
 
 from app.routers.notifications import _disable_matching_device_subscriptions, _require_reminder_cron_secret
+from app import database as database_module
 from app.database import Base
 from app.models import (
     PushSubscriptionModel,
@@ -136,3 +138,38 @@ class ReminderCronAuthTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+def test_migration_updates_only_old_default_reminder_times(monkeypatch):
+    engine = create_engine("sqlite:///:memory:", connect_args={"check_same_thread": False})
+    monkeypatch.setattr(database_module, "engine", engine)
+    monkeypatch.setattr(database_module, "DATABASE_URL", "sqlite:///:memory:")
+
+    with engine.connect() as conn:
+        conn.execute(text(
+            "CREATE TABLE user_reminder_settings ("
+            "user_id VARCHAR(36) PRIMARY KEY, "
+            "enabled BOOLEAN NOT NULL DEFAULT 1, "
+            "morning_time VARCHAR(5) NOT NULL, "
+            "afternoon_time VARCHAR(5) NOT NULL, "
+            "evening_time VARCHAR(5) NOT NULL, "
+            "updated_at DATETIME DEFAULT CURRENT_TIMESTAMP)"
+        ))
+        conn.execute(text(
+            "INSERT INTO user_reminder_settings "
+            "(user_id, morning_time, afternoon_time, evening_time) VALUES "
+            "('old-defaults', '09:00', '14:00', '20:00'), "
+            "('custom', '10:00', '14:00', '20:00')"
+        ))
+        conn.commit()
+
+    database_module._migrate_default_meal_log_reminder_times()
+
+    with engine.connect() as conn:
+        rows = {
+            row["user_id"]: (row["morning_time"], row["afternoon_time"], row["evening_time"])
+            for row in conn.execute(text("SELECT * FROM user_reminder_settings")).mappings()
+        }
+
+    assert rows["old-defaults"] == ("11:00", "15:00", "22:00")
+    assert rows["custom"] == ("10:00", "14:00", "20:00")

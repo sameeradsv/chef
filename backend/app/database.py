@@ -321,6 +321,25 @@ def _migrate_push_reminders() -> None:
         conn.commit()
 
 
+def _migrate_default_meal_log_reminder_times() -> None:
+    with engine.connect() as conn:
+        from sqlalchemy import inspect, text
+        inspector = inspect(engine)
+        if "user_reminder_settings" not in inspector.get_table_names():
+            return
+        conn.execute(text(
+            "UPDATE user_reminder_settings "
+            "SET morning_time = '11:00', "
+            "afternoon_time = '15:00', "
+            "evening_time = '22:00', "
+            "updated_at = CURRENT_TIMESTAMP "
+            "WHERE morning_time = '09:00' "
+            "AND afternoon_time = '14:00' "
+            "AND evening_time = '20:00'"
+        ))
+        conn.commit()
+
+
 def _applied_migrations(conn) -> set[str]:
     from sqlalchemy import text
     rows = conn.execute(text("SELECT name FROM schema_migrations"))
@@ -344,6 +363,7 @@ MIGRATIONS: list[tuple[str, Callable[[], None]]] = [
     ("history_location_context", _migrate_history_location_context),
     ("history_prepared_by", _migrate_history_prepared_by),
     ("push_reminders", _migrate_push_reminders),
+    ("default_meal_log_reminder_times", _migrate_default_meal_log_reminder_times),
 ]
 
 
