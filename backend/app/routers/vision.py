@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 from typing import Any, Dict, List, Optional
 
@@ -12,7 +13,7 @@ from app.models import UserAccountModel
 
 router = APIRouter(prefix="/vision", tags=["vision"])
 
-_VISION_MODEL = "meta-llama/llama-4-scout-17b-16e-instruct"
+_VISION_MODEL = os.getenv("CHEF_VISION_MODEL", "qwen/qwen3.6-27b")
 
 
 class VisionParseRequest(BaseModel):
@@ -83,10 +84,11 @@ def _parse_order(client: Any, data_uri: str) -> Dict[str, Any]:
         messages=[{
             "role": "user",
             "content": [
-                {"type": "image_url", "image_url": {"url": data_uri}},
                 {"type": "text", "text": prompt},
+                {"type": "image_url", "image_url": {"url": data_uri}},
             ],
         }],
+        reasoning_effort="none",
     )
 
     data = _extract_json(response.choices[0].message.content.strip())
@@ -119,10 +121,11 @@ def _parse_ingredients(client: Any, data_uri: str) -> Dict[str, Any]:
         messages=[{
             "role": "user",
             "content": [
-                {"type": "image_url", "image_url": {"url": data_uri}},
                 {"type": "text", "text": prompt},
+                {"type": "image_url", "image_url": {"url": data_uri}},
             ],
         }],
+        reasoning_effort="none",
     )
 
     data = _extract_json(response.choices[0].message.content.strip())
@@ -165,10 +168,11 @@ def _parse_product(client: Any, data_uri: str) -> Dict[str, Any]:
         messages=[{
             "role": "user",
             "content": [
-                {"type": "image_url", "image_url": {"url": data_uri}},
                 {"type": "text", "text": prompt},
+                {"type": "image_url", "image_url": {"url": data_uri}},
             ],
         }],
+        reasoning_effort="none",
     )
 
     data = _extract_json(response.choices[0].message.content.strip())
